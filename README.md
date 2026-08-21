@@ -2593,16 +2593,40 @@ This is needed in case `process.stdin` is in [raw mode](https://nodejs.org/api/t
 
 ###### patchConsole
 
-Type: `boolean`\
+Type: `boolean | 'stdio'`\
 Default: `true`
 
 Patch console methods to ensure console output doesn't mix with Ink's output.
 When any of the `console.*` methods are called (like `console.log()`), Ink intercepts their output, clears the main output, renders output from the console method, and then rerenders the main output again.
 That way, both are visible and don't overlap each other.
 
-Once unmount starts, Ink restores the native console before React cleanup runs. Teardown-time `console.*` output then follows the normal console behavior instead of being rerouted through Ink.
+Pass `'stdio'` to additionally intercept direct `stdout.write()` / `stderr.write()` calls on the streams Ink renders to — output from dependencies, native warnings, or child tooling that bypasses `console.*`.
+Captured chunks are line-buffered (partial chunks such as progress-bar updates are held until their newline arrives, and flushed at unmount) and spliced above the live frame exactly like console output.
+Ink's own frame writes bypass the capture.
 
-This functionality is powered by [patch-console](https://github.com/vadimdemedes/patch-console), so if you need to disable Ink's interception of output but want to build something custom, you can use that.
+Once unmount starts, Ink restores the native console (and stream writes) before React cleanup runs. Teardown-time output then follows the normal behavior instead of being rerouted through Ink.
+
+###### onCapturedOutput
+
+Type: `(stream: 'stdout' | 'stderr', data: string, source: 'console' | 'stdio') => boolean | void`\
+Default: `undefined`
+
+Observe output captured by `patchConsole` before Ink displays it.
+The callback receives each captured chunk with its origin: `'console'` for patched `console.*` calls, `'stdio'` for direct stream writes (only emitted with `patchConsole: 'stdio'`).
+
+Return `true` to take ownership of a chunk: Ink will not display it, letting the app render it itself — for example as rows in a [`<Static>`](#static) transcript, which commits the output to scrollback above every live view:
+
+```jsx
+const [transcript, setTranscript] = useState([]);
+
+render(<App transcript={transcript} />, {
+  patchConsole: "stdio",
+  onCapturedOutput(stream, data) {
+    setTranscript((previous) => [...previous, { stream, data }]);
+    return true;
+  },
+});
+```
 
 ###### onRender
 

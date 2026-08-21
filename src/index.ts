@@ -1,4 +1,5 @@
 export type { RenderOptions, Instance } from "./render.ts";
+export type { CapturedOutputSource } from "./ink.tsx";
 export { default as render } from "./render.ts";
 export type { RenderToStringOptions } from "./render-to-string.ts";
 export { default as renderToString } from "./render-to-string.ts";

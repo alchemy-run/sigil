@@ -45,11 +45,24 @@ export type RenderOptions = {
   /**
 	Patch console methods to ensure console output doesn't mix with Ink's output.
 
-	Note: Once unmount starts, Ink restores the native console before React cleanup runs. Teardown-time `console.*` output then follows the normal console behavior instead of being rerouted through Ink.
+	Pass `"stdio"` to additionally intercept direct `stdout.write` / `stderr.write` calls on the streams Ink renders to (output from dependencies, native warnings, child tooling). Captured chunks are line-buffered and spliced above the live frame like console output; partial lines are flushed at unmount. Use `onCapturedOutput` to observe captured chunks or take over their display.
+
+	Note: Once unmount starts, Ink restores the native console (and stream writes) before React cleanup runs. Teardown-time output then follows the normal behavior instead of being rerouted through Ink.
 
 	@default true
 	*/
-  patchConsole?: boolean;
+  patchConsole?: boolean | "stdio";
+
+  /**
+	Observe output captured by `patchConsole` before Ink displays it.
+
+	Receives each captured chunk with its origin (`"console"` or `"stdio"`). Return `true` to take ownership of the chunk: Ink will not display it, so the app can render it itself — for example inside a `<Static>` transcript.
+	*/
+  onCapturedOutput?: (
+    stream: "stdout" | "stderr",
+    data: string,
+    source: "console" | "stdio",
+  ) => boolean | undefined | void;
 
   /**
 	Runs the given callback after each render and re-render with render metrics.

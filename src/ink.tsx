@@ -194,6 +194,29 @@ const settleThrottle = (throttled: unknown, canWriteToStdout: boolean): void => 
 };
 
 /**
+The origin of a chunk captured by `patchConsole`: a patched `console.*`
+method, or a direct `stdout.write` / `stderr.write` call.
+*/
+export type CapturedOutputSource = "console" | "stdio";
+
+// With `patchConsole: "stdio"` the real streams' `write` is intercepted, so
+// Ink's own frame writes must bypass the capture. This facade carries the
+// original `write` while event subscriptions still land on the real stream —
+// an unmodified `Object.create` clone would get its own EventEmitter
+// listener table and never see the real stream's `resize` events.
+const createRenderPassthrough = (stream: OutputStream): OutputStream => {
+  const passthrough = Object.create(stream) as OutputStream;
+  passthrough.write = stream.write.bind(stream);
+  passthrough.on = stream.on.bind(stream);
+  passthrough.off = stream.off.bind(stream);
+  passthrough.once = stream.once.bind(stream);
+  passthrough.addListener = stream.addListener.bind(stream);
+  passthrough.removeListener = stream.removeListener.bind(stream);
+  passthrough.emit = stream.emit.bind(stream);
+  return passthrough;
+};
+
+/**
 Performance metrics for a render operation.
 */
 export type RenderMetrics = {
@@ -210,7 +233,31 @@ export type Options = {
   debug: boolean;
   exitOnCtrlC: boolean;
 
-  patchConsole: boolean;
+  /**
+	Patch console methods so `console.*` output doesn't mix with Ink's output.
+
+	Pass `"stdio"` to additionally intercept direct `stdout.write` /
+	`stderr.write` calls (from dependencies, native warnings, child tooling)
+	on the streams Ink renders to. Captured output is line-buffered and
+	spliced above the live frame, exactly like console output; Ink's own
+	frame writes bypass the capture.
+	*/
+  patchConsole: boolean | "stdio";
+
+  /**
+	Observe output captured by `patchConsole` before Ink displays it.
+
+	Called with each captured chunk and its origin: `"console"` for patched
+	`console.*` calls, `"stdio"` for direct stream writes (only emitted with
+	`patchConsole: "stdio"`). Return `true` to take ownership of the chunk —
+	Ink will not display it, letting the app render it itself (for example
+	inside a `<Static>` transcript).
+	*/
+  onCapturedOutput?: (
+    stream: "stdout" | "stderr",
+    data: string,
+    source: CapturedOutputSource,
+  ) => boolean | undefined | void;
   onRender?: (metrics: RenderMetrics) => void;
   isScreenReaderEnabled?: boolean;
   waitUntilExit?: () => Promise<unknown>;
@@ -301,6 +348,10 @@ export default class Ink {
   private exitResult: unknown;
   private beforeExitHandler?: () => void;
   private restoreConsole?: () => void;
+  // Set when patchConsole is "stdio": the real streams whose write is patched.
+  private readonly captureTargets?: { stdout: OutputStream; stderr: OutputStream };
+  // Partial trailing lines from captured direct writes, held until a newline.
+  private readonly capturedStdioTails = { stdout: "", stderr: "" };
   private readonly unsubscribeResize?: () => void;
   private readonly throttledOnRender?: Throttled<never[]>;
   private hasPendingThrottledRender = false;
@@ -317,6 +368,18 @@ export default class Ink {
 
   constructor(options: Options) {
     autoBind(this);
+
+    if (options.patchConsole === "stdio") {
+      // Keep the real streams for patching (and for the instance registry,
+      // which is keyed by the stream passed to render()), and render
+      // through passthrough facades that bypass the capture.
+      this.captureTargets = { stdout: options.stdout, stderr: options.stderr };
+      options = {
+        ...options,
+        stdout: createRenderPassthrough(options.stdout),
+        stderr: createRenderPassthrough(options.stderr),
+      };
+    }
 
     this.options = options;
     this.rootNode = dom.createNode("ink-root");
@@ -758,6 +821,11 @@ export default class Ink {
     const { stdout } = this.options;
     const { canWriteToStdout } = getWritableStreamState(stdout);
 
+    // Display any partial captured stdio lines while writes still go through.
+    if (canWriteToStdout) {
+      this.flushCapturedStdio();
+    }
+
     // Clear any pending throttled render timer on unmount. When stdout is writable,
     // flush so the final frame is emitted; otherwise cancel to avoid delayed callbacks.
     settleThrottle(this.throttledOnRender, canWriteToStdout);
@@ -833,7 +901,7 @@ export default class Ink {
 
       this.kittyProtocolEnabled = false;
 
-      instances.delete(this.options.stdout);
+      instances.delete(this.captureTargets?.stdout ?? this.options.stdout);
 
       // Ensure all queued writes have been processed before resolving the
       // exit promise. Queue an empty write as a barrier — its callback fires
@@ -954,7 +1022,11 @@ export default class Ink {
       return;
     }
 
-    this.restoreConsole = patchConsole((stream, data) => {
+    const restoreConsoleMethods = patchConsole((stream, data) => {
+      if (this.options.onCapturedOutput?.(stream, data, "console") === true) {
+        return;
+      }
+
       if (stream === "stdout") {
         this.writeToStdout(data);
       }
@@ -967,6 +1039,113 @@ export default class Ink {
         }
       }
     });
+
+    const restoreDirectStdio = this.patchDirectStdio();
+
+    this.restoreConsole = () => {
+      restoreConsoleMethods();
+      restoreDirectStdio?.();
+    };
+  }
+
+  // Intercept direct `write` calls on the real streams. Ink renders through
+  // passthrough facades, so everything arriving here is external output.
+  private patchDirectStdio(): (() => void) | undefined {
+    const targets = this.captureTargets;
+
+    if (!targets) {
+      return;
+    }
+
+    const patch = (name: "stdout" | "stderr", stream: OutputStream): (() => void) => {
+      // Keep the unbound reference: restore below must reassign the exact
+      // original function object, not a bound copy.
+      // oxlint-disable-next-line typescript/unbound-method
+      const originalWrite = stream.write;
+
+      const patchedWrite = (
+        chunk: unknown,
+        encodingOrCallback?: unknown,
+        callback?: unknown,
+      ): boolean => {
+        const data =
+          typeof chunk === "string"
+            ? chunk
+            : chunk instanceof Uint8Array
+              ? Buffer.from(chunk).toString()
+              : String(chunk);
+
+        this.handleCapturedStdio(name, data);
+
+        const done =
+          typeof encodingOrCallback === "function"
+            ? encodingOrCallback
+            : typeof callback === "function"
+              ? callback
+              : undefined;
+        done?.();
+
+        return true;
+      };
+
+      stream.write = patchedWrite;
+
+      return () => {
+        stream.write = originalWrite;
+      };
+    };
+
+    const restoreStdout = patch("stdout", targets.stdout);
+    const restoreStderr = patch("stderr", targets.stderr);
+
+    return () => {
+      restoreStdout();
+      restoreStderr();
+    };
+  }
+
+  private handleCapturedStdio(stream: "stdout" | "stderr", data: string): void {
+    if (this.options.onCapturedOutput?.(stream, data, "stdio") === true) {
+      return;
+    }
+
+    // Line-buffer: direct writers emit partial chunks (progress bars,
+    // spinners), and only complete lines can be spliced above the live
+    // frame without corrupting it. The trailing partial line is held until
+    // its newline arrives, or flushed at unmount/suspend.
+    const parts = (this.capturedStdioTails[stream] + data).split(/\r?\n/);
+    this.capturedStdioTails[stream] = parts.pop() ?? "";
+
+    if (parts.length === 0) {
+      return;
+    }
+
+    const payload = parts.join("\n") + "\n";
+
+    if (stream === "stdout") {
+      this.writeToStdout(payload);
+    } else {
+      this.writeToStderr(payload);
+    }
+  }
+
+  // Display any partial captured lines that never received a newline.
+  private flushCapturedStdio(): void {
+    for (const stream of ["stdout", "stderr"] as const) {
+      const tail = this.capturedStdioTails[stream];
+
+      if (tail === "") {
+        continue;
+      }
+
+      this.capturedStdioTails[stream] = "";
+
+      if (stream === "stdout") {
+        this.writeToStdout(tail + "\n");
+      } else {
+        this.writeToStderr(tail + "\n");
+      }
+    }
   }
 
   registerInputControl(pauseInput: () => void, resumeInput: () => void): void {
@@ -1242,6 +1421,10 @@ export default class Ink {
       // Flush any pending render/log so the child starts from a settled screen.
       settleThrottle(this.throttledOnRender, canWriteToStdout);
       settleThrottle(this.throttledLog, canWriteToStdout);
+
+      if (canWriteToStdout) {
+        this.flushCapturedStdio();
+      }
 
       if (canWriteToStdout) {
         // Erase Ink's current frame, then show the cursor and re-arm the hide.
