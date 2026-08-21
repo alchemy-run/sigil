@@ -1,21 +1,22 @@
-import React, {useEffect} from 'react';
-import {render, Text, useStdin} from '../../src/index.js';
+import React, { useEffect } from "react";
+
+import { render, Text, useStdin } from "../../src/index.ts";
 
 function Test() {
-	const {setRawMode} = useStdin();
+  const { setRawMode } = useStdin();
 
-	useEffect(() => {
-		setRawMode(true);
-	}, [setRawMode]);
+  useEffect(() => {
+    setRawMode(true);
+  }, [setRawMode]);
 
-	return <Text>Hello World</Text>;
+  return <Text>Hello World</Text>;
 }
 
 const app = render(<Test />);
 
 setTimeout(() => {
-	app.unmount();
+  app.unmount();
 }, 500);
 
 await app.waitUntilExit();
-console.log('exited');
+console.log("exited");

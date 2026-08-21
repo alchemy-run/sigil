@@ -1,37 +1,38 @@
-import React from 'react';
-import {render, Box, Text, useStdout} from '../../src/index.js';
+import React from "react";
+
+import { render, Box, Text, useStdout } from "../../src/index.ts";
 
 function Example() {
-	const {stdout, write} = useStdout();
+  const { stdout, write } = useStdout();
 
-	React.useEffect(() => {
-		const timer = setInterval(() => {
-			write('Hello from Ink to stdout\n');
-		}, 1000);
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      write("Hello from Ink to stdout\n");
+    }, 1000);
 
-		return () => {
-			clearInterval(timer);
-		};
-	}, [write]);
+    return () => {
+      clearInterval(timer);
+    };
+  }, [write]);
 
-	return (
-		<Box flexDirection="column" paddingX={2} paddingY={1}>
-			<Text bold underline>
-				Terminal dimensions:
-			</Text>
+  return (
+    <Box flexDirection="column" paddingX={2} paddingY={1}>
+      <Text bold underline>
+        Terminal dimensions:
+      </Text>
 
-			<Box marginTop={1}>
-				<Text>
-					Width: <Text bold>{stdout.columns}</Text>
-				</Text>
-			</Box>
-			<Box>
-				<Text>
-					Height: <Text bold>{stdout.rows}</Text>
-				</Text>
-			</Box>
-		</Box>
-	);
+      <Box marginTop={1}>
+        <Text>
+          Width: <Text bold>{stdout.columns}</Text>
+        </Text>
+      </Box>
+      <Box>
+        <Text>
+          Height: <Text bold>{stdout.rows}</Text>
+        </Text>
+      </Box>
+    </Box>
+  );
 }
 
 render(<Example />);

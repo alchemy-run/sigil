@@ -1,27 +1,29 @@
-import process from 'node:process';
-import React from 'react';
-import {render, useInput, useApp} from '../../src/index.js';
+import process from "node:process";
+
+import React from "react";
+
+import { render, useInput, useApp } from "../../src/index.ts";
 
 function UserInput() {
-	const {exit} = useApp();
+  const { exit } = useApp();
 
-	useInput((input, key) => {
-		if (input === 'c' && key.ctrl) {
-			exit();
-			return;
-		}
+  useInput((input, key) => {
+    if (input === "c" && key.ctrl) {
+      exit();
+      return;
+    }
 
-		throw new Error('Crash');
-	});
+    throw new Error("Crash");
+  });
 
-	React.useEffect(() => {
-		process.stdout.write('__READY__');
-	}, []);
+  React.useEffect(() => {
+    process.stdout.write("__READY__");
+  }, []);
 
-	return null;
+  return null;
 }
 
-const app = render(<UserInput />, {exitOnCtrlC: false});
+const app = render(<UserInput />, { exitOnCtrlC: false });
 
 await app.waitUntilExit();
-console.log('exited');
+console.log("exited");

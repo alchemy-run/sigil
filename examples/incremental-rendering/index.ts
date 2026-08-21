@@ -1,1 +1,1 @@
-import './incremental-rendering.js';
+import "./incremental-rendering.tsx";

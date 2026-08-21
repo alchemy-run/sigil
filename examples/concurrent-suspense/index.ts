@@ -1,1 +1,1 @@
-import './concurrent-suspense.js';
+import "./concurrent-suspense.tsx";

@@ -1,27 +1,26 @@
-import React, {useEffect} from 'react';
-import {render, Static, Text, useApp} from '../../src/index.js';
+import React, { useEffect } from "react";
+
+import { render, Static, Text, useApp } from "../../src/index.ts";
 
 function Test() {
-	const {exit} = useApp();
+  const { exit } = useApp();
 
-	useEffect(() => {
-		exit(new Error('errored'));
-	}, [exit]);
+  useEffect(() => {
+    exit(new Error("errored"));
+  }, [exit]);
 
-	return (
-		<>
-			<Static items={['A', 'B', 'C']}>
-				{item => <Text key={item}>{item}</Text>}
-			</Static>
-			<Text>Dynamic</Text>
-		</>
-	);
+  return (
+    <>
+      <Static items={["A", "B", "C"]}>{(item) => <Text key={item}>{item}</Text>}</Static>
+      <Text>Dynamic</Text>
+    </>
+  );
 }
 
 const app = render(<Test />);
 
 try {
-	await app.waitUntilExit();
+  await app.waitUntilExit();
 } catch (error: unknown) {
-	console.log((error as Error).message);
+  console.log((error as Error).message);
 }

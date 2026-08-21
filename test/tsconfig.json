@@ -1,4 +1,16 @@
 {
-	"extends": "../tsconfig.json",
-	"include": ["."]
+  "extends": "../tsconfig.json",
+  "include": [".", "../src/global.d.ts"],
+  "compilerOptions": {
+    // Tests index into frames/writes constantly; the churn from
+    // `noUncheckedIndexedAccess` isn't worth it outside src.
+    "noUncheckedIndexedAccess": false,
+    "noPropertyAccessFromIndexSignature": false,
+    // Tests import generated `.reference` builds that use enums, and they run
+    // through Vitest's transform rather than Node's type stripping.
+    "erasableSyntaxOnly": false,
+    "paths": {
+      "#/*": ["../src/*"]
+    }
+  }
 }

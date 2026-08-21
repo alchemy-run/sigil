@@ -1,0 +1,6 @@
+[submodule ".vendor/ink"]
+	path = .vendor/ink
+	url = https://github.com/vadimdemedes/ink.git
+[submodule ".vendor/yoga"]
+	path = .vendor/yoga
+	url = https://github.com/facebook/yoga.git

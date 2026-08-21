@@ -1,1 +1,1 @@
-import './suspend-terminal.js';
+import "./suspend-terminal.tsx";

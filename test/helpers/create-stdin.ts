@@ -1,27 +1,35 @@
-import EventEmitter from 'node:events';
-import {stub} from 'sinon';
+import EventEmitter from "node:events";
 
-export const createStdin = (): NodeJS.WriteStream => {
-	const stdin = new EventEmitter() as unknown as NodeJS.WriteStream;
-	stdin.isTTY = true;
-	stdin.setRawMode = stub();
-	stdin.setEncoding = () => {};
-	stdin.read = stub();
-	stdin.unref = () => {};
-	stdin.ref = () => {};
+import { vi, type Mock } from "vite-plus/test";
 
-	return stdin;
+// Fake process.stdin: an EventEmitter dressed up as a TTY read stream, with
+// vi.fn() mocks where tests need to observe calls (setRawMode, read, ref).
+export type FakeStdin = Omit<
+  NodeJS.ReadStream,
+  "setRawMode" | "setEncoding" | "read" | "ref" | "unref"
+> & {
+  isTTY: boolean;
+  setRawMode: Mock<(mode: boolean) => void>;
+  setEncoding: (encoding?: BufferEncoding) => FakeStdin;
+  read: NodeJS.ReadableStream["read"] & Mock<() => unknown>;
+  ref: Mock<() => void>;
+  unref: Mock<() => void>;
 };
 
-export const emitReadable = (
-	stdin: NodeJS.WriteStream,
-	chunk: string,
-): void => {
-	/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment */
-	const read = stdin.read as ReturnType<typeof stub>;
-	read.onCall(0).returns(chunk);
-	read.onCall(1).returns(null);
-	stdin.emit('readable');
-	read.reset();
-	/* eslint-enable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment */
+export const createStdin = (): FakeStdin => {
+  const stdin = new EventEmitter() as unknown as FakeStdin;
+  stdin.isTTY = true;
+  stdin.setRawMode = vi.fn();
+  stdin.setEncoding = () => stdin;
+  stdin.read = vi.fn() as FakeStdin["read"];
+  stdin.unref = vi.fn();
+  stdin.ref = vi.fn();
+
+  return stdin;
+};
+
+export const emitReadable = (stdin: FakeStdin, chunk: string): void => {
+  stdin.read.mockReturnValueOnce(chunk).mockReturnValueOnce(null);
+  stdin.emit("readable");
+  stdin.read.mockReset();
 };

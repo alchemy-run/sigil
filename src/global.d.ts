@@ -1,35 +1,36 @@
-import {type ReactNode, type Key, type Ref} from 'react';
-import {type Except} from 'type-fest';
-import {type DOMElement} from './dom.js';
-import {type Styles} from './styles.js';
+import { type ReactNode, type Key, type Ref } from "react";
 
-declare module 'react' {
-	namespace JSX {
-		// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
-		interface IntrinsicElements {
-			'ink-box': Ink.Box;
-			'ink-text': Ink.Text;
-		}
-	}
+import { type DOMElement } from "./dom.ts";
+import { type Styles } from "./styles.ts";
+import { type Except } from "./types.ts";
+
+declare module "react" {
+  namespace JSX {
+    // eslint-disable-next-line @typescript-eslint/consistent-type-definitions
+    interface IntrinsicElements {
+      "ink-box": Ink.Box;
+      "ink-text": Ink.Text;
+    }
+  }
 }
 
 declare namespace Ink {
-	type Box = {
-		internal_static?: boolean;
-		children?: ReactNode;
-		key?: Key;
-		ref?: Ref<DOMElement>;
-		style?: Except<Styles, 'textWrap'>;
-		internal_accessibility?: DOMElement['internal_accessibility'];
-	};
+  type Box = {
+    internal_static?: boolean;
+    children?: ReactNode;
+    key?: Key;
+    ref?: Ref<DOMElement>;
+    style?: Except<Styles, "textWrap">;
+    internal_accessibility?: DOMElement["internal_accessibility"];
+  };
 
-	type Text = {
-		children?: ReactNode;
-		key?: Key;
-		style?: Styles;
+  type Text = {
+    children?: ReactNode;
+    key?: Key;
+    style?: Styles;
 
-		// eslint-disable-next-line @typescript-eslint/naming-convention
-		internal_transform?: (children: string, index: number) => string;
-		internal_accessibility?: DOMElement['internal_accessibility'];
-	};
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    internal_transform?: (children: string, index: number) => string;
+    internal_accessibility?: DOMElement["internal_accessibility"];
+  };
 }

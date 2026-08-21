@@ -1,19 +1,20 @@
-import React, {useEffect} from 'react';
-import {Text, render} from '../../src/index.js';
+import React, { useEffect } from "react";
+
+import { Text, render } from "../../src/index.ts";
 
 function App() {
-	useEffect(() => {
-		const timer = setTimeout(() => {}, 1000);
+  useEffect(() => {
+    const timer = setTimeout(() => {}, 1000);
 
-		return () => {
-			clearTimeout(timer);
-		};
-	}, []);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, []);
 
-	return <Text>Hello World</Text>;
+  return <Text>Hello World</Text>;
 }
 
-const {unmount} = render(<App />);
-console.log('First log');
+const { unmount } = render(<App />);
+console.log("First log");
 unmount();
-console.log('Second log');
+console.log("Second log");

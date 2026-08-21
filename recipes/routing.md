@@ -3,43 +3,43 @@
 [React Router](https://reactrouter.com) can be used for routing in Ink apps via its [`MemoryRouter`](https://reactrouter.com/api/declarative-routers/MemoryRouter). Unlike `BrowserRouter`, `MemoryRouter` doesn't rely on the browser's history API, storing the navigation stack in memory instead — which is exactly what a terminal app needs.
 
 ```tsx
-import React from 'react';
-import {MemoryRouter, Routes, Route, useNavigate} from 'react-router';
-import {render, useInput, Text} from 'ink';
+import React from "react";
+import { MemoryRouter, Routes, Route, useNavigate } from "react-router";
+import { render, useInput, Text } from "ink";
 
 function Home() {
-	const navigate = useNavigate();
+  const navigate = useNavigate();
 
-	useInput((input, key) => {
-		if (key.return) {
-			navigate('/about');
-		}
-	});
+  useInput((input, key) => {
+    if (key.return) {
+      navigate("/about");
+    }
+  });
 
-	return <Text>Home. Press Enter to go to About.</Text>;
+  return <Text>Home. Press Enter to go to About.</Text>;
 }
 
 function About() {
-	const navigate = useNavigate();
+  const navigate = useNavigate();
 
-	useInput((input, key) => {
-		if (key.return) {
-			navigate('/');
-		}
-	});
+  useInput((input, key) => {
+    if (key.return) {
+      navigate("/");
+    }
+  });
 
-	return <Text>About. Press Enter to go back Home.</Text>;
+  return <Text>About. Press Enter to go back Home.</Text>;
 }
 
 function App() {
-	return (
-		<MemoryRouter>
-			<Routes>
-				<Route path="/" element={<Home />} />
-				<Route path="/about" element={<About />} />
-			</Routes>
-		</MemoryRouter>
-	);
+  return (
+    <MemoryRouter>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/about" element={<About />} />
+      </Routes>
+    </MemoryRouter>
+  );
 }
 
 render(<App />);

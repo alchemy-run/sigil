@@ -1,1 +1,1 @@
-import './use-transition.js';
+import "./use-transition.tsx";

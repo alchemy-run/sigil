@@ -1,7 +1,8 @@
-import React from 'react';
-import {Text, render} from '../../src/index.js';
+import React from "react";
 
-const {waitUntilExit} = render(<Text>Hello World</Text>);
+import { Text, render } from "../../src/index.ts";
+
+const { waitUntilExit } = render(<Text>Hello World</Text>);
 
 await waitUntilExit();
-console.log('exited');
+console.log("exited");

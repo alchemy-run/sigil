@@ -1,1 +1,1 @@
-import './border-backgrounds.js';
+import "./border-backgrounds.tsx";

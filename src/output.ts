@@ -1,12 +1,12 @@
-import sliceAnsi from 'slice-ansi';
-import stringWidth from 'string-width';
+import sliceAnsi from "./ansi/slice.ts";
+import stringWidth from "./ansi/string-width.ts";
 import {
-	type StyledChar,
-	styledCharsFromTokens,
-	styledCharsToString,
-	tokenize,
-} from '@alcalzone/ansi-tokenize';
-import {type OutputTransformer} from './render-node-to-output.js';
+  type StyledChar,
+  styledCharsFromTokens,
+  styledCharsToString,
+  tokenize,
+} from "./ansi/tokenize.ts";
+import { type OutputTransformer } from "./render-node-to-output.ts";
 
 /**
 "Virtual" output class
@@ -17,303 +17,292 @@ Used to generate the final output of all nodes before writing it to actual outpu
 */
 
 type Options = {
-	width: number;
-	height: number;
+  width: number;
+  height: number;
 };
 
 type Operation = WriteOperation | ClipOperation | UnclipOperation;
 
 type WriteOperation = {
-	type: 'write';
-	x: number;
-	y: number;
-	text: string;
-	transformers: OutputTransformer[];
+  type: "write";
+  x: number;
+  y: number;
+  text: string;
+  transformers: OutputTransformer[];
 };
 
 type ClipOperation = {
-	type: 'clip';
-	clip: Clip;
+  type: "clip";
+  clip: Clip;
 };
 
 type Clip = {
-	x1: number | undefined;
-	x2: number | undefined;
-	y1: number | undefined;
-	y2: number | undefined;
+  x1: number | undefined;
+  x2: number | undefined;
+  y1: number | undefined;
+  y2: number | undefined;
 };
 
 type UnclipOperation = {
-	type: 'unclip';
+  type: "unclip";
 };
 
 class OutputCaches {
-	widths = new Map<string, number>();
-	blockWidths = new Map<string, number>();
-	styledChars = new Map<string, StyledChar[]>();
+  widths = new Map<string, number>();
+  blockWidths = new Map<string, number>();
+  styledChars = new Map<string, StyledChar[]>();
 
-	getStyledChars(line: string): StyledChar[] {
-		let cached = this.styledChars.get(line);
-		if (cached === undefined) {
-			cached = styledCharsFromTokens(tokenize(line));
-			this.styledChars.set(line, cached);
-		}
+  getStyledChars(line: string): StyledChar[] {
+    let cached = this.styledChars.get(line);
+    if (cached === undefined) {
+      cached = styledCharsFromTokens(tokenize(line));
+      this.styledChars.set(line, cached);
+    }
 
-		return cached;
-	}
+    return cached;
+  }
 
-	getStringWidth(text: string): number {
-		let cached = this.widths.get(text);
-		if (cached === undefined) {
-			cached = stringWidth(text);
-			this.widths.set(text, cached);
-		}
+  getStringWidth(text: string): number {
+    let cached = this.widths.get(text);
+    if (cached === undefined) {
+      cached = stringWidth(text);
+      this.widths.set(text, cached);
+    }
 
-		return cached;
-	}
+    return cached;
+  }
 
-	getWidestLine(text: string): number {
-		let cached = this.blockWidths.get(text);
-		if (cached === undefined) {
-			let lineWidth = 0;
-			for (const line of text.split('\n')) {
-				lineWidth = Math.max(lineWidth, this.getStringWidth(line));
-			}
+  getWidestLine(text: string): number {
+    let cached = this.blockWidths.get(text);
+    if (cached === undefined) {
+      let lineWidth = 0;
+      for (const line of text.split("\n")) {
+        lineWidth = Math.max(lineWidth, this.getStringWidth(line));
+      }
 
-			cached = lineWidth;
-			this.blockWidths.set(text, cached);
-		}
+      cached = lineWidth;
+      this.blockWidths.set(text, cached);
+    }
 
-		return cached;
-	}
+    return cached;
+  }
 }
 
 export default class Output {
-	width: number;
-	height: number;
+  width: number;
+  height: number;
 
-	private readonly operations: Operation[] = [];
-	private readonly caches: OutputCaches = new OutputCaches();
+  private readonly operations: Operation[] = [];
+  private readonly caches: OutputCaches = new OutputCaches();
 
-	constructor(options: Options) {
-		const {width, height} = options;
+  constructor(options: Options) {
+    const { width, height } = options;
 
-		this.width = width;
-		this.height = height;
-	}
+    this.width = width;
+    this.height = height;
+  }
 
-	write(
-		x: number,
-		y: number,
-		text: string,
-		options: {transformers: OutputTransformer[]},
-	): void {
-		const {transformers} = options;
+  write(x: number, y: number, text: string, options: { transformers: OutputTransformer[] }): void {
+    const { transformers } = options;
 
-		if (!text) {
-			return;
-		}
+    if (!text) {
+      return;
+    }
 
-		this.operations.push({
-			type: 'write',
-			x,
-			y,
-			text,
-			transformers,
-		});
-	}
+    this.operations.push({
+      type: "write",
+      x,
+      y,
+      text,
+      transformers,
+    });
+  }
 
-	clip(clip: Clip) {
-		this.operations.push({
-			type: 'clip',
-			clip,
-		});
-	}
+  clip(clip: Clip) {
+    this.operations.push({
+      type: "clip",
+      clip,
+    });
+  }
 
-	unclip() {
-		this.operations.push({
-			type: 'unclip',
-		});
-	}
+  unclip() {
+    this.operations.push({
+      type: "unclip",
+    });
+  }
 
-	get(): {output: string; height: number} {
-		// Initialize output array with a specific set of rows, so that margin/padding at the bottom is preserved
-		const output: StyledChar[][] = [];
+  get(): { output: string; height: number } {
+    // Initialize output array with a specific set of rows, so that margin/padding at the bottom is preserved
+    const output: StyledChar[][] = [];
 
-		for (let y = 0; y < this.height; y++) {
-			const row: StyledChar[] = [];
+    for (let y = 0; y < this.height; y++) {
+      const row: StyledChar[] = [];
 
-			for (let x = 0; x < this.width; x++) {
-				row.push({
-					type: 'char',
-					value: ' ',
-					fullWidth: false,
-					styles: [],
-				});
-			}
+      for (let x = 0; x < this.width; x++) {
+        row.push({
+          type: "char",
+          value: " ",
+          fullWidth: false,
+          styles: [],
+        });
+      }
 
-			output.push(row);
-		}
+      output.push(row);
+    }
 
-		const clips: Clip[] = [];
+    const clips: Clip[] = [];
 
-		for (const operation of this.operations) {
-			if (operation.type === 'clip') {
-				clips.push(operation.clip);
-			}
+    for (const operation of this.operations) {
+      if (operation.type === "clip") {
+        clips.push(operation.clip);
+      }
 
-			if (operation.type === 'unclip') {
-				clips.pop();
-			}
+      if (operation.type === "unclip") {
+        clips.pop();
+      }
 
-			if (operation.type === 'write') {
-				const {text, transformers} = operation;
-				let {x, y} = operation;
-				let lines = text.split('\n');
+      if (operation.type === "write") {
+        const { text, transformers } = operation;
+        let { x, y } = operation;
+        let lines = text.split("\n");
 
-				const clip = clips.at(-1);
+        const clip = clips.at(-1);
 
-				if (clip) {
-					const clipHorizontally =
-						typeof clip?.x1 === 'number' && typeof clip?.x2 === 'number';
+        if (clip) {
+          const clipHorizontally = typeof clip?.x1 === "number" && typeof clip?.x2 === "number";
 
-					const clipVertically =
-						typeof clip?.y1 === 'number' && typeof clip?.y2 === 'number';
+          const clipVertically = typeof clip?.y1 === "number" && typeof clip?.y2 === "number";
 
-					// If text is positioned outside of clipping area altogether,
-					// skip to the next operation to avoid unnecessary calculations
-					if (clipHorizontally) {
-						const width = this.caches.getWidestLine(text);
+          // If text is positioned outside of clipping area altogether,
+          // skip to the next operation to avoid unnecessary calculations
+          if (clipHorizontally) {
+            const width = this.caches.getWidestLine(text);
 
-						if (x + width < clip.x1! || x > clip.x2!) {
-							continue;
-						}
-					}
+            if (x + width < clip.x1! || x > clip.x2!) {
+              continue;
+            }
+          }
 
-					if (clipVertically) {
-						const height = lines.length;
+          if (clipVertically) {
+            const height = lines.length;
 
-						if (y + height < clip.y1! || y > clip.y2!) {
-							continue;
-						}
-					}
+            if (y + height < clip.y1! || y > clip.y2!) {
+              continue;
+            }
+          }
 
-					if (clipHorizontally) {
-						lines = lines.map(line => {
-							const from = x < clip.x1! ? clip.x1! - x : 0;
-							const width = this.caches.getStringWidth(line);
-							const to = x + width > clip.x2! ? clip.x2! - x : width;
+          if (clipHorizontally) {
+            lines = lines.map((line) => {
+              const from = x < clip.x1! ? clip.x1! - x : 0;
+              const width = this.caches.getStringWidth(line);
+              const to = x + width > clip.x2! ? clip.x2! - x : width;
 
-							return sliceAnsi(line, from, to);
-						});
+              return sliceAnsi(line, from, to);
+            });
 
-						if (x < clip.x1!) {
-							x = clip.x1!;
-						}
-					}
+            if (x < clip.x1!) {
+              x = clip.x1!;
+            }
+          }
 
-					if (clipVertically) {
-						const from = y < clip.y1! ? clip.y1! - y : 0;
-						const height = lines.length;
-						const to = y + height > clip.y2! ? clip.y2! - y : height;
+          if (clipVertically) {
+            const from = y < clip.y1! ? clip.y1! - y : 0;
+            const height = lines.length;
+            const to = y + height > clip.y2! ? clip.y2! - y : height;
 
-						lines = lines.slice(from, to);
+            lines = lines.slice(from, to);
 
-						if (y < clip.y1!) {
-							y = clip.y1!;
-						}
-					}
-				}
+            if (y < clip.y1!) {
+              y = clip.y1!;
+            }
+          }
+        }
 
-				let offsetY = 0;
+        let offsetY = 0;
 
-				for (let [index, line] of lines.entries()) {
-					const currentLine = output[y + offsetY];
+        for (let [index, line] of lines.entries()) {
+          const currentLine = output[y + offsetY];
 
-					// Line can be missing if `text` is taller than height of pre-initialized `this.output`
-					if (!currentLine) {
-						continue;
-					}
+          // Line can be missing if `text` is taller than height of pre-initialized `this.output`
+          if (!currentLine) {
+            continue;
+          }
 
-					for (const transformer of transformers) {
-						line = transformer(line, index);
-					}
+          for (const transformer of transformers) {
+            line = transformer(line, index);
+          }
 
-					const characters = this.caches.getStyledChars(line);
-					let offsetX = x;
+          const characters = this.caches.getStyledChars(line);
+          let offsetX = x;
 
-					// Nothing to write (e.g. line was clipped away).
-					if (characters.length === 0) {
-						offsetY++;
-						continue;
-					}
+          // Nothing to write (e.g. line was clipped away).
+          if (characters.length === 0) {
+            offsetY++;
+            continue;
+          }
 
-					const spaceCell: StyledChar = {
-						type: 'char',
-						value: ' ',
-						fullWidth: false,
-						styles: [],
-					};
+          const spaceCell: StyledChar = {
+            type: "char",
+            value: " ",
+            fullWidth: false,
+            styles: [],
+          };
 
-					// Wide characters (e.g. CJK) occupy two cells: a leading
-					// cell with the character and a trailing placeholder with
-					// value ''. When an overlapping write lands in the middle
-					// of a wide character, the boundary cells need cleanup so
-					// the terminal never renders a half-visible wide character.
-					if (
-						currentLine[offsetX]?.value === '' &&
-						offsetX > 0 &&
-						this.caches.getStringWidth(currentLine[offsetX - 1]?.value ?? '') >
-							1
-					) {
-						currentLine[offsetX - 1] = spaceCell;
-					}
+          // Wide characters (e.g. CJK) occupy two cells: a leading
+          // cell with the character and a trailing placeholder with
+          // value ''. When an overlapping write lands in the middle
+          // of a wide character, the boundary cells need cleanup so
+          // the terminal never renders a half-visible wide character.
+          if (
+            currentLine[offsetX]?.value === "" &&
+            offsetX > 0 &&
+            this.caches.getStringWidth(currentLine[offsetX - 1]?.value ?? "") > 1
+          ) {
+            currentLine[offsetX - 1] = spaceCell;
+          }
 
-					for (const character of characters) {
-						currentLine[offsetX] = character;
+          for (const character of characters) {
+            currentLine[offsetX] = character;
 
-						// Determine printed width using string-width to align with measurement
-						const characterWidth = Math.max(
-							1,
-							this.caches.getStringWidth(character.value),
-						);
+            // Determine printed width using string-width to align with measurement
+            const characterWidth = Math.max(1, this.caches.getStringWidth(character.value));
 
-						// For multi-column characters, clear following cells to avoid stray spaces/artifacts
-						if (characterWidth > 1) {
-							for (let index = 1; index < characterWidth; index++) {
-								currentLine[offsetX + index] = {
-									type: 'char',
-									value: '',
-									fullWidth: false,
-									styles: character.styles,
-								};
-							}
-						}
+            // For multi-column characters, clear following cells to avoid stray spaces/artifacts
+            if (characterWidth > 1) {
+              for (let columnOffset = 1; columnOffset < characterWidth; columnOffset++) {
+                currentLine[offsetX + columnOffset] = {
+                  type: "char",
+                  value: "",
+                  fullWidth: false,
+                  styles: character.styles,
+                };
+              }
+            }
 
-						offsetX += characterWidth;
-					}
+            offsetX += characterWidth;
+          }
 
-					if (currentLine[offsetX]?.value === '') {
-						currentLine[offsetX] = spaceCell;
-					}
+          if (currentLine[offsetX]?.value === "") {
+            currentLine[offsetX] = spaceCell;
+          }
 
-					offsetY++;
-				}
-			}
-		}
+          offsetY++;
+        }
+      }
+    }
 
-		const generatedOutput = output
-			.map(line => {
-				// See https://github.com/vadimdemedes/ink/pull/564#issuecomment-1637022742
-				const lineWithoutEmptyItems = line.filter(item => item !== undefined);
+    const generatedOutput = output
+      .map((line) => {
+        // See https://github.com/vadimdemedes/ink/pull/564#issuecomment-1637022742
+        const lineWithoutEmptyItems = line.filter((item) => item !== undefined);
 
-				return styledCharsToString(lineWithoutEmptyItems).trimEnd();
-			})
-			.join('\n');
+        return styledCharsToString(lineWithoutEmptyItems).trimEnd();
+      })
+      .join("\n");
 
-		return {
-			output: generatedOutput,
-			height: output.length,
-		};
-	}
+    return {
+      output: generatedOutput,
+      height: output.length,
+    };
+  }
 }

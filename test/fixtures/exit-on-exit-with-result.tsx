@@ -1,16 +1,17 @@
-import React, {useEffect} from 'react';
-import {render, Text, useApp} from '../../src/index.js';
+import React, { useEffect } from "react";
+
+import { render, Text, useApp } from "../../src/index.ts";
 
 function Test() {
-	const {exit} = useApp();
+  const { exit } = useApp();
 
-	useEffect(() => {
-		setTimeout(() => {
-			exit('hello from ink');
-		}, 500);
-	});
+  useEffect(() => {
+    setTimeout(() => {
+      exit("hello from ink");
+    }, 500);
+  });
 
-	return <Text>Testing</Text>;
+  return <Text>Testing</Text>;
 }
 
 const app = render(<Test />);

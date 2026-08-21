@@ -1,1 +1,1 @@
-import './simple.js';
+import "./simple.tsx";

@@ -1,13 +1,14 @@
-import React from 'react';
-import {Text, useStdin, render} from '../../src/index.js';
+import React from "react";
+
+import { Text, useStdin, render } from "../../src/index.ts";
 
 function App() {
-	const {isRawModeSupported} = useStdin();
+  const { isRawModeSupported } = useStdin();
 
-	return <Text>{isRawModeSupported ? 'ready' : 'ready-stdin-not-tty'}</Text>;
+  return <Text>{isRawModeSupported ? "ready" : "ready-stdin-not-tty"}</Text>;
 }
 
-const {waitUntilExit} = render(<App />);
+const { waitUntilExit } = render(<App />);
 
 await waitUntilExit();
-console.log('exited');
+console.log("exited");

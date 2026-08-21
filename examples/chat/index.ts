@@ -1,1 +1,1 @@
-import './chat.js';
+import "./chat.tsx";

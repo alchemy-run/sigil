@@ -1,5 +1,5 @@
-import {createContext} from 'react';
+import { createContext } from "react";
 
 export const accessibilityContext = createContext({
-	isScreenReaderEnabled: false,
+  isScreenReaderEnabled: false,
 });

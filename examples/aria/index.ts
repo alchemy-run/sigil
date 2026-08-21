@@ -1,1 +1,1 @@
-import './aria.js';
+import "./aria.tsx";

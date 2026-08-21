@@ -1,1 +1,1 @@
-import './router.js';
+import "./router.tsx";

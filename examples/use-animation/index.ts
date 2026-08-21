@@ -1,1 +1,1 @@
-import './use-animation.js';
+import "./use-animation.tsx";

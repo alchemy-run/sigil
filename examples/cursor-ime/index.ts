@@ -1,1 +1,1 @@
-import './cursor-ime.js';
+import "./cursor-ime.tsx";

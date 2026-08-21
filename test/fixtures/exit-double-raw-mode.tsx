@@ -1,32 +1,34 @@
-import process from 'node:process';
-import React, {useEffect} from 'react';
-import {Text, render, useStdin} from '../../src/index.js';
+import process from "node:process";
+
+import React, { useEffect } from "react";
+
+import { Text, render, useStdin } from "../../src/index.ts";
 
 function Test() {
-	const {setRawMode} = useStdin();
+  const { setRawMode } = useStdin();
 
-	useEffect(() => {
-		setRawMode(true);
+  useEffect(() => {
+    setRawMode(true);
 
-		setTimeout(() => {
-			setRawMode(false);
-			setRawMode(true);
+    setTimeout(() => {
+      setRawMode(false);
+      setRawMode(true);
 
-			// Start the test
-			process.stdout.write('s');
-		}, 500);
-	}, [setRawMode]);
+      // Start the test
+      process.stdout.write("s");
+    }, 500);
+  }, [setRawMode]);
 
-	return <Text>Hello World</Text>;
+  return <Text>Hello World</Text>;
 }
 
-const {unmount, waitUntilExit} = render(<Test />);
+const { unmount, waitUntilExit } = render(<Test />);
 
-process.stdin.on('data', data => {
-	if (String(data) === 'q') {
-		unmount();
-	}
+process.stdin.on("data", (data) => {
+  if (String(data) === "q") {
+    unmount();
+  }
 });
 
 await waitUntilExit();
-console.log('exited');
+console.log("exited");

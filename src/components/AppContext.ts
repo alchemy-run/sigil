@@ -1,4 +1,4 @@
-import {createContext} from 'react';
+import { createContext } from "react";
 
 /**
 A handle returned by `suspendTerminal()` when called without a callback.
@@ -7,8 +7,8 @@ Call `resume()` to give terminal ownership back to Ink, or use `await using`
 so the suspension is resumed automatically when it leaves scope.
 */
 export type TerminalSuspension = {
-	readonly resume: () => Promise<void>;
-	readonly [Symbol.asyncDispose]: () => Promise<void>;
+  readonly resume: () => Promise<void>;
+  readonly [Symbol.asyncDispose]: () => Promise<void>;
 };
 
 /**
@@ -16,21 +16,21 @@ Temporarily hand the terminal over to a child process (e.g. `$EDITOR`, `less`,
 `fzf`), then restore Ink's terminal state and force a full redraw.
 */
 export type SuspendTerminal = {
-	(callback: () => void | Promise<void>): Promise<void>;
-	(): Promise<TerminalSuspension>;
+  (callback: () => void | Promise<void>): Promise<void>;
+  (): Promise<TerminalSuspension>;
 };
 
 export type Props = {
-	/**
+  /**
 	Exit (unmount) the whole Ink app.
 
 	- `exit()` — resolves `waitUntilExit()` with `undefined`.
 	- `exit(new Error('…'))` — rejects `waitUntilExit()` with the error.
 	- `exit(value)` — resolves `waitUntilExit()` with `value`.
 	*/
-	readonly exit: (errorOrResult?: Error | unknown) => void;
+  readonly exit: (errorOrResult?: unknown) => void;
 
-	/**
+  /**
 	Returns a promise that settles after pending render output is flushed to stdout.
 
 	@example
@@ -52,9 +52,9 @@ export type Props = {
 	};
 	```
 	*/
-	readonly waitUntilRenderFlush: () => Promise<void>;
+  readonly waitUntilRenderFlush: () => Promise<void>;
 
-	/**
+  /**
 	Temporarily release the terminal so a child process can take it over, then
 	restore Ink's terminal state and force a full redraw.
 
@@ -80,7 +80,7 @@ export type Props = {
 	await runEditor();
 	```
 	*/
-	readonly suspendTerminal: SuspendTerminal;
+  readonly suspendTerminal: SuspendTerminal;
 };
 
 /**
@@ -88,26 +88,26 @@ export type Props = {
 */
 // Keep the default value typed so `useApp()` preserves the public `exit(errorOrResult?)` signature.
 const noopSuspension: TerminalSuspension = {
-	async resume() {},
-	async [Symbol.asyncDispose]() {},
+  async resume() {},
+  async [Symbol.asyncDispose]() {},
 };
 
 const defaultValue: Props = {
-	exit(_errorOrResult?: Error | unknown) {},
-	async waitUntilRenderFlush() {},
-	suspendTerminal: (async (callback?: () => void | Promise<void>) => {
-		if (callback) {
-			await callback();
-			return undefined;
-		}
+  exit(_errorOrResult?: unknown) {},
+  async waitUntilRenderFlush() {},
+  suspendTerminal: (async (callback?: () => void | Promise<void>) => {
+    if (callback) {
+      await callback();
+      return;
+    }
 
-		return noopSuspension;
-	}) as SuspendTerminal,
+    return noopSuspension;
+  }) as SuspendTerminal,
 };
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const AppContext = createContext(defaultValue);
 
-AppContext.displayName = 'InternalAppContext';
+AppContext.displayName = "InternalAppContext";
 
 export default AppContext;

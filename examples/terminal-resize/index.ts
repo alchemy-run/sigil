@@ -1,1 +1,1 @@
-import './terminal-resize.js';
+import "./terminal-resize.tsx";

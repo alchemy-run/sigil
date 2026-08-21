@@ -1,14 +1,15 @@
-import {useEffect, useEffectEvent} from 'react';
-import reconciler from '../reconciler.js';
-import {useStdinContext} from './use-stdin.js';
+import { useEffect, useEffectEvent } from "react";
+
+import reconciler from "../reconciler.ts";
+import { useStdinContext } from "./use-stdin.ts";
 
 type Options = {
-	/**
+  /**
 	Enable or disable the paste handler. Useful when multiple components use `usePaste` and only one should be active at a time.
 
 	@default true
 	*/
-	isActive?: boolean;
+  isActive?: boolean;
 };
 
 /**
@@ -36,48 +37,44 @@ const MyInput = () => {
 };
 ```
 */
-const usePaste = (
-	handler: (text: string) => void,
-	options: Options = {},
-): void => {
-	// eslint-disable-next-line @typescript-eslint/naming-convention
-	const {setRawMode, setBracketedPasteMode, internal_eventEmitter} =
-		useStdinContext();
+const usePaste = (handler: (text: string) => void, options: Options = {}): void => {
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  const { setRawMode, setBracketedPasteMode, internal_eventEmitter } = useStdinContext();
 
-	useEffect(() => {
-		if (options.isActive === false) {
-			return;
-		}
+  useEffect(() => {
+    if (options.isActive === false) {
+      return;
+    }
 
-		setRawMode(true);
-		setBracketedPasteMode(true);
+    setRawMode(true);
+    setBracketedPasteMode(true);
 
-		return () => {
-			setRawMode(false);
-			setBracketedPasteMode(false);
-		};
-	}, [options.isActive, setRawMode, setBracketedPasteMode]);
+    return () => {
+      setRawMode(false);
+      setBracketedPasteMode(false);
+    };
+  }, [options.isActive, setRawMode, setBracketedPasteMode]);
 
-	const handlePaste = useEffectEvent((text: string) => {
-		// Use discreteUpdates to assign DiscreteEventPriority to state
-		// updates triggered by paste, matching the priority of useInput.
-		// @ts-expect-error Types require 5 arguments (fn, a, b, c, d) but only fn is needed at runtime.
-		reconciler.discreteUpdates(() => {
-			handler(text);
-		});
-	});
+  const handlePaste = useEffectEvent((text: string) => {
+    // Use discreteUpdates to assign DiscreteEventPriority to state
+    // updates triggered by paste, matching the priority of useInput.
+    // @ts-expect-error Types require 5 arguments (fn, a, b, c, d) but only fn is needed at runtime.
+    reconciler.discreteUpdates(() => {
+      handler(text);
+    });
+  });
 
-	useEffect(() => {
-		if (options.isActive === false) {
-			return;
-		}
+  useEffect(() => {
+    if (options.isActive === false) {
+      return;
+    }
 
-		internal_eventEmitter.on('paste', handlePaste);
+    internal_eventEmitter.on("paste", handlePaste);
 
-		return () => {
-			internal_eventEmitter.removeListener('paste', handlePaste);
-		};
-	}, [options.isActive, internal_eventEmitter]);
+    return () => {
+      internal_eventEmitter.removeListener("paste", handlePaste);
+    };
+  }, [options.isActive, internal_eventEmitter]);
 };
 
 export default usePaste;

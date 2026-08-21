@@ -1,4 +1,4 @@
-import {hasAnsiControlCharacters, tokenizeAnsi} from './ansi-tokenizer.js';
+import { hasAnsiControlCharacters, tokenizeAnsi } from "./ansi-tokenizer.ts";
 
 const sgrParametersRegex = /^[\d:;]*$/;
 
@@ -7,29 +7,29 @@ const sgrParametersRegex = /^[\d:;]*$/;
 // OSC sequences (hyperlinks, etc. - ESC ] or C1 OSC).
 // Stripped: cursor movement, screen clearing, and other control sequences.
 const sanitizeAnsi = (text: string): string => {
-	if (!hasAnsiControlCharacters(text)) {
-		return text;
-	}
+  if (!hasAnsiControlCharacters(text)) {
+    return text;
+  }
 
-	let output = '';
+  let output = "";
 
-	for (const token of tokenizeAnsi(text)) {
-		if (token.type === 'text' || token.type === 'osc') {
-			output += token.value;
-			continue;
-		}
+  for (const token of tokenizeAnsi(text)) {
+    if (token.type === "text" || token.type === "osc") {
+      output += token.value;
+      continue;
+    }
 
-		if (
-			token.type === 'csi' &&
-			token.finalCharacter === 'm' &&
-			token.intermediateString === '' &&
-			sgrParametersRegex.test(token.parameterString)
-		) {
-			output += token.value;
-		}
-	}
+    if (
+      token.type === "csi" &&
+      token.finalCharacter === "m" &&
+      token.intermediateString === "" &&
+      sgrParametersRegex.test(token.parameterString)
+    ) {
+      output += token.value;
+    }
+  }
 
-	return output;
+  return output;
 };
 
 export default sanitizeAnsi;

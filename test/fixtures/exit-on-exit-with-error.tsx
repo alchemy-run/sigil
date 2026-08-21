@@ -1,31 +1,32 @@
-import React, {useState, useEffect} from 'react';
-import {render, Text, useApp} from '../../src/index.js';
+import React, { useState, useEffect } from "react";
+
+import { render, Text, useApp } from "../../src/index.ts";
 
 function Test() {
-	const [counter, setCounter] = useState(0);
-	const {exit} = useApp();
+  const [counter, setCounter] = useState(0);
+  const { exit } = useApp();
 
-	useEffect(() => {
-		setTimeout(() => {
-			exit(new Error('errored'));
-		}, 500);
+  useEffect(() => {
+    setTimeout(() => {
+      exit(new Error("errored"));
+    }, 500);
 
-		const timer = setInterval(() => {
-			setCounter(previous => previous + 1);
-		}, 100);
+    const timer = setInterval(() => {
+      setCounter((previous) => previous + 1);
+    }, 100);
 
-		return () => {
-			clearInterval(timer);
-		};
-	}, [exit]);
+    return () => {
+      clearInterval(timer);
+    };
+  }, [exit]);
 
-	return <Text>Counter: {counter}</Text>;
+  return <Text>Counter: {counter}</Text>;
 }
 
 const app = render(<Test />);
 
 try {
-	await app.waitUntilExit();
+  await app.waitUntilExit();
 } catch (error: unknown) {
-	console.log((error as any).message);
+  console.log((error as any).message);
 }

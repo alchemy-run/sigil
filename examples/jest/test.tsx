@@ -1,47 +1,48 @@
-import React from 'react';
-import {Box, Text} from '../../src/index.js';
+import React from "react";
 
-const getBackgroundForStatus = (status: string): string | undefined => {
-	switch (status) {
-		case 'runs': {
-			return 'yellow';
-		}
+import { Box, Text } from "../../src/index.ts";
 
-		case 'pass': {
-			return 'green';
-		}
+const getBackgroundForStatus = (status: string) => {
+  switch (status) {
+    case "runs": {
+      return "yellow";
+    }
 
-		case 'fail': {
-			return 'red';
-		}
+    case "pass": {
+      return "green";
+    }
 
-		default: {
-			return undefined;
-		}
-	}
+    case "fail": {
+      return "red";
+    }
+
+    default: {
+      return;
+    }
+  }
 };
 
 type Properties = {
-	readonly status: string;
-	readonly path: string;
+  readonly status: string;
+  readonly path: string;
 };
 
-function Test({status, path}: Properties) {
-	return (
-		<Box>
-			<Text color="black" backgroundColor={getBackgroundForStatus(status)}>
-				{` ${status.toUpperCase()} `}
-			</Text>
+function Test({ status, path }: Properties) {
+  return (
+    <Box>
+      <Text color="black" backgroundColor={getBackgroundForStatus(status)}>
+        {` ${status.toUpperCase()} `}
+      </Text>
 
-			<Box marginLeft={1}>
-				<Text dimColor>{path.split('/')[0]}/</Text>
+      <Box marginLeft={1}>
+        <Text dimColor>{path.split("/")[0]}/</Text>
 
-				<Text bold color="white">
-					{path.split('/')[1]}
-				</Text>
-			</Box>
-		</Box>
-	);
+        <Text bold color="white">
+          {path.split("/")[1]}
+        </Text>
+      </Box>
+    </Box>
+  );
 }
 
 export default Test;

@@ -1,6 +1,6 @@
-import {runIssue450RerenderFixture} from './issue-450-fixture-helpers.js';
+import { runIssue450RerenderFixture } from "./issue-450-fixture-helpers.tsx";
 
 runIssue450RerenderFixture({
-	includeStaticLine: true,
-	heightForFrame: rows => rows,
+  includeStaticLine: true,
+  heightForFrame: (rows) => rows,
 });

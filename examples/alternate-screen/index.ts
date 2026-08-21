@@ -1,3 +1,3 @@
-import {runAlternateScreenExample} from './alternate-screen.js';
+import { runAlternateScreenExample } from "./alternate-screen.tsx";
 
 runAlternateScreenExample();

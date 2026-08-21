@@ -1,5 +1,6 @@
-import {type RefObject, useState, useEffect, useCallback, useMemo} from 'react';
-import {type DOMElement, addLayoutListener} from '../dom.js';
+import { type RefObject, useState, useEffect, useCallback, useMemo } from "react";
+
+import { type DOMElement, addLayoutListener } from "../dom.ts";
 
 // Yoga's `right`/`bottom` are omitted: always `0` for flow layout and unintuitive for absolute positioning.
 /**
@@ -8,52 +9,52 @@ Metrics of a box element.
 All positions are relative to the element's parent.
 */
 export type BoxMetrics = {
-	/**
+  /**
 	Element width.
 	*/
-	readonly width: number;
+  readonly width: number;
 
-	/**
+  /**
 	Element height.
 	*/
-	readonly height: number;
+  readonly height: number;
 
-	/**
+  /**
 	Distance from the left edge of the parent.
 	*/
-	readonly left: number;
+  readonly left: number;
 
-	/**
+  /**
 	Distance from the top edge of the parent.
 	*/
-	readonly top: number;
+  readonly top: number;
 };
 
 export type UseBoxMetricsResult = BoxMetrics & {
-	/**
+  /**
 	Whether the currently tracked element has been measured in the latest layout pass.
 	*/
-	readonly hasMeasured: boolean;
+  readonly hasMeasured: boolean;
 };
 
 const emptyMetrics: BoxMetrics = {
-	width: 0,
-	height: 0,
-	left: 0,
-	top: 0,
+  width: 0,
+  height: 0,
+  left: 0,
+  top: 0,
 };
 
 // eslint-disable-next-line @typescript-eslint/no-restricted-types
 const findRootNode = (node: DOMElement | null): DOMElement | undefined => {
-	if (!node) {
-		return undefined;
-	}
+  if (!node) {
+    return;
+  }
 
-	if (!node.parentNode) {
-		return node.nodeName === 'ink-root' ? node : undefined;
-	}
+  if (!node.parentNode) {
+    return node.nodeName === "ink-root" ? node : undefined;
+  }
 
-	return findRootNode(node.parentNode);
+  return findRootNode(node.parentNode);
 };
 
 /**
@@ -83,53 +84,53 @@ const Example = () => {
 ```
 */
 const useBoxMetrics = (
-	/* eslint-disable-next-line @typescript-eslint/no-restricted-types --
+  /* eslint-disable-next-line @typescript-eslint/no-restricted-types --
 		Creating a ref object with an initial null, especially when the ref object
 		will be passed to a DOM node's ref attribute, is common in React. */
-	ref: RefObject<DOMElement | null>,
+  ref: RefObject<DOMElement | null>,
 ): UseBoxMetricsResult => {
-	const [metrics, setMetrics] = useState(emptyMetrics);
-	const [hasMeasured, setHasMeasured] = useState(false);
+  const [metrics, setMetrics] = useState(emptyMetrics);
+  const [hasMeasured, setHasMeasured] = useState(false);
 
-	const updateMetrics = useCallback(() => {
-		const layout = ref.current?.yogaNode?.getComputedLayout() ?? emptyMetrics;
+  const updateMetrics = useCallback(() => {
+    const layout = ref.current?.yogaNode?.getComputedLayout() ?? emptyMetrics;
 
-		setMetrics(previousMetrics => {
-			const hasChanged =
-				previousMetrics.width !== layout.width ||
-				previousMetrics.height !== layout.height ||
-				previousMetrics.left !== layout.left ||
-				previousMetrics.top !== layout.top;
+    setMetrics((previousMetrics) => {
+      const hasChanged =
+        previousMetrics.width !== layout.width ||
+        previousMetrics.height !== layout.height ||
+        previousMetrics.left !== layout.left ||
+        previousMetrics.top !== layout.top;
 
-			return hasChanged ? layout : previousMetrics;
-		});
+      return hasChanged ? layout : previousMetrics;
+    });
 
-		setHasMeasured(Boolean(ref.current));
-	}, [ref]);
+    setHasMeasured(Boolean(ref.current));
+  }, [ref]);
 
-	// Runs after every render of this component.
-	// This keeps metrics fresh when local state/props in this subtree change.
-	useEffect(updateMetrics);
+  // Runs after every render of this component.
+  // This keeps metrics fresh when local state/props in this subtree change.
+  useEffect(updateMetrics);
 
-	// Subscribe to root layout commits so memoized components still receive
-	// sibling-driven position/size updates, even when they skip re-rendering.
-	useEffect(() => {
-		const rootNode = findRootNode(ref.current);
+  // Subscribe to root layout commits so memoized components still receive
+  // sibling-driven position/size updates, even when they skip re-rendering.
+  useEffect(() => {
+    const rootNode = findRootNode(ref.current);
 
-		if (!rootNode) {
-			return;
-		}
+    if (!rootNode) {
+      return;
+    }
 
-		return addLayoutListener(rootNode, updateMetrics);
-	});
+    return addLayoutListener(rootNode, updateMetrics);
+  });
 
-	return useMemo(
-		() => ({
-			...metrics,
-			hasMeasured,
-		}),
-		[metrics, hasMeasured],
-	);
+  return useMemo(
+    () => ({
+      ...metrics,
+      hasMeasured,
+    }),
+    [metrics, hasMeasured],
+  );
 };
 
 export default useBoxMetrics;

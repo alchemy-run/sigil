@@ -1,1 +1,1 @@
-import './select-input.js';
+import "./select-input.tsx";

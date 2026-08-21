@@ -1,17 +1,18 @@
-import React, {useEffect} from 'react';
-import {render, useStdout, Text} from '../../src/index.js';
+import React, { useEffect } from "react";
+
+import { render, useStdout, Text } from "../../src/index.ts";
 
 function WriteToStdout() {
-	const {write} = useStdout();
+  const { write } = useStdout();
 
-	useEffect(() => {
-		write('Hello from Ink to stdout\n');
-	}, [write]);
+  useEffect(() => {
+    write("Hello from Ink to stdout\n");
+  }, [write]);
 
-	return <Text>Hello World</Text>;
+  return <Text>Hello World</Text>;
 }
 
 const app = render(<WriteToStdout />);
 
 await app.waitUntilExit();
-console.log('exited');
+console.log("exited");

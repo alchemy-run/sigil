@@ -1,20 +1,21 @@
-import React from 'react';
-import {Text, render, useAnimation, useApp} from '../../src/index.js';
+import React from "react";
+
+import { Text, render, useAnimation, useApp } from "../../src/index.ts";
 
 function Spinner() {
-	const {frame} = useAnimation({interval: 8});
-	const {exit} = useApp();
+  const { frame } = useAnimation({ interval: 8 });
+  const { exit } = useApp();
 
-	React.useEffect(() => {
-		if (frame >= 3) {
-			exit();
-		}
-	}, [exit, frame]);
+  React.useEffect(() => {
+    if (frame >= 3) {
+      exit();
+    }
+  }, [exit, frame]);
 
-	return <Text>{String(frame)}</Text>;
+  return <Text>{String(frame)}</Text>;
 }
 
-const {waitUntilExit} = render(<Spinner />, {interactive: false});
+const { waitUntilExit } = render(<Spinner />, { interactive: false });
 
 await waitUntilExit();
-console.log('exited');
+console.log("exited");

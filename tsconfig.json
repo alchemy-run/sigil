@@ -1,15 +1,29 @@
 {
-	"extends": "@sindresorhus/tsconfig",
-	"compilerOptions": {
-		"outDir": "build",
-		"lib": [
-			"DOM",
-			"DOM.Iterable",
-			"ES2023"
-		],
-		"sourceMap": true,
-		"jsx": "react",
-		"isolatedModules": true
-	},
-	"include": ["src"]
+  "include": ["src"],
+  "exclude": ["node_modules", "dist", ".reference", ".vendor"],
+  "compilerOptions": {
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "target": "esnext",
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "jsx": "react",
+    "strict": true,
+    "erasableSyntaxOnly": true,
+    "noImplicitOverride": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noUncheckedSideEffectImports": true,
+    "useDefineForClassFields": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "paths": {
+      "#/*": ["./src/*"]
+    }
+  }
 }
