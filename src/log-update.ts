@@ -219,6 +219,25 @@ const createIncremental = (
       return true;
     }
 
+    // A frame that grew may need rows past the bottom margin. The
+    // incremental walk moves over unchanged lines with cursorNextLine,
+    // which clamps at the bottom margin instead of scrolling (only a
+    // line feed scrolls), so a grown frame that reaches the bottom
+    // desynchronizes the tracked cursor position from the terminal.
+    // Rewrite the whole frame instead — every line is emitted with a
+    // newline, which scrolls correctly at the bottom.
+    if (visibleCount > previousVisible) {
+      const cursorSuffix = buildCursorSuffix(visibleCount, activeCursor);
+      stream.write(
+        returnPrefix + ansiEscapes.eraseLines(previousLines.length) + str + cursorSuffix,
+      );
+      cursorWasShown = activeCursor !== undefined;
+      previousCursorPosition = activeCursor ? { ...activeCursor } : undefined;
+      previousOutput = str;
+      previousLines = nextLines;
+      return true;
+    }
+
     const hasTrailingNewline = str.endsWith("\n");
 
     // We aggregate all chunks for incremental rendering into a buffer, and then write them to stdout at the end.

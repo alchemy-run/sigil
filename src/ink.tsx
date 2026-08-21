@@ -139,7 +139,13 @@ const shouldClearTerminalForFrame = ({
   const wasOverflowing = previousOutputHeight > viewportRows;
   const isOverflowing = nextOutputHeight > viewportRows;
   const isFullscreen = nextOutputHeight >= viewportRows;
-  const isLeavingFullscreen = wasFullscreen && nextOutputHeight < viewportRows;
+  // Only a frame that actually OVERFLOWED the viewport needs the full
+  // clear when shrinking back to inline — its top rows live above the top
+  // margin where incremental erase cannot reach. A frame that exactly
+  // filled the viewport is erasable in place; clearing the terminal for it
+  // destroys the user's scrollback for no benefit (and rapid height
+  // resizes routinely produce transient exactly-fullscreen frames).
+  const isLeavingFullscreen = wasOverflowing && nextOutputHeight < viewportRows;
   const shouldClearOnUnmount = isUnmounting && wasFullscreen;
 
   if (isWindowsConsole && (wasFullscreen || isFullscreen)) {
@@ -285,6 +291,7 @@ export default class Ink {
   private lastOutputToRender: string;
   private lastOutputHeight: number;
   private lastTerminalWidth: number;
+  private lastTerminalHeight: number;
   private readonly container: FiberRoot;
   private readonly rootNode: dom.DOMElement;
   // This variable is used only in debug mode to store full static output
@@ -380,6 +387,7 @@ export default class Ink {
     this.lastOutputToRender = "";
     this.lastOutputHeight = 0;
     this.lastTerminalWidth = getWindowSize(this.options.stdout).columns;
+    this.lastTerminalHeight = getWindowSize(this.options.stdout).rows;
 
     // This variable is used only in debug mode to store full static output
     // so that it's rerendered every time, not just new static parts, like in non-debug mode
@@ -438,12 +446,26 @@ export default class Ink {
 
   resized = () => {
     const currentWidth = getWindowSize(this.options.stdout).columns;
+    const currentHeight = getWindowSize(this.options.stdout).rows;
 
-    if (currentWidth < this.lastTerminalWidth) {
-      // We clear the screen when decreasing terminal width to prevent duplicate overlapping re-renders.
+    // A width decrease rewraps lines and any height change moves content
+    // through scrollback, so the incremental render state no longer
+    // matches the screen. Erase what is still visible and force the next
+    // render to be a full rewrite instead of an incremental diff that
+    // would skip "unchanged" lines over stale screen content.
+    if (currentWidth < this.lastTerminalWidth || currentHeight !== this.lastTerminalHeight) {
+      // `log.clear()` erases the full previous frame line count from
+      // the cursor upward — after a height grow that also covers frame
+      // lines the emulator pulled back from scrollback, so no extra
+      // erase is needed for them.
       this.log.clear();
       this.lastOutput = "";
       this.lastOutputToRender = "";
+      // Also forget the previous frame height: it described a frame
+      // that no longer exists on screen, and letting it flow into
+      // shouldClearTerminalForFrame would trigger a scrollback-erasing
+      // clearTerminal on a height shrink.
+      this.lastOutputHeight = 0;
     }
 
     this.calculateLayout();
@@ -451,6 +473,7 @@ export default class Ink {
     this.onRender();
 
     this.lastTerminalWidth = currentWidth;
+    this.lastTerminalHeight = currentHeight;
   };
 
   resolveExitPromise: (result?: unknown) => void = () => {};
@@ -1044,6 +1067,18 @@ export default class Ink {
     // Detect fullscreen: output fills or exceeds terminal height.
     // Only apply when writing to a real TTY — piped output always gets trailing newlines.
     const viewportRows = isTTY ? getWindowSize(this.options.stdout).rows : 24;
+
+    // Clamp the frame to the viewport, keeping its bottom rows. Rows above
+    // the top margin cannot be updated or erased in place, and the
+    // historical fallback for such frames — a full clearTerminal including
+    // an ESC[3J scrollback erase — destroys the user's scrollback on every
+    // overflowing update. A frame taller than the terminal is unreadable
+    // anyway; components size themselves from useWindowSize to avoid it.
+    if (isTTY && outputHeight > viewportRows) {
+      const lines = output.split("\n");
+      output = lines.slice(lines.length - viewportRows).join("\n");
+      outputHeight = viewportRows;
+    }
 
     const isFullscreen = isTTY && outputHeight >= viewportRows;
     const outputToRender = isFullscreen ? output : output + "\n";

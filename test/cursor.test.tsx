@@ -666,16 +666,14 @@ for (const { name, incremental } of inkRenderingModes) {
   });
 }
 
-// Both renderers again: `sync()` is a separate implementation in each, so
-// identical behaviour today is not a reason to leave one of them untested.
+// Both renderers again: overflowing frames are clamped to the viewport's
+// bottom rows instead of taking the historical clearTerminal + sync() path,
+// which erased the user's scrollback on every overflowing update.
 for (const { name, incremental } of inkRenderingModes) {
-  test(`${name} - fullscreen: cursor lands on the requested row on the sync path`, async () => {
+  test(`${name} - fullscreen: overflowing frame is clamped and keeps cursor positioning`, async () => {
     const stdout = createStdout();
     (stdout as any).rows = 5;
 
-    // Output taller than the viewport is still fullscreen, and the second
-    // such frame clears the terminal and repositions through log.sync()
-    // rather than through the renderer's normal write path.
     const { rerender, unmount, waitUntilRenderFlush } = render(
       <FullscreenCursorApp lineCount={6} cursorY={2} marker="" />,
       { stdout, incrementalRendering: incremental },
@@ -687,15 +685,16 @@ for (const { name, incremental } of inkRenderingModes) {
     await waitUntilRenderFlush();
 
     const synced = stdout.getWrites().slice(writesBeforeRerender).join("");
-    expect(synced.includes(ansiEscapes.clearTerminal), "took the sync path").toBe(true);
-    // 6 lines with no trailing newline: the cursor is left on row 5, so y=2
-    // is cursorUp(3), not the cursorUp(4) a visible-line-count basis gives.
+    expect(synced.includes(ansiEscapes.clearTerminal), "must not erase the scrollback buffer").toBe(
+      false,
+    );
+    expect(synced.includes("Line 1!"), "the changed row survives the clamp").toBe(true);
+    expect(synced.includes("Line 0"), "rows above the viewport are clamped away").toBe(false);
+    // The clamped frame is 5 lines with no trailing newline: the cursor is
+    // left on row 4, so y=2 is cursorUp(2).
     expect(
-      synced.includes(ansiEscapes.cursorUp(3) + ansiEscapes.cursorTo(3) + showCursorEscape),
+      synced.includes(ansiEscapes.cursorUp(2) + ansiEscapes.cursorTo(3) + showCursorEscape),
     ).toBe(true);
-    expect(
-      synced.includes(ansiEscapes.cursorUp(4) + ansiEscapes.cursorTo(3) + showCursorEscape),
-    ).toBe(false);
 
     unmount();
   });

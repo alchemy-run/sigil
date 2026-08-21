@@ -10,9 +10,13 @@ export type FakeStdout = Omit<NodeJS.WriteStream, "write"> & {
   getWrites: () => string[];
 };
 
-const createStdout = (columns?: number, isTTY?: boolean): FakeStdout => {
+const createStdout = (columns?: number, isTTY?: boolean, rows?: number): FakeStdout => {
   const stdout = new EventEmitter() as unknown as FakeStdout;
   stdout.columns = columns ?? 100;
+  // A deterministic default height: frames taller than the viewport are
+  // clamped, so leaving `rows` unset would make tests depend on the real
+  // terminal the suite happens to run in.
+  stdout.rows = rows ?? 100;
   stdout.isTTY = isTTY ?? true;
 
   const write = vi.fn((...args: [chunk: string, ...rest: unknown[]]) => {

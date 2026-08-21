@@ -438,7 +438,7 @@ test("do not erase screen where <Static> is taller than viewport", async () => {
   }
 });
 
-test("last line of <Static> survives a full-clear accounting frame (related to #973)", async () => {
+test("last line of <Static> survives overflowing live updates (related to #973)", async () => {
   const rows = 4;
   const ps = term("full-clear-static-accounting", [String(rows)], {
     rows,
@@ -462,27 +462,21 @@ test("last line of <Static> survives a full-clear accounting frame (related to #
   ).toBe(true);
 
   // Distinct-frame guards: if the three phases coalesced into fewer renders,
-  // the off-by-one would never be planted and the assertions here would pass
-  // without exercising the bug. Only the inflate frame renders "live-4", and
-  // its overflow is what first routes a frame through the full clear.
+  // the assertions here would pass without exercising the accounting. Only
+  // the inflate frame renders "live-4".
   expect(
     ps.output.includes("live-4"),
     "Expected the inflate phase to have rendered as its own frame",
   ).toBe(true);
+  // Overflowing frames are clamped to the viewport now; the historical
+  // full-clear path (whose accounting bug #973 tracked) must never fire,
+  // since it erased the user's scrollback.
   expect(
     ps.output.includes(ansiEscapes.clearTerminal),
-    "Expected the overflow to have routed a frame through the full-clear path",
-  ).toBe(true);
-
-  // The shrink frame's full clear is the last one; the lowercase "live-0"
-  // after it proves shrink and nudge rendered as separate frames.
-  const lastClearIndex = ps.output.lastIndexOf(ansiEscapes.clearTerminal);
-  expect(
-    ps.output.includes("live-4", lastClearIndex),
-    "Expected the last full clear to be the shrink frame, not the inflate frame",
+    "Overflowing updates must not route frames through the scrollback-erasing full clear",
   ).toBe(false);
   expect(
-    ps.output.includes("live-0", lastClearIndex) && ps.output.includes("LIVE-0", lastClearIndex),
+    ps.output.includes("live-0") && ps.output.includes("LIVE-0"),
     "Expected the shrink and nudge phases to have rendered as separate frames",
   ).toBe(true);
 
@@ -543,14 +537,17 @@ test("erase screen where state changes", async () => {
 });
 
 test("erase screen where state changes in small viewport", async () => {
-  const ps = term("erase-with-state-change", ["3"]);
+  const rows = 3;
+  const ps = term("erase-with-state-change", [String(rows)], { rows });
   await ps.waitForExit();
 
-  const frames = ps.output.split(ansiEscapes.clearTerminal);
-  const lastFrame = frames.at(-1);
+  // The frame exactly filled the viewport, which is erasable in place —
+  // clearTerminal (and its ESC[3J scrollback erase) must not fire.
+  expect(ps.output.includes(ansiEscapes.clearTerminal)).toBe(false);
 
+  const visibleLines = reconstructTerminalLines(ps.output, rows);
   for (const letter of ["A", "B", "C"]) {
-    expect(lastFrame?.includes(letter)).toBe(false);
+    expect(visibleLines.includes(letter)).toBe(false);
   }
 });
 
@@ -688,32 +685,32 @@ test("#450: grow from rows - 1 to full-height should not clear before unmount", 
   expect(clearTerminalCount).toBe(0);
 });
 
-test("#450: shrink from full-height to rows - 1 should clear exactly once", async () => {
+test("#450: shrink from full-height to rows - 1 must not clear the terminal", async () => {
   const { output, clearTerminalCount } = await runIssue450FixtureWithCounts(
     "issue-450-shrink-from-fullscreen-rerender",
   );
 
   assertIssue450DynamicFrameOutput(output);
-  expect(clearTerminalCount).toBe(1);
+  expect(clearTerminalCount).toBe(0);
 });
 
-test("#450: shrink from overflow to rows - 1 should clear exactly once", async () => {
+test("#450: shrink from overflow to rows - 1 must not clear the terminal", async () => {
   const { output, clearTerminalCount } = await runIssue450FixtureWithCounts(
     "issue-450-shrink-from-overflow-rerender",
   );
 
   assertIssue450DynamicFrameOutput(output);
-  expect(clearTerminalCount).toBe(1);
+  expect(clearTerminalCount).toBe(0);
 });
 
-test("#450: <Static> with shrink from full-height should clear exactly once", async () => {
+test("#450: <Static> with shrink from full-height must not clear the terminal", async () => {
   const { output, clearTerminalCount } = await runIssue450FixtureWithCounts(
     "issue-450-static-shrink-from-fullscreen-rerender",
   );
 
   expect(output.includes("#450 static line")).toBe(true);
   assertIssue450DynamicFrameOutput(output);
-  expect(clearTerminalCount).toBe(1);
+  expect(clearTerminalCount).toBe(0);
 });
 
 test("#450: non-TTY full-height rerenders should never clear terminal", () => {
@@ -772,7 +769,7 @@ test("#450: non-TTY overflow transitions should never clear terminal", () => {
   unmount();
 });
 
-test("#450: viewport shrink into overflow should clear once", async () => {
+test("#450: viewport shrink into overflow must not clear the terminal", async () => {
   const rows = 6;
   const stdout = createTtyStdout();
   stdout.rows = rows;
@@ -798,7 +795,7 @@ test("#450: viewport shrink into overflow should clear once", async () => {
   await delay(0);
 
   const { clearTerminalCount } = getIssue450ControlSequenceCounts(writes.join(""));
-  expect(clearTerminalCount).toBe(1);
+  expect(clearTerminalCount).toBe(0);
 
   unmount();
 });

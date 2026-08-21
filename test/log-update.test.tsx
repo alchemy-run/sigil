@@ -116,11 +116,16 @@ test("incremental rendering - when output grows", () => {
   render("Line 1\n");
   render("Line 1\nLine 2\nLine 3\n");
 
+  // A frame that grew is rewritten in full: skipping unchanged lines with
+  // cursorNextLine clamps at the bottom margin instead of scrolling, which
+  // desynchronizes the tracked cursor position when the grown frame reaches
+  // the bottom of the terminal.
   const secondCall = stdout.write.mock.calls[1][0];
-  expect(secondCall.includes(ansiEscapes.cursorNextLine)).toBe(true); // Skips unchanged first line
-  expect(secondCall.includes("Line 2")).toBe(true); // Adds new line
-  expect(secondCall.includes("Line 3")).toBe(true); // Adds new line
-  expect(secondCall.includes("Line 1")).toBe(false); // Doesn't rewrite unchanged
+  expect(secondCall.includes(ansiEscapes.eraseLines(2))).toBe(true); // Erases the previous frame
+  expect(secondCall.includes("Line 1")).toBe(true); // Rewrites the whole frame
+  expect(secondCall.includes("Line 2")).toBe(true);
+  expect(secondCall.includes("Line 3")).toBe(true);
+  expect(secondCall.includes(ansiEscapes.cursorNextLine)).toBe(false); // No incremental walk
 });
 
 test("incremental rendering - single write call with multiple surgical updates", () => {

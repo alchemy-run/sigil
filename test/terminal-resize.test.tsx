@@ -269,3 +269,133 @@ test("width decrease clears lastOutput to force rerender", async () => {
   // Verify content was updated
   expect(stripAnsi(getWriteContents(stdout).at(-1)!).includes("Updated Content")).toBe(true);
 });
+
+// Regression tests for inline rendering breaking on terminal height resize.
+// Found in practice with a windowed plan view: a static inline frame, the
+// user resizes the terminal vertically, and the incremental renderer keeps
+// diffing against a screen that no longer matches its state — or worse,
+// transient exactly-fullscreen frames trigger a scrollback-erasing
+// clearTerminal (ESC[3J).
+
+let setResizeRegressionCount: (count: number) => void = () => {};
+
+function ResizeRegressionList({ initialCount }: { readonly initialCount: number }) {
+  const [count, setCount] = React.useState(initialCount);
+  setResizeRegressionCount = setCount;
+  return (
+    <Box flexDirection="column">
+      {Array.from({ length: count }, (_, index) => (
+        <Text key={index}>Item {index + 1}</Text>
+      ))}
+    </Box>
+  );
+}
+
+test("height-only resize rewrites the inline frame (stale-screen regression)", async () => {
+  const stdout = createStdout(80);
+  (stdout as any).rows = 10;
+
+  // The frame must not depend on the window size: the bug is that Ink wrote
+  // nothing at all after a height-only resize because the output string was
+  // unchanged, while the terminal had reflowed the screen underneath it.
+  const { waitUntilRenderFlush, unmount } = render(<ResizeRegressionList initialCount={3} />, {
+    stdout,
+    interactive: true,
+  });
+  await waitUntilRenderFlush();
+  expect(stripAnsi(getWriteContents(stdout).join("")).includes("Item 3")).toBe(true);
+
+  const writesBefore = stdout.getWrites().length;
+  (stdout as any).rows = 20;
+  stdout.emit("resize");
+  await delay(100);
+
+  const afterResize = stdout.getWrites().slice(writesBefore).join("");
+  expect(
+    stripAnsi(afterResize).includes("Item 3"),
+    "A height change must force a full rewrite of the inline frame",
+  ).toBe(true);
+
+  unmount();
+});
+
+test("shrinking from an exactly-fullscreen frame does not erase scrollback", async () => {
+  const stdout = createStdout(80);
+  (stdout as any).rows = 4;
+
+  const { waitUntilRenderFlush, unmount } = render(<ResizeRegressionList initialCount={4} />, {
+    stdout,
+    interactive: true,
+  });
+  await waitUntilRenderFlush();
+
+  // Shrink back to an inline frame. The 4-row frame exactly filled the
+  // viewport and is erasable in place; clearTerminal (with its ESC[3J
+  // scrollback erase) must not fire.
+  setResizeRegressionCount(2);
+  await delay(100);
+  await waitUntilRenderFlush();
+
+  expect(
+    stdout.getWrites().join("").includes("\u001B[3J"),
+    "Leaving an exactly-fullscreen frame must not erase the scrollback buffer",
+  ).toBe(false);
+
+  unmount();
+});
+
+test("overflowing frames are clamped to the viewport instead of erasing scrollback", async () => {
+  const stdout = createStdout(80);
+  (stdout as any).rows = 4;
+
+  const { waitUntilRenderFlush, unmount } = render(<ResizeRegressionList initialCount={8} />, {
+    stdout,
+    interactive: true,
+  });
+  await waitUntilRenderFlush();
+
+  // Update while still overflowing: historically this took the full
+  // clearTerminal fallback on every frame, wiping scrollback each time.
+  setResizeRegressionCount(9);
+  await delay(100);
+  await waitUntilRenderFlush();
+
+  const allWrites = stdout.getWrites().join("");
+  expect(
+    allWrites.includes("\u001B[3J"),
+    "Overflowing updates must not erase the scrollback buffer",
+  ).toBe(false);
+
+  const lastFrame = stripAnsi(getWriteContents(stdout).at(-1)!);
+  expect(lastFrame.includes("Item 9"), "The bottom rows of the frame must be visible").toBe(true);
+  expect(
+    lastFrame.includes("Item 1\n"),
+    "Rows above the viewport must be clamped away rather than pushed into scrollback",
+  ).toBe(false);
+
+  unmount();
+});
+
+test("height shrink below the previous frame height does not erase scrollback", async () => {
+  const stdout = createStdout(80);
+  (stdout as any).rows = 6;
+
+  const { waitUntilRenderFlush, unmount } = render(<ResizeRegressionList initialCount={6} />, {
+    stdout,
+    interactive: true,
+  });
+  await waitUntilRenderFlush();
+
+  const writesBefore = stdout.getWrites().length;
+  (stdout as any).rows = 4;
+  stdout.emit("resize");
+  await delay(100);
+
+  const afterResize = stdout.getWrites().slice(writesBefore).join("");
+  expect(
+    afterResize.includes("\u001B[3J"),
+    "A height shrink must not funnel the stale frame height into clearTerminal",
+  ).toBe(false);
+
+  unmount();
+});
