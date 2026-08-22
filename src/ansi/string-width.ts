@@ -1,3 +1,4 @@
+import { eastAsianWidth } from "./east-asian-width.ts";
 // Visual width of a string: how many terminal columns it occupies.
 // Ported from `string-width` (MIT, Sindre Sorhus).
 //
@@ -15,7 +16,7 @@
 //   5. Otherwise use East Asian Width of the cluster's first visible code
 //      point, and add widths for trailing spacing marks and Halfwidth/Fullwidth
 //      Forms within the same cluster (e.g., dakuten/handakuten).
-import { eastAsianWidth } from "./east-asian-width.ts";
+import { C1_CSI, ESC } from "./escapes.ts";
 import stripAnsi from "./strip.ts";
 
 export type StringWidthOptions = {
@@ -187,7 +188,7 @@ export default function stringWidth(input: string, options: StringWidthOptions =
 
   // Avoid calling stripAnsi when there are no ANSI escape sequences
   // (ESC = 0x1B, CSI = 0x9B)
-  if (!countAnsiEscapeCodes && (string.includes("\u001B") || string.includes("\u009B"))) {
+  if (!countAnsiEscapeCodes && (string.includes(ESC) || string.includes(C1_CSI))) {
     string = stripAnsi(string);
   }
 

@@ -4,6 +4,7 @@
 import process from "node:process";
 
 import signalExit from "../signal-exit.ts";
+import { cursorHide, cursorShow } from "./escapes.ts";
 
 type CursorStream = {
   isTTY?: boolean;
@@ -21,7 +22,7 @@ const registerRestore = (): void => {
 
   signalExit(
     () => {
-      process.stderr.write("\u001B[?25h");
+      process.stderr.write(cursorShow);
     },
     { alwaysLast: true },
   );
@@ -33,7 +34,7 @@ const cliCursor = {
       return;
     }
 
-    writableStream.write("\u001B[?25h");
+    writableStream.write(cursorShow);
   },
 
   hide(writableStream: CursorStream = process.stderr): void {
@@ -42,7 +43,7 @@ const cliCursor = {
     }
 
     registerRestore();
-    writableStream.write("\u001B[?25l");
+    writableStream.write(cursorHide);
   },
 };
 

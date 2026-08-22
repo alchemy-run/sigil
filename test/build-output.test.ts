@@ -8,7 +8,7 @@ const rootDir = path.join(import.meta.dirname, "..");
 const distDir = path.join(rootDir, "dist");
 
 const packageJson = JSON.parse(fs.readFileSync(path.join(rootDir, "package.json"), "utf8")) as {
-  exports: { types: string; default: string };
+  exports: Record<string, Record<string, string>>;
 };
 
 test.beforeAll(() => {
@@ -24,14 +24,14 @@ test("build output files are not nested under dist/src/", () => {
 });
 
 test("package.json export paths resolve to existing files", () => {
-  const { exports } = packageJson;
-  const typesPath = path.join(rootDir, exports.types);
-  const defaultPath = path.join(rootDir, exports.default);
-
-  expect(fs.existsSync(typesPath), `Types export path does not exist: ${exports.types}`).toBe(true);
-  expect(fs.existsSync(defaultPath), `Default export path does not exist: ${exports.default}`).toBe(
-    true,
-  );
+  for (const [subpath, conditions] of Object.entries(packageJson.exports)) {
+    for (const [condition, target] of Object.entries(conditions)) {
+      expect(
+        fs.existsSync(path.join(rootDir, target)),
+        `exports["${subpath}"].${condition} does not exist: ${target}`,
+      ).toBe(true);
+    }
+  }
 });
 
 test("dist entry point and type declarations exist", () => {

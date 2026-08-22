@@ -1,7 +1,9 @@
-const bellCharacter = "\u0007";
-const escapeCharacter = "\u001B";
-const stringTerminatorCharacter = "\u009C";
-const csiCharacter = "\u009B";
+import { BEL, C1_CSI, C1_ST, ESC } from "./ansi/escapes.ts";
+
+const bellCharacter = BEL;
+const escapeCharacter = ESC;
+const stringTerminatorCharacter = C1_ST;
+const csiCharacter = C1_CSI;
 const oscCharacter = "\u009D";
 const dcsCharacter = "\u0090";
 const pmCharacter = "\u009E";

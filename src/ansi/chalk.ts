@@ -1,6 +1,7 @@
 // Terminal string styling with a chalk-compatible API for the styles Ink uses.
 // Ported from `chalk` (MIT, Sindre Sorhus) without the chaining builder —
 // Ink only ever applies one style per call.
+import { ESC } from "./escapes.ts";
 import {
   background,
   backgroundColorNames,
@@ -87,7 +88,7 @@ const applyStyle = (open: string, close: string, text: string): string => {
 
   let string = text;
 
-  if (string.includes("\u001B")) {
+  if (string.includes(ESC)) {
     // Re-open the style wherever the text already contains its close code,
     // otherwise only the part before that code would stay styled.
     string = stringReplaceAll(string, close, open);

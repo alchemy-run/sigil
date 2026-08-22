@@ -33,11 +33,27 @@
     "#/": "./src"
   },
   "exports": {
-    "typescript": "./src/index.ts",
-    "bun": "./src/index.ts",
-    "import": "./dist/index.js",
-    "types": "./dist/index.d.ts",
-    "default": "./dist/index.js"
+    ".": {
+      "typescript": "./src/index.ts",
+      "bun": "./src/index.ts",
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./ansi": {
+      "typescript": "./src/ansi/index.ts",
+      "bun": "./src/ansi/index.ts",
+      "import": "./dist/ansi.js",
+      "types": "./dist/ansi.d.ts",
+      "default": "./dist/ansi.js"
+    },
+    "./yoga": {
+      "typescript": "./src/yoga/index.ts",
+      "bun": "./src/yoga/index.ts",
+      "import": "./dist/yoga.js",
+      "types": "./dist/yoga.d.ts",
+      "default": "./dist/yoga.js"
+    }
   },
   "publishConfig": {
     "access": "public"

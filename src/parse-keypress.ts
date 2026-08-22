@@ -1,4 +1,5 @@
 // Copied from https://github.com/enquirer/enquirer/blob/36785f3399a41cd61e9d28d1eb9c2fcd73d69b4c/lib/keypress.js
+import { DEL, ESC } from "./ansi/escapes.ts";
 import { kittyModifiers } from "./kitty-keyboard.ts";
 
 const textDecoder = new TextDecoder();
@@ -396,7 +397,7 @@ const parseKeypress = (s: Uint8Array | string = ""): ParsedKey => {
   if (s instanceof Uint8Array) {
     if (s[0]! > 127 && s[1] === undefined) {
       (s[0] as unknown as number) -= 128;
-      s = "\x1b" + textDecoder.decode(s);
+      s = ESC + textDecoder.decode(s);
     } else {
       s = textDecoder.decode(s);
     }
@@ -440,7 +441,7 @@ const parseKeypress = (s: Uint8Array | string = ""): ParsedKey => {
 
   key.sequence = key.sequence || s || key.name;
 
-  if (s === "\r" || s === "\x1b\r") {
+  if (s === "\r" || s === ESC + "\r") {
     // carriage return (or meta+return on macOS)
     key.raw = undefined;
     key.name = "return";
@@ -451,19 +452,19 @@ const parseKeypress = (s: Uint8Array | string = ""): ParsedKey => {
   } else if (s === "\t") {
     // tab
     key.name = "tab";
-  } else if (s === "\b" || s === "\x1b\b") {
+  } else if (s === "\b" || s === ESC + "\b") {
     // backspace or ctrl+h
     key.name = "backspace";
-    key.meta = s.charAt(0) === "\x1b";
-  } else if (s === "\x7f" || s === "\x1b\x7f") {
+    key.meta = s.charAt(0) === ESC;
+  } else if (s === DEL || s === ESC + DEL) {
     // backspace
     key.name = "backspace";
-    key.meta = s.charAt(0) === "\x1b";
-  } else if (s === "\x1b" || s === "\x1b\x1b") {
+    key.meta = s.charAt(0) === ESC;
+  } else if (s === ESC || s === ESC + ESC) {
     // escape key
     key.name = "escape";
     key.meta = s.length === 2;
-  } else if (s === " " || s === "\x1b ") {
+  } else if (s === " " || s === ESC + " ") {
     key.name = "space";
     key.meta = s.length === 2;
   } else if (s.length === 1 && s <= "\x1a") {
@@ -489,7 +490,7 @@ const parseKeypress = (s: Uint8Array | string = ""): ParsedKey => {
     // oxlint-disable-next-line typescript/no-misused-spread
     const segs = [...s];
 
-    if (segs[0] === "\u001b" && segs[1] === "\u001b") {
+    if (segs[0] === ESC && segs[1] === ESC) {
       key.meta = true;
     }
 

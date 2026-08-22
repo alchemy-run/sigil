@@ -1,5 +1,6 @@
 // ANSI SGR style tables and color-space conversions.
 // Ported from `ansi-styles` (MIT, Sindre Sorhus).
+import { CSI } from "./escapes.ts";
 
 const ANSI_BACKGROUND_OFFSET = 10;
 
@@ -11,17 +12,17 @@ export type StylePair = {
 const wrapAnsi16 =
   (offset = 0) =>
   (code: number): string =>
-    `\u001B[${code + offset}m`;
+    `${CSI}${code + offset}m`;
 
 const wrapAnsi256 =
   (offset = 0) =>
   (code: number): string =>
-    `\u001B[${38 + offset};5;${code}m`;
+    `${CSI}${38 + offset};5;${code}m`;
 
 const wrapAnsi16m =
   (offset = 0) =>
   (red: number, green: number, blue: number): string =>
-    `\u001B[${38 + offset};2;${red};${green};${blue}m`;
+    `${CSI}${38 + offset};2;${red};${green};${blue}m`;
 
 const modifierCodes = {
   reset: [0, 0],
@@ -99,7 +100,7 @@ const toPairs = <Name extends string>(
   for (const [name, [open, close]] of Object.entries(codes) as Array<
     [Name, readonly [number, number]]
   >) {
-    result[name] = { open: `\u001B[${open}m`, close: `\u001B[${close}m` };
+    result[name] = { open: `${CSI}${open}m`, close: `${CSI}${close}m` };
   }
 
   return result;
@@ -126,14 +127,14 @@ export const codes: ReadonlyMap<number, number> = new Map(
 );
 
 export const foreground = {
-  close: "\u001B[39m",
+  close: `${CSI}39m`,
   ansi: wrapAnsi16(),
   ansi256: wrapAnsi256(),
   ansi16m: wrapAnsi16m(),
 };
 
 export const background = {
-  close: "\u001B[49m",
+  close: `${CSI}49m`,
   ansi: wrapAnsi16(ANSI_BACKGROUND_OFFSET),
   ansi256: wrapAnsi256(ANSI_BACKGROUND_OFFSET),
   ansi16m: wrapAnsi16m(ANSI_BACKGROUND_OFFSET),

@@ -4,7 +4,7 @@ import { type ReactNode } from "react";
 import { type FiberRoot } from "react-reconciler";
 import { LegacyRoot, ConcurrentRoot } from "react-reconciler/constants.js";
 
-import ansiEscapes from "./ansi/escapes.ts";
+import ansiEscapes, { bsu, esu } from "./ansi/escapes.ts";
 import wrapAnsi from "./ansi/wrap.ts";
 import autoBind from "./auto-bind.ts";
 import { accessibilityContext as AccessibilityContext } from "./components/AccessibilityContext.ts";
@@ -23,7 +23,7 @@ import signalExit from "./signal-exit.ts";
 import { isTty, type OutputStream } from "./stream.ts";
 import throttle, { type Throttled } from "./throttle.ts";
 import { getWindowSize } from "./utils.ts";
-import { bsu, esu, shouldSynchronize } from "./write-synchronized.ts";
+import { shouldSynchronize } from "./write-synchronized.ts";
 import Yoga from "./yoga/index.ts";
 
 const noop = () => {};
@@ -873,7 +873,7 @@ export default class Ink {
 
       if (canWriteToStdout) {
         if (this.kittyProtocolEnabled) {
-          this.writeBestEffort(this.options.stdout, "\u001B[<u");
+          this.writeBestEffort(this.options.stdout, ansiEscapes.popKittyKeyboard);
         }
 
         // Alternate-screen content is disposable by design. We intentionally
@@ -1390,11 +1390,11 @@ export default class Ink {
     const timer = setTimeout(cleanup, 200);
     this.cancelKittyDetection = cleanup;
 
-    stdout.write("\u001B[?u");
+    stdout.write(ansiEscapes.kittyQuery);
   }
 
   private enableKittyProtocol(flags: KittyFlagName[]): void {
-    this.options.stdout.write(`\u001B[>${resolveFlags(flags)}u`);
+    this.options.stdout.write(ansiEscapes.pushKittyKeyboard(resolveFlags(flags)));
     this.kittyProtocolEnabled = true;
     // Remember the flags so suspendTerminal() can re-enable the same protocol
     // after a child process has had the terminal.
@@ -1433,7 +1433,7 @@ export default class Ink {
         this.log.done();
 
         if (this.kittyProtocolEnabled) {
-          this.writeBestEffort(this.options.stdout, "\u001B[<u");
+          this.writeBestEffort(this.options.stdout, ansiEscapes.popKittyKeyboard);
         }
 
         if (this.alternateScreen) {
@@ -1481,7 +1481,10 @@ export default class Ink {
       }
 
       if (this.kittyProtocolEnabled && this.kittyFlags) {
-        this.writeBestEffort(this.options.stdout, `\u001B[>${resolveFlags(this.kittyFlags)}u`);
+        this.writeBestEffort(
+          this.options.stdout,
+          ansiEscapes.pushKittyKeyboard(resolveFlags(this.kittyFlags)),
+        );
       }
     }
 

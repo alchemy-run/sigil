@@ -1,5 +1,6 @@
 // Word-wrap a string to a column width, ANSI-aware.
 // Ported from `wrap-ansi` (MIT, Sindre Sorhus).
+import { BEL, C1_CSI, ESC } from "./escapes.ts";
 //
 // Supported boundary: semicolon-delimited SGR styling, colon-delimited
 // RGB/indexed colors, and OSC 8 hyperlinks are tracked, while ordinary CSI
@@ -15,9 +16,8 @@ export type WrapOptions = {
   readonly wordWrap?: boolean;
 };
 
-const ANSI_ESCAPE = "\u001B";
-const ANSI_ESCAPE_BELL = "\u0007";
-const C1_CSI = "\u009B";
+const ANSI_ESCAPE = ESC;
+const ANSI_ESCAPE_BELL = BEL;
 const ANSI_CSI = "[";
 const ANSI_OSC = "]";
 const ANSI_SGR_TERMINATOR = "m";

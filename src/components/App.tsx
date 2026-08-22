@@ -12,6 +12,7 @@ import React, {
 } from "react";
 
 import cliCursor from "../ansi/cursor.ts";
+import ansiEscapes, { CSI, ESC } from "../ansi/escapes.ts";
 import { createInputParser } from "../input-parser.ts";
 import { type CursorPosition } from "../log-update.ts";
 import { getRawModeStream, type OutputStream } from "../stream.ts";
@@ -25,8 +26,8 @@ import StdinContext from "./StdinContext.ts";
 import StdoutContext from "./StdoutContext.ts";
 
 const tab = "\t";
-const shiftTab = "\u001B[Z";
-const escape = "\u001B";
+const shiftTab = `${CSI}Z`;
+const escape = ESC;
 
 type AnimationSubscriber = {
   readonly callback: (currentTime: number) => void;
@@ -386,7 +387,7 @@ function App({
 
       if (isEnabled) {
         if (bracketedPasteModeEnabledCount.current === 0) {
-          stdout.write("\u001B[?2004h");
+          stdout.write(ansiEscapes.enableBracketedPaste);
         }
 
         bracketedPasteModeEnabledCount.current++;
@@ -398,7 +399,7 @@ function App({
       }
 
       if (--bracketedPasteModeEnabledCount.current === 0) {
-        stdout.write("\u001B[?2004l");
+        stdout.write(ansiEscapes.disableBracketedPaste);
       }
     },
     [stdout],
@@ -422,7 +423,7 @@ function App({
 
     if (wasBracketedPaste && stdout.isTTY) {
       try {
-        stdout.write("\u001B[?2004l");
+        stdout.write(ansiEscapes.disableBracketedPaste);
       } catch {}
     }
 
@@ -445,7 +446,7 @@ function App({
 
     if (bracketedPaste && stdout.isTTY) {
       try {
-        stdout.write("\u001B[?2004h");
+        stdout.write(ansiEscapes.enableBracketedPaste);
       } catch {}
     }
   }, [rawModeStdin, stdout, attachReadableListener]);
@@ -668,7 +669,7 @@ function App({
 
       if (bracketedPasteModeEnabledCount.current > 0) {
         if (stdout.isTTY && canWriteToStdout) {
-          stdout.write("\u001B[?2004l");
+          stdout.write(ansiEscapes.disableBracketedPaste);
         }
 
         bracketedPasteModeEnabledCount.current = 0;

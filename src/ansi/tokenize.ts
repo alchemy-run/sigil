@@ -1,17 +1,15 @@
+import { isFullwidthCodePoint } from "./east-asian-width.ts";
 // ANSI-aware tokenizer: splits a string into grapheme clusters and ANSI
 // codes, tracks active styles per character, and re-emits minimal escape
 // sequences. This is the style model Ink's renderer is built on.
 // Ported from `@alcalzone/ansi-tokenize` (MIT, AlCalzone).
-import { isFullwidthCodePoint } from "./east-asian-width.ts";
+import { BEL, C1_ST, ESC } from "./escapes.ts";
 import { codes as sgrCodes, foreground, background, styles } from "./sgr.ts";
 
-// Named ANSI control characters
-const ESC = "\u001B";
-const BEL = "\u0007";
+// Single-character introducer suffixes (`ESC [` = CSI, `ESC ]` = OSC).
 const BACKSLASH = "\\";
 const CSI = "[";
 const OSC = "]";
-const C1_ST = "\u009C";
 
 // Char codes
 const CC_BEL = BEL.charCodeAt(0);

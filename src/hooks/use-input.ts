@@ -1,5 +1,6 @@
 import { useEffect, useEffectEvent } from "react";
 
+import { ESC } from "../ansi/escapes.ts";
 import parseKeypress, { nonAlphanumericKeys } from "../parse-keypress.ts";
 import reconciler from "../reconciler.ts";
 import { useStdinContext } from "./use-stdin.ts";
@@ -230,7 +231,7 @@ const useInput = (inputHandler: Handler, options: Options = {}) => {
 
     // Strip escape prefix from broken/incomplete sequences that
     // parseKeypress did not fully resolve (e.g. a flushed "\u001B[").
-    if (input.startsWith("\u001B")) {
+    if (input.startsWith(ESC)) {
       input = input.slice(1);
     }
 

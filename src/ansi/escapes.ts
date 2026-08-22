@@ -2,25 +2,40 @@ import os from "node:os";
 // Derived from `ansi-escapes` (MIT, Sindre Sorhus), reduced to the escapes Ink uses.
 import process from "node:process";
 
-const csi = "\u001B[";
+// Control characters and sequence introducers. This module is the single
+// home for escape sequences: everything else imports these instead of
+// spelling out `\u001B[...` inline.
+export const ESC = "\u001B";
+export const BEL = "\u0007";
+export const DEL = "\u007F";
+/** Control Sequence Introducer. */
+export const CSI = `${ESC}[`;
+/** Operating System Command. */
+export const OSC = `${ESC}]`;
+/** String Terminator. */
+export const ST = `${ESC}\\`;
+/** Single-byte C1 forms of CSI and ST. */
+export const C1_CSI = "\u009B";
+export const C1_ST = "\u009C";
+
 const sep = ";";
 
 export const cursorTo = (x: number, y?: number): string => {
   if (typeof y !== "number") {
-    return csi + (x + 1) + "G";
+    return CSI + (x + 1) + "G";
   }
 
-  return csi + (y + 1) + sep + (x + 1) + "H";
+  return CSI + (y + 1) + sep + (x + 1) + "H";
 };
 
-export const cursorUp = (count = 1): string => csi + count + "A";
-export const cursorDown = (count = 1): string => csi + count + "B";
-export const cursorLeft = csi + "G";
-export const cursorNextLine = csi + "E";
+export const cursorUp = (count = 1): string => CSI + count + "A";
+export const cursorDown = (count = 1): string => CSI + count + "B";
+export const cursorLeft = CSI + "G";
+export const cursorNextLine = CSI + "E";
 
-export const eraseEndLine = csi + "K";
-export const eraseLine = csi + "2K";
-export const eraseScreen = csi + "2J";
+export const eraseEndLine = CSI + "K";
+export const eraseLine = CSI + "2K";
+export const eraseScreen = CSI + "2J";
 
 export const eraseLines = (count: number): string => {
   let clear = "";
@@ -54,23 +69,36 @@ const isOldWindows = (): boolean => {
 };
 
 export const clearTerminal = isOldWindows()
-  ? `${eraseScreen}${csi}0f`
+  ? `${eraseScreen}${CSI}0f`
   : // 1. Erases the screen (only done in case `2` is not supported)
     // 2. Erases the whole screen including scrollback buffer
     // 3. Moves cursor to the top-left position
-    `${eraseScreen}${csi}3J${csi}H`;
+    `${eraseScreen}${CSI}3J${CSI}H`;
 
-export const enterAlternativeScreen = csi + "?1049h";
-export const exitAlternativeScreen = csi + "?1049l";
+export const enterAlternativeScreen = CSI + "?1049h";
+export const exitAlternativeScreen = CSI + "?1049l";
 
-export const cursorShow = csi + "?25h";
-export const cursorHide = csi + "?25l";
+export const cursorShow = CSI + "?25h";
+export const cursorHide = CSI + "?25l";
 
-const osc = "\u001B]";
-const bel = "\u0007";
+export const enableBracketedPaste = CSI + "?2004h";
+export const disableBracketedPaste = CSI + "?2004l";
+
+// Markers the terminal wraps around pasted input while bracketed paste is on.
+export const pasteStart = CSI + "200~";
+export const pasteEnd = CSI + "201~";
+
+// Synchronized update mode (DEC mode 2026): begin / end synchronized update.
+export const bsu = CSI + "?2026h";
+export const esu = CSI + "?2026l";
+
+// Kitty keyboard protocol: query support, push a flag set, pop it off.
+export const kittyQuery = CSI + "?u";
+export const pushKittyKeyboard = (flags: number): string => `${CSI}>${flags}u`;
+export const popKittyKeyboard = CSI + "<u";
 
 export const link = (text: string, url: string): string =>
-  [osc, "8", sep, sep, url, bel, text, osc, "8", sep, sep, bel].join("");
+  [OSC, "8", sep, sep, url, BEL, text, OSC, "8", sep, sep, BEL].join("");
 
 const ansiEscapes = {
   cursorTo,
@@ -87,6 +115,15 @@ const ansiEscapes = {
   exitAlternativeScreen,
   cursorShow,
   cursorHide,
+  enableBracketedPaste,
+  disableBracketedPaste,
+  pasteStart,
+  pasteEnd,
+  bsu,
+  esu,
+  kittyQuery,
+  pushKittyKeyboard,
+  popKittyKeyboard,
   link,
 };
 

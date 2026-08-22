@@ -1,6 +1,6 @@
-const escape = "\u001B";
-const pasteStart = "\u001B[200~";
-const pasteEnd = "\u001B[201~";
+import { ESC, pasteStart, pasteEnd } from "./ansi/escapes.ts";
+
+const escape = ESC;
 
 export type InputEvent = string | { readonly paste: string };
 
@@ -262,7 +262,9 @@ export const createInputParser = (): InputParser => {
       // Don't trigger the escape flush timer while assembling a paste start
       // marker (`\u001B[200` and then `~`) or while waiting for paste end.
       return (
-        pending.startsWith(escape) && !pending.startsWith(pasteStart) && pending !== "\u001B[200"
+        pending.startsWith(escape) &&
+        !pending.startsWith(pasteStart) &&
+        pending !== pasteStart.slice(0, -1)
       );
     },
     flushPendingEscape() {

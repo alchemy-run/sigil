@@ -17,10 +17,10 @@ import { afterAll, expect, test, vi } from "vite-plus/test";
 import { spawn } from "zigpty";
 
 import ansiEscapes from "../src/ansi/escapes.ts";
+import { bsu, esu } from "../src/ansi/escapes.ts";
 import stripAnsi from "../src/ansi/strip.ts";
 import { render, Box, Text, useApp, useCursor, useInput, useStdin } from "../src/index.ts";
 import { type RenderMetrics } from "../src/ink.tsx";
-import { bsu, esu } from "../src/write-synchronized.ts";
 import { createStdin, emitReadable } from "./helpers/create-stdin.ts";
 import createStdout, { type FakeStdout } from "./helpers/create-stdout.ts";
 import FakeTimers from "./helpers/fake-timers.ts";
