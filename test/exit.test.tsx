@@ -1,16 +1,11 @@
-import { createRequire } from "node:module";
 import * as path from "node:path";
 import process from "node:process";
 
 import { expect, test } from "vite-plus/test";
+import { spawn } from "zigpty";
 
 import stripAnsi from "../src/ansi/strip.ts";
 import { run } from "./helpers/run.ts";
-
-const require = createRequire(import.meta.url);
-
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports
-const { spawn } = require("node-pty") as typeof import("node-pty");
 
 test("exit normally without unmount() or exit()", async () => {
   const output = await run("exit-normally");
@@ -105,7 +100,7 @@ test("don’t exit while raw mode is active", async () => {
           reject(new Error("Test timed out - process did not exit in time"));
         }, 2000);
       } else {
-        output += data;
+        output += data.toString();
       }
     });
 

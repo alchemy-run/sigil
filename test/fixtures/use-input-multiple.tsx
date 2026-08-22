@@ -1,6 +1,6 @@
 import process from "node:process";
 
-import React, { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 import { render, useInput, useApp, Text } from "../../src/index.ts";
 

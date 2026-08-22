@@ -1,5 +1,3 @@
-import React from "react";
-
 import { Text, useStdin, render } from "../../src/index.ts";
 
 function App() {

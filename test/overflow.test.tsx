@@ -1,24 +1,7 @@
-import boxen, { type Options } from "boxen";
-import React from "react";
 import { expect, test } from "vite-plus/test";
 
-import sliceAnsi from "../src/ansi/slice.ts";
 import { Box, Text } from "../src/index.ts";
 import { renderToString, renderToStringAsync } from "./helpers/render-to-string.ts";
-
-const box = (text: string, options?: Options): string => {
-  return boxen(text, {
-    ...options,
-    borderStyle: "round",
-  });
-};
-
-const clipX = (text: string, columns: number): string => {
-  return text
-    .split("\n")
-    .map((line) => sliceAnsi(line, 0, columns).trim())
-    .join("\n");
-};
 
 test("overflowX - single text node in a box inside overflow container", () => {
   const output = renderToString(
@@ -41,7 +24,7 @@ test("overflowX - single text node inside overflow container with border", () =>
     </Box>,
   );
 
-  expect(output).toBe(box("Hell"));
+  expect(output).toBe(["╭────╮", "│Hell│", "╰────╯"].join("\n"));
 });
 
 test("overflowX - single text node in a box with border inside overflow container", () => {
@@ -53,7 +36,7 @@ test("overflowX - single text node in a box with border inside overflow containe
     </Box>,
   );
 
-  expect(output).toBe(clipX(box("Hello"), 6));
+  expect(output).toBe(["╭─────", "│Hello", "╰─────"].join("\n"));
 });
 
 test("overflowX - multiple text nodes in a box inside overflow container", () => {
@@ -79,7 +62,7 @@ test("overflowX - multiple text nodes in a box inside overflow container with bo
     </Box>,
   );
 
-  expect(output).toBe(box("Hello "));
+  expect(output).toBe(["╭──────╮", "│Hello │", "╰──────╯"].join("\n"));
 });
 
 test("overflowX - multiple text nodes in a box with border inside overflow container", () => {
@@ -92,7 +75,7 @@ test("overflowX - multiple text nodes in a box with border inside overflow conta
     </Box>,
   );
 
-  expect(output).toBe(clipX(box("HelloWo\n"), 8));
+  expect(output).toBe(["╭───────", "│HelloWo", "│", "╰───────"].join("\n"));
 });
 
 test("overflowX - multiple boxes inside overflow container", () => {
@@ -122,7 +105,7 @@ test("overflowX - multiple boxes inside overflow container with border", () => {
     </Box>,
   );
 
-  expect(output).toBe(box("Hello "));
+  expect(output).toBe(["╭──────╮", "│Hello │", "╰──────╯"].join("\n"));
 });
 
 test("overflowX - box before left edge of overflow container", () => {
@@ -146,7 +129,7 @@ test("overflowX - box before left edge of overflow container with border", () =>
     </Box>,
   );
 
-  expect(output).toBe(box(" ".repeat(4)));
+  expect(output).toBe(["╭────╮", "│    │", "╰────╯"].join("\n"));
 });
 
 test("overflowX - box intersecting with left edge of overflow container", () => {
@@ -170,7 +153,7 @@ test("overflowX - box intersecting with left edge of overflow container with bor
     </Box>,
   );
 
-  expect(output).toBe(box("lo Wor"));
+  expect(output).toBe(["╭──────╮", "│lo Wor│", "╰──────╯"].join("\n"));
 });
 
 test("overflowX - box after right edge of overflow container", () => {
@@ -214,7 +197,9 @@ test("overflowY - single text node inside overflow container with border", () =>
     </Box>,
   );
 
-  expect(output).toBe(box("Hello".padEnd(18, " ")));
+  expect(output).toBe(
+    ["╭──────────────────╮", "│Hello             │", "╰──────────────────╯"].join("\n"),
+  );
 });
 
 test("overflowY - multiple boxes inside overflow container", () => {
@@ -256,7 +241,7 @@ test("overflowY - multiple boxes inside overflow container with border", () => {
     </Box>,
   );
 
-  expect(output).toBe(box("Line #1\nLine #2"));
+  expect(output).toBe(["╭───────╮", "│Line #1│", "│Line #2│", "╰───────╯"].join("\n"));
 });
 
 test("overflowY - box above top edge of overflow container", () => {
@@ -280,7 +265,7 @@ test("overflowY - box above top edge of overflow container with border", () => {
     </Box>,
   );
 
-  expect(output).toBe(box(" ".repeat(5)));
+  expect(output).toBe(["╭─────╮", "│     │", "╰─────╯"].join("\n"));
 });
 
 test("overflowY - box intersecting with top edge of overflow container", () => {
@@ -304,7 +289,7 @@ test("overflowY - box intersecting with top edge of overflow container with bord
     </Box>,
   );
 
-  expect(output).toBe(box("World"));
+  expect(output).toBe(["╭─────╮", "│World│", "╰─────╯"].join("\n"));
 });
 
 test("overflowY - box below bottom edge of overflow container", () => {
@@ -328,7 +313,7 @@ test("overflowY - box below bottom edge of overflow container with border", () =
     </Box>,
   );
 
-  expect(output).toBe(box(" ".repeat(5)));
+  expect(output).toBe(["╭─────╮", "│     │", "╰─────╯"].join("\n"));
 });
 
 test("overflowY - box intersecting with bottom edge of overflow container", () => {
@@ -352,7 +337,7 @@ test("overflowY - box intersecting with bottom edge of overflow container with b
     </Box>,
   );
 
-  expect(output).toBe(box("Hello"));
+  expect(output).toBe(["╭─────╮", "│Hello│", "╰─────╯"].join("\n"));
 });
 
 test("overflow - single text node inside overflow container", () => {
@@ -380,7 +365,7 @@ test("overflow - single text node inside overflow container with border", () => 
     </Box>,
   );
 
-  expect(output).toBe(`${box("Hello ")}\n`);
+  expect(output).toBe(`${["╭──────╮", "│Hello │", "╰──────╯"].join("\n")}\n`);
 });
 
 test("overflow - multiple boxes inside overflow container", () => {
@@ -414,7 +399,7 @@ test("overflow - multiple boxes inside overflow container with border", () => {
     </Box>,
   );
 
-  expect(output).toBe(`${box("TLTR")}\n`);
+  expect(output).toBe(`${["╭────╮", "│TLTR│", "╰────╯"].join("\n")}\n`);
 });
 
 test("overflow - box intersecting with top left edge of overflow container", () => {
@@ -503,11 +488,19 @@ test("out of bounds writes do not crash", () => {
     columns: 10,
   });
 
-  const expected = boxen("", {
-    width: 12,
-    height: 10,
-    borderStyle: "round",
-  })
+  const expected = [
+    "╭──────────╮",
+    "│          │",
+    "│          │",
+    "│          │",
+    "│          │",
+    "│          │",
+    "│          │",
+    "│          │",
+    "│          │",
+    "╰──────────╯",
+  ]
+    .join("\n")
     .split("\n")
     .map((line, index) => {
       return index === 0 || index === 9 ? line : `${line.slice(0, 10)}${line[11] ?? ""}`;

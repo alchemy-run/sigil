@@ -1,13 +1,11 @@
 import { spawn as spawnProcess } from "node:child_process";
 import EventEmitter from "node:events";
-import { createRequire } from "node:module";
 import * as path from "node:path";
 import process from "node:process";
 import { PassThrough, Readable, Writable } from "node:stream";
 import { setTimeout as delay } from "node:timers/promises";
 import vm from "node:vm";
 
-import boxen from "boxen";
 import React, {
   type ReactElement,
   type ReactNode,
@@ -16,6 +14,7 @@ import React, {
   useState,
 } from "react";
 import { afterAll, expect, test, vi } from "vite-plus/test";
+import { spawn } from "zigpty";
 
 import ansiEscapes from "../src/ansi/escapes.ts";
 import stripAnsi from "../src/ansi/strip.ts";
@@ -28,11 +27,6 @@ import FakeTimers from "./helpers/fake-timers.ts";
 import { reconstructTerminalLines } from "./helpers/reconstruct-terminal.ts";
 
 const textDecoder = new TextDecoder();
-
-const require = createRequire(import.meta.url);
-
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports
-const { spawn } = require("node-pty") as typeof import("node-pty");
 
 const createWritable = (): Writable =>
   new Writable({
@@ -160,8 +154,8 @@ const term = (fixture: string, args: string[] = [], options: { rows?: number } =
     reject = reject2;
   });
 
-  const env: NodeJS.ProcessEnv = {
-    ...process.env,
+  const env: Record<string, string> = {
+    ...(process.env as Record<string, string>),
     // eslint-disable-next-line @typescript-eslint/naming-convention
     NODE_NO_WARNINGS: "1",
   };
@@ -189,7 +183,10 @@ const term = (fixture: string, args: string[] = [], options: { rows?: number } =
   ps.onData((data) => {
     // Strip Synchronized Update Mode sequences (bsu/esu) so tests
     // only see the actual content, not the transport wrapper.
-    result.output += data.replaceAll("\u001B[?2026h", "").replaceAll("\u001B[?2026l", "");
+    result.output += data
+      .toString()
+      .replaceAll("\u001B[?2026h", "")
+      .replaceAll("\u001B[?2026l", "");
   });
 
   ps.onExit(({ exitCode }) => {
@@ -289,8 +286,8 @@ const runIssue450Fixture = async (fixture: Issue450Fixture, rows = 6): Promise<s
 const runNonTtyFixture = async (fixture: string, args: string[] = []): Promise<string> => {
   let output = "";
   let errorOutput = "";
-  const env: NodeJS.ProcessEnv = {
-    ...process.env,
+  const env: Record<string, string> = {
+    ...(process.env as Record<string, string>),
     // eslint-disable-next-line @typescript-eslint/naming-convention
     NODE_NO_WARNINGS: "1",
   };
@@ -878,7 +875,7 @@ test("rerender on resize", async () => {
 
   const contentWrites = getContentWrites(stdout.write);
   expect(stripAnsi(contentWrites[0])).toBe(
-    boxen("Test".padEnd(8), { borderStyle: "round" }) + "\n",
+    ["╭────────╮", "│Test    │", "╰────────╯"].join("\n") + "\n",
   );
 
   expect(stdout.listeners("resize").length).toBe(1);
@@ -889,7 +886,7 @@ test("rerender on resize", async () => {
 
   const contentWritesAfterResize = getContentWrites(stdout.write);
   expect(stripAnsi(contentWritesAfterResize.at(-1)!)).toBe(
-    boxen("Test".padEnd(6), { borderStyle: "round" }) + "\n",
+    ["╭──────╮", "│Test  │", "╰──────╯"].join("\n") + "\n",
   );
 
   unmount();

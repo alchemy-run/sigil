@@ -1,4 +1,3 @@
-import React from "react";
 import { afterAll, expect, test } from "vite-plus/test";
 
 import chalk from "../src/ansi/chalk.ts";

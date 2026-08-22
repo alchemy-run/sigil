@@ -1,6 +1,5 @@
 import process from "node:process";
 
-import React from "react";
 import { afterAll, expect, test, vi } from "vite-plus/test";
 
 import { render, Text } from "../src/index.ts";

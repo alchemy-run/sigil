@@ -1,4 +1,4 @@
-import React, { forwardRef, useContext, type PropsWithChildren } from "react";
+import { forwardRef, useContext, type PropsWithChildren } from "react";
 
 import { type DOMElement } from "../dom.ts";
 import { type Styles } from "../styles.ts";

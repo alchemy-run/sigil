@@ -1,4 +1,4 @@
-import React, { PureComponent, type ReactNode } from "react";
+import { PureComponent, type ReactNode } from "react";
 
 import ErrorOverview from "./ErrorOverview.tsx";
 

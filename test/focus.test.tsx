@@ -1,6 +1,6 @@
 import { setTimeout as delay } from "node:timers/promises";
 
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import { expect, test } from "vite-plus/test";
 
 import { render, Box, Text, useFocus, useFocusManager } from "../src/index.ts";
@@ -437,7 +437,7 @@ test("skips disabled elements when wrapping around from the front", async () => 
 test("focus component renders in concurrent mode", async () => {
   const stdout = createStdout();
   const stdin = createStdin();
-  const { act } = await import("react");
+  const { act } = await import("./helpers/act.ts");
 
   await act(async () => {
     render(<Test />, {
@@ -456,7 +456,7 @@ test("focus component renders in concurrent mode", async () => {
 test("focus component with autoFocus renders in concurrent mode", async () => {
   const stdout = createStdout();
   const stdin = createStdin();
-  const { act } = await import("react");
+  const { act } = await import("./helpers/act.ts");
 
   await act(async () => {
     render(<Test autoFocus />, {

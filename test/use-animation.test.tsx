@@ -1,9 +1,10 @@
 import { setTimeout as delay } from "node:timers/promises";
 
-import React, { Suspense, act, startTransition } from "react";
+import React, { Suspense, startTransition } from "react";
 import { expect, test } from "vite-plus/test";
 
 import { render, Text, useAnimation } from "../src/index.ts";
+import { act } from "./helpers/act.ts";
 import createStdout from "./helpers/create-stdout.ts";
 import FakeTimers from "./helpers/fake-timers.ts";
 import mockTimerCalls from "./helpers/mock-timer-calls.ts";
@@ -1228,7 +1229,7 @@ test("reset is a stable function reference", () => {
   unmount();
 });
 
-test.todo("reset() while paused takes effect when animation is resumed", async () => {
+test("reset() while paused takes effect when animation is resumed", async () => {
   const clock = FakeTimers.install();
 
   try {
@@ -1249,18 +1250,19 @@ test.todo("reset() while paused takes effect when animation is resumed", async (
 
     // Let a few frames accumulate
     await clock.tickAsync(200);
-    expect(Number.parseInt(stdout.write.mock.lastCall![0], 10) >= 1).toBe(true);
+    const pausedFrame = Number.parseInt(stdout.write.mock.lastCall![0], 10);
+    expect(pausedFrame >= 1).toBe(true);
 
     // Pause the animation
     rerender(<PausableAnimation isActive={false} />);
 
-    // Call reset while paused — frame should remain at current value
-    // (the effect hasn't rerun yet because isActive is false)
+    // Call reset while paused — it only bumps the reset key; with isActive
+    // false the reset path never runs, so the displayed frame stays frozen.
     resetAnimation();
     await clock.tickAsync(1);
-    expect(stdout.write.mock.lastCall![0]).toBe("-1");
+    expect(stdout.write.mock.lastCall![0]).toBe(String(pausedFrame));
 
-    // Resume — the pending reset should now take effect and frame should be 0
+    // Resume — the pending reset takes effect and frame restarts from 0
     rerender(<PausableAnimation isActive />);
     expect(stdout.write.mock.lastCall![0]).toBe("0");
 

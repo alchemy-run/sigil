@@ -1,7 +1,13 @@
+import { spawn } from "node:child_process";
+import path from "node:path";
+import process from "node:process";
+
 import { expect, test } from "vite-plus/test";
 
 import stripAnsi from "../src/ansi/strip.ts";
 import term from "./helpers/term.ts";
+
+const fixturesDir = path.join(import.meta.dirname, "fixtures");
 
 test("useInput - ignore input if not active", async () => {
   const ps = term("use-input-multiple");
@@ -48,7 +54,40 @@ test("useStdout - write to stdout", async () => {
   expect(lines.slice(1, -1)).toEqual(["Hello from Ink to stdout", "Hello World", "exited"]);
 });
 
-// `node-pty` doesn't support streaming stderr output, so I need to figure out
-// how to test useStderr() hook. child_process.spawn() can't be used, because
-// Ink fails with "raw mode unsupported" error.
-test.todo("useStderr - write to stderr");
+// A pty merges stderr into its single output stream, so this one runs the
+// fixture through child_process.spawn with piped stdio instead. That forgoes
+// the TTY, which is fine here: the fixture never uses useInput, so raw mode is
+// never requested, and a non-TTY stdout still renders the final frame.
+test("useStderr - write to stderr", async () => {
+  const child = spawn("node", ["--import=tsx", path.join(fixturesDir, "use-stderr.tsx")], {
+    // tsx resolves its tsconfig (and so the JSX transform) from the cwd.
+    cwd: fixturesDir,
+    env: {
+      ...process.env,
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      NODE_NO_WARNINGS: "1",
+    },
+  });
+
+  let stdout = "";
+  let stderr = "";
+  child.stdout.on("data", (chunk: Buffer) => {
+    stdout += chunk.toString();
+  });
+  child.stderr.on("data", (chunk: Buffer) => {
+    stderr += chunk.toString();
+  });
+
+  const exitCode = await new Promise<number | null>((resolve) => {
+    child.on("close", resolve);
+  });
+
+  expect(exitCode).toBe(0);
+  expect(stderr.includes("Hello from Ink to stderr")).toBe(true);
+  expect(stdout.includes("Hello World")).toBe(true);
+  expect(stdout.includes("exited")).toBe(true);
+  expect(
+    stdout.includes("Hello from Ink to stderr"),
+    "hook writes must go to stderr, not the render stream",
+  ).toBe(false);
+});

@@ -774,7 +774,7 @@ test("unmounting a <Static> ancestor in screen-reader mode does not replay stale
 
 test("unmounting a <Static> ancestor in concurrent mode does not crash", async () => {
   const stdout = createStdout();
-  const { act } = await import("react");
+  const { act } = await import("./helpers/act.ts");
 
   function App({ showWrapper, label }: { readonly showWrapper: boolean; readonly label: string }) {
     return (

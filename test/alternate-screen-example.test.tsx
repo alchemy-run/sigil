@@ -3,7 +3,7 @@ import * as path from "node:path";
 
 import { test, expect } from "vite-plus/test";
 
-import { gameReducer } from "../examples/alternate-screen/alternate-screen.tsx";
+import { gameReducer } from "../examples/alternate-screen/game.ts";
 
 test("snake can move into the tail cell when the tail moves away", () => {
   const state = {

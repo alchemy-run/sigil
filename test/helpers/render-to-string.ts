@@ -1,6 +1,5 @@
-import { act } from "react";
-
 import { render } from "../../src/index.ts";
+import { act } from "./act.ts";
 import createStdout from "./create-stdout.ts";
 
 type RenderToStringOptions = {

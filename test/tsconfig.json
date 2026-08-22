@@ -1,6 +1,10 @@
 {
   "extends": "../tsconfig.json",
-  "include": [".", "../src/global.d.ts"],
+  // `../src` is included for tsx's sake: fixture subprocesses resolve this
+  // tsconfig from their cwd and only apply it (jsx transform included) to
+  // files its `include` matches — src must match or it gets the classic
+  // transform. It also pulls in global.d.ts for the JSX intrinsics.
+  "include": [".", "../src"],
   "compilerOptions": {
     // Tests index into frames/writes constantly; the churn from
     // `noUncheckedIndexedAccess` isn't worth it outside src.

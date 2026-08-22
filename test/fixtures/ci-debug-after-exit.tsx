@@ -1,7 +1,5 @@
 import process from "node:process";
 
-import React from "react";
-
 import { render, Text } from "../../src/index.ts";
 
 const app = render(<Text>Hello</Text>, { debug: true });

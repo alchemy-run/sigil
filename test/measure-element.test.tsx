@@ -1,6 +1,6 @@
 import { setTimeout as delay } from "node:timers/promises";
 
-import React, { useState, useRef, useEffect, useLayoutEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { expect, test } from "vite-plus/test";
 
 import stripAnsi from "../src/ansi/strip.ts";

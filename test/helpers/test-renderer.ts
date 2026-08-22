@@ -1,6 +1,5 @@
-import { act } from "react";
-
 import { render, type Instance } from "../../src/index.ts";
+import { act } from "./act.ts";
 import createStdout from "./create-stdout.ts";
 
 type TestRenderOptions = {

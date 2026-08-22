@@ -1,10 +1,7 @@
-import boxen from "boxen";
-import React from "react";
 import { expect, test } from "vite-plus/test";
 
 import chalk from "../src/ansi/chalk.ts";
 import cliBoxes from "../src/boxes.ts";
-import indentString from "../src/indent-string.ts";
 import { render, Box, Text } from "../src/index.ts";
 import createStdout from "./helpers/create-stdout.ts";
 import { renderToString, renderToStringAsync } from "./helpers/render-to-string.ts";
@@ -17,7 +14,7 @@ test("single node - full width box", () => {
     </Box>,
   );
 
-  expect(output).toBe(boxen("Hello World", { width: 100, borderStyle: "round" }));
+  expect(output).toBe(["╭──────────────────────────────────────────────────────────────────────────────────────────────────╮", "│Hello World                                                                                       │", "╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"].join("\n"));
 });
 
 test("single node - full width box with colorful border", () => {
@@ -28,11 +25,7 @@ test("single node - full width box with colorful border", () => {
   );
 
   expect(output).toBe(
-    boxen("Hello World", {
-      width: 100,
-      borderStyle: "round",
-      borderColor: "green",
-    }),
+    ["\u001B[32m╭──────────────────────────────────────────────────────────────────────────────────────────────────╮\u001B[39m", "\u001B[32m│\u001B[39mHello World                                                                                       \u001B[32m│\u001B[39m", "\u001B[32m╰──────────────────────────────────────────────────────────────────────────────────────────────────╯\u001B[39m"].join("\n"),
   );
 });
 
@@ -43,7 +36,7 @@ test("single node - fit-content box", () => {
     </Box>,
   );
 
-  expect(output).toBe(boxen("Hello World", { borderStyle: "round" }));
+  expect(output).toBe(["╭───────────╮", "│Hello World│", "╰───────────╯"].join("\n"));
 });
 
 test("single node - fit-content box with wide characters", () => {
@@ -53,7 +46,7 @@ test("single node - fit-content box with wide characters", () => {
     </Box>,
   );
 
-  expect(output).toBe(boxen("こんにちは", { borderStyle: "round" }));
+  expect(output).toBe(["╭──────────╮", "│こんにちは│", "╰──────────╯"].join("\n"));
 });
 
 test("single node - fit-content box with emojis", () => {
@@ -63,7 +56,7 @@ test("single node - fit-content box with emojis", () => {
     </Box>,
   );
 
-  expect(output).toBe(boxen("🌊🌊", { borderStyle: "round" }));
+  expect(output).toBe(["╭────╮", "│🌊🌊│", "╰────╯"].join("\n"));
 });
 
 // Issue #733: Emojis with variation selectors (FE0F) should align properly
@@ -74,7 +67,7 @@ test("single node - fit-content box with variation selector emojis", () => {
     </Box>,
   );
 
-  expect(output).toBe(boxen("🌡️⚠️✅", { borderStyle: "round" }));
+  expect(output).toBe(["╭──────╮", "│🌡️⚠️✅│", "╰──────╯"].join("\n"));
 });
 
 test("single node - fixed width box", () => {
@@ -84,7 +77,7 @@ test("single node - fixed width box", () => {
     </Box>,
   );
 
-  expect(output).toBe(boxen("Hello World".padEnd(18, " "), { borderStyle: "round" }));
+  expect(output).toBe(["╭──────────────────╮", "│Hello World       │", "╰──────────────────╯"].join("\n"));
 });
 
 test("single node - fixed width and height box", () => {
@@ -95,9 +88,7 @@ test("single node - fixed width and height box", () => {
   );
 
   expect(output).toBe(
-    boxen("Hello World".padEnd(18, " ") + "\n".repeat(17), {
-      borderStyle: "round",
-    }),
+    ["╭──────────────────╮", "│Hello World       │", "│                  │", "│                  │", "│                  │", "│                  │", "│                  │", "│                  │", "│                  │", "│                  │", "│                  │", "│                  │", "│                  │", "│                  │", "│                  │", "│                  │", "│                  │", "│                  │", "│                  │", "╰──────────────────╯"].join("\n"),
   );
 });
 
@@ -108,7 +99,7 @@ test("single node - box with padding", () => {
     </Box>,
   );
 
-  expect(output).toBe(boxen("\n Hello World \n", { borderStyle: "round" }));
+  expect(output).toBe(["╭─────────────╮", "│             │", "│ Hello World │", "│             │", "╰─────────────╯"].join("\n"));
 });
 
 test("single node - box with horizontal alignment", () => {
@@ -118,7 +109,7 @@ test("single node - box with horizontal alignment", () => {
     </Box>,
   );
 
-  expect(output).toBe(boxen("   Hello World    ", { borderStyle: "round" }));
+  expect(output).toBe(["╭──────────────────╮", "│   Hello World    │", "╰──────────────────╯"].join("\n"));
 });
 
 test("single node - box with vertical alignment", () => {
@@ -129,9 +120,7 @@ test("single node - box with vertical alignment", () => {
   );
 
   expect(output).toBe(
-    boxen("\n".repeat(8) + "Hello World" + "\n".repeat(9), {
-      borderStyle: "round",
-    }),
+    ["╭───────────╮", "│           │", "│           │", "│           │", "│           │", "│           │", "│           │", "│           │", "│           │", "│Hello World│", "│           │", "│           │", "│           │", "│           │", "│           │", "│           │", "│           │", "│           │", "│           │", "╰───────────╯"].join("\n"),
   );
 });
 
@@ -142,7 +131,7 @@ test("single node - box with wrapping", () => {
     </Box>,
   );
 
-  expect(output).toBe(boxen("Hello   \nWorld", { borderStyle: "round" }));
+  expect(output).toBe(["╭────────╮", "│Hello   │", "│World   │", "╰────────╯"].join("\n"));
 });
 
 test("multiple nodes - full width box", () => {
@@ -152,7 +141,7 @@ test("multiple nodes - full width box", () => {
     </Box>,
   );
 
-  expect(output).toBe(boxen("Hello World", { width: 100, borderStyle: "round" }));
+  expect(output).toBe(["╭──────────────────────────────────────────────────────────────────────────────────────────────────╮", "│Hello World                                                                                       │", "╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"].join("\n"));
 });
 
 test("multiple nodes - full width box with colorful border", () => {
@@ -163,11 +152,7 @@ test("multiple nodes - full width box with colorful border", () => {
   );
 
   expect(output).toBe(
-    boxen("Hello World", {
-      width: 100,
-      borderStyle: "round",
-      borderColor: "green",
-    }),
+    ["\u001B[32m╭──────────────────────────────────────────────────────────────────────────────────────────────────╮\u001B[39m", "\u001B[32m│\u001B[39mHello World                                                                                       \u001B[32m│\u001B[39m", "\u001B[32m╰──────────────────────────────────────────────────────────────────────────────────────────────────╯\u001B[39m"].join("\n"),
   );
 });
 
@@ -178,7 +163,7 @@ test("multiple nodes - fit-content box", () => {
     </Box>,
   );
 
-  expect(output).toBe(boxen("Hello World", { borderStyle: "round" }));
+  expect(output).toBe(["╭───────────╮", "│Hello World│", "╰───────────╯"].join("\n"));
 });
 
 test("multiple nodes - fixed width box", () => {
@@ -187,7 +172,7 @@ test("multiple nodes - fixed width box", () => {
       <Text>{"Hello "}World</Text>
     </Box>,
   );
-  expect(output).toBe(boxen("Hello World".padEnd(18, " "), { borderStyle: "round" }));
+  expect(output).toBe(["╭──────────────────╮", "│Hello World       │", "╰──────────────────╯"].join("\n"));
 });
 
 test("multiple nodes - fixed width and height box", () => {
@@ -197,9 +182,7 @@ test("multiple nodes - fixed width and height box", () => {
     </Box>,
   );
   expect(output).toBe(
-    boxen("Hello World".padEnd(18, " ") + "\n".repeat(17), {
-      borderStyle: "round",
-    }),
+    ["╭──────────────────╮", "│Hello World       │", "│                  │", "│                  │", "│                  │", "│                  │", "│                  │", "│                  │", "│                  │", "│                  │", "│                  │", "│                  │", "│                  │", "│                  │", "│                  │", "│                  │", "│                  │", "│                  │", "│                  │", "╰──────────────────╯"].join("\n"),
   );
 });
 
@@ -210,7 +193,7 @@ test("multiple nodes - box with padding", () => {
     </Box>,
   );
 
-  expect(output).toBe(boxen("\n Hello World \n", { borderStyle: "round" }));
+  expect(output).toBe(["╭─────────────╮", "│             │", "│ Hello World │", "│             │", "╰─────────────╯"].join("\n"));
 });
 
 test("multiple nodes - box with horizontal alignment", () => {
@@ -220,7 +203,7 @@ test("multiple nodes - box with horizontal alignment", () => {
     </Box>,
   );
 
-  expect(output).toBe(boxen("   Hello World    ", { borderStyle: "round" }));
+  expect(output).toBe(["╭──────────────────╮", "│   Hello World    │", "╰──────────────────╯"].join("\n"));
 });
 
 test("multiple nodes - box with vertical alignment", () => {
@@ -231,9 +214,7 @@ test("multiple nodes - box with vertical alignment", () => {
   );
 
   expect(output).toBe(
-    boxen("\n".repeat(8) + "Hello World" + "\n".repeat(9), {
-      borderStyle: "round",
-    }),
+    ["╭───────────╮", "│           │", "│           │", "│           │", "│           │", "│           │", "│           │", "│           │", "│           │", "│Hello World│", "│           │", "│           │", "│           │", "│           │", "│           │", "│           │", "│           │", "│           │", "│           │", "╰───────────╯"].join("\n"),
   );
 });
 
@@ -244,7 +225,7 @@ test("multiple nodes - box with wrapping", () => {
     </Box>,
   );
 
-  expect(output).toBe(boxen("Hello   \nWorld", { borderStyle: "round" }));
+  expect(output).toBe(["╭────────╮", "│Hello   │", "│World   │", "╰────────╯"].join("\n"));
 });
 
 test("multiple nodes - box with wrapping and long first node", () => {
@@ -254,7 +235,7 @@ test("multiple nodes - box with wrapping and long first node", () => {
     </Box>,
   );
 
-  expect(output).toBe(boxen("Helloooo\noo World", { borderStyle: "round" }));
+  expect(output).toBe(["╭────────╮", "│Helloooo│", "│oo World│", "╰────────╯"].join("\n"));
 });
 
 test("multiple nodes - box with wrapping and very long first node", () => {
@@ -264,7 +245,7 @@ test("multiple nodes - box with wrapping and very long first node", () => {
     </Box>,
   );
 
-  expect(output).toBe(boxen("Helloooo\noooooooo\no World", { borderStyle: "round" }));
+  expect(output).toBe(["╭────────╮", "│Helloooo│", "│oooooooo│", "│o World │", "╰────────╯"].join("\n"));
 });
 
 test("nested boxes", () => {
@@ -276,9 +257,9 @@ test("nested boxes", () => {
     </Box>,
   );
 
-  const nestedBox = indentString(boxen("\n Hello World \n", { borderStyle: "round" }), 1);
-
-  expect(output).toBe(boxen(`${" ".repeat(38)}\n${nestedBox}\n`, { borderStyle: "round" }));
+  expect(output).toBe(
+    ["╭──────────────────────────────────────╮", "│                                      │", "│ ╭─────────────╮                      │", "│ │             │                      │", "│ │ Hello World │                      │", "│ │             │                      │", "│ ╰─────────────╯                      │", "│                                      │", "╰──────────────────────────────────────╯"].join("\n"),
+  );
 });
 
 test("nested boxes - fit-content box with wide characters on flex-direction row", () => {
@@ -296,17 +277,7 @@ test("nested boxes - fit-content box with wide characters on flex-direction row"
     </Box>,
   );
 
-  const box1 = boxen("ミスター", { borderStyle: "round" });
-  const box2 = boxen("スポック", { borderStyle: "round" });
-  const box3 = boxen("カーク船長", { borderStyle: "round" });
-
-  const expected = boxen(
-    box1
-      .split("\n")
-      .map((line, index) => line + box2.split("\n")[index] + box3.split("\n")[index])
-      .join("\n"),
-    { borderStyle: "round" },
-  );
+  const expected = ["╭────────────────────────────────╮", "│╭────────╮╭────────╮╭──────────╮│", "││ミスター││スポック││カーク船長││", "│╰────────╯╰────────╯╰──────────╯│", "╰────────────────────────────────╯"].join("\n");
 
   expect(output).toBe(expected);
 });
@@ -326,17 +297,7 @@ test("nested boxes - fit-content box with emojis on flex-direction row", () => {
     </Box>,
   );
 
-  const box1 = boxen("🦾", { borderStyle: "round" });
-  const box2 = boxen("🌏", { borderStyle: "round" });
-  const box3 = boxen("😋", { borderStyle: "round" });
-
-  const expected = boxen(
-    box1
-      .split("\n")
-      .map((line, index) => line + box2.split("\n")[index] + box3.split("\n")[index])
-      .join("\n"),
-    { borderStyle: "round" },
-  );
+  const expected = ["╭────────────╮", "│╭──╮╭──╮╭──╮│", "││🦾││🌏││😋││", "│╰──╯╰──╯╰──╯│", "╰────────────╯"].join("\n");
 
   expect(output).toBe(expected);
 });
@@ -356,14 +317,7 @@ test("nested boxes - fit-content box with wide characters on flex-direction colu
     </Box>,
   );
 
-  const expected = boxen(
-    boxen("ミスター  ", { borderStyle: "round" }) +
-      "\n" +
-      boxen("スポック  ", { borderStyle: "round" }) +
-      "\n" +
-      boxen("カーク船長", { borderStyle: "round" }),
-    { borderStyle: "round" },
-  );
+  const expected = ["╭────────────╮", "│╭──────────╮│", "││ミスター  ││", "│╰──────────╯│", "│╭──────────╮│", "││スポック  ││", "│╰──────────╯│", "│╭──────────╮│", "││カーク船長││", "│╰──────────╯│", "╰────────────╯"].join("\n");
 
   expect(output).toBe(expected);
 });
@@ -383,14 +337,7 @@ test("nested boxes - fit-content box with emojis on flex-direction column", () =
     </Box>,
   );
 
-  const expected = boxen(
-    boxen("🦾", { borderStyle: "round" }) +
-      "\n" +
-      boxen("🌏", { borderStyle: "round" }) +
-      "\n" +
-      boxen("😋", { borderStyle: "round" }),
-    { borderStyle: "round" },
-  );
+  const expected = ["╭────╮", "│╭──╮│", "││🦾││", "│╰──╯│", "│╭──╮│", "││🌏││", "│╰──╯│", "│╭──╮│", "││😋││", "│╰──╯│", "╰────╯"].join("\n");
 
   expect(output).toBe(expected);
 });
@@ -412,26 +359,19 @@ test("render border after update", () => {
   });
 
   expect(stdout.write.mock.lastCall![0]).toBe(
-    boxen("Hello World", { width: 100, borderStyle: "round" }),
+    ["╭──────────────────────────────────────────────────────────────────────────────────────────────────╮", "│Hello World                                                                                       │", "╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"].join("\n"),
   );
 
   rerender(<Test borderColor="green" />);
 
   expect(stdout.write.mock.lastCall![0]).toBe(
-    boxen("Hello World", {
-      width: 100,
-      borderStyle: "round",
-      borderColor: "green",
-    }),
+    ["\u001B[32m╭──────────────────────────────────────────────────────────────────────────────────────────────────╮\u001B[39m", "\u001B[32m│\u001B[39mHello World                                                                                       \u001B[32m│\u001B[39m", "\u001B[32m╰──────────────────────────────────────────────────────────────────────────────────────────────────╯\u001B[39m"].join("\n"),
   );
 
   rerender(<Test />);
 
   expect(stdout.write.mock.lastCall![0]).toBe(
-    boxen("Hello World", {
-      width: 100,
-      borderStyle: "round",
-    }),
+    ["╭──────────────────────────────────────────────────────────────────────────────────────────────────╮", "│Hello World                                                                                       │", "╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"].join("\n"),
   );
 });
 
@@ -451,7 +391,7 @@ test("render border edge changes after update when borderStyle is unchanged", ()
     debug: true,
   });
 
-  expect(stdout.write.mock.lastCall![0]).toBe(boxen("Content", { borderStyle: "round" }));
+  expect(stdout.write.mock.lastCall![0]).toBe(["╭───────╮", "│Content│", "╰───────╯"].join("\n"));
 
   rerender(<Test borderTop={false} />);
 
@@ -464,7 +404,7 @@ test("render border edge changes after update when borderStyle is unchanged", ()
 
   rerender(<Test />);
 
-  expect(stdout.write.mock.lastCall![0]).toBe(boxen("Content", { borderStyle: "round" }));
+  expect(stdout.write.mock.lastCall![0]).toBe(["╭───────╮", "│Content│", "╰───────╯"].join("\n"));
 });
 
 test("hide top border", () => {
@@ -723,7 +663,7 @@ test("custom border style", () => {
     </Box>,
   );
 
-  expect(output).toBe(boxen("Content", { width: 100, borderStyle: "arrow" }));
+  expect(output).toBe(["↘↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↙", "→Content                                                                                           ←", "↗↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↖"].join("\n"));
 });
 
 test("dim border color", () => {
@@ -734,11 +674,7 @@ test("dim border color", () => {
   );
 
   expect(output).toBe(
-    boxen("Content", {
-      width: 100,
-      borderStyle: "round",
-      dimBorder: true,
-    }),
+    ["\u001B[2m╭──────────────────────────────────────────────────────────────────────────────────────────────────╮\u001B[22m", "\u001B[2m│\u001B[22mContent                                                                                           \u001B[2m│\u001B[22m", "\u001B[2m╰──────────────────────────────────────────────────────────────────────────────────────────────────╯\u001B[22m"].join("\n"),
   );
 });
 
@@ -870,7 +806,7 @@ test("single node - full width box - concurrent", async () => {
     </Box>,
   );
 
-  expect(output).toBe(boxen("Hello World", { width: 100, borderStyle: "round" }));
+  expect(output).toBe(["╭──────────────────────────────────────────────────────────────────────────────────────────────────╮", "│Hello World                                                                                       │", "╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"].join("\n"));
 });
 
 test("single node - fit-content box - concurrent", async () => {
@@ -880,7 +816,7 @@ test("single node - fit-content box - concurrent", async () => {
     </Box>,
   );
 
-  expect(output).toBe(boxen("Hello World", { borderStyle: "round" }));
+  expect(output).toBe(["╭───────────╮", "│Hello World│", "╰───────────╯"].join("\n"));
 });
 
 test("nested boxes - concurrent", async () => {
@@ -892,9 +828,9 @@ test("nested boxes - concurrent", async () => {
     </Box>,
   );
 
-  const nestedBox = indentString(boxen("\n Hello World \n", { borderStyle: "round" }), 1);
-
-  expect(output).toBe(boxen(`${" ".repeat(38)}\n${nestedBox}\n`, { borderStyle: "round" }));
+  expect(output).toBe(
+    ["╭──────────────────────────────────────╮", "│                                      │", "│ ╭─────────────╮                      │", "│ │             │                      │", "│ │ Hello World │                      │", "│ │             │                      │", "│ ╰─────────────╯                      │", "│                                      │", "╰──────────────────────────────────────╯"].join("\n"),
+  );
 });
 
 test("render border after update - concurrent", async () => {
@@ -908,15 +844,11 @@ test("render border after update - concurrent", async () => {
 
   const { getOutput, rerenderAsync } = await renderAsync(<Test />);
 
-  expect(getOutput()).toBe(boxen("Hello World", { width: 100, borderStyle: "round" }));
+  expect(getOutput()).toBe(["╭──────────────────────────────────────────────────────────────────────────────────────────────────╮", "│Hello World                                                                                       │", "╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"].join("\n"));
 
   await rerenderAsync(<Test borderColor="green" />);
 
   expect(getOutput()).toBe(
-    boxen("Hello World", {
-      width: 100,
-      borderStyle: "round",
-      borderColor: "green",
-    }),
+    ["\u001B[32m╭──────────────────────────────────────────────────────────────────────────────────────────────────╮\u001B[39m", "\u001B[32m│\u001B[39mHello World                                                                                       \u001B[32m│\u001B[39m", "\u001B[32m╰──────────────────────────────────────────────────────────────────────────────────────────────────╯\u001B[39m"].join("\n"),
   );
 });

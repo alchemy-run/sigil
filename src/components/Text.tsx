@@ -1,4 +1,4 @@
-import React, { useContext, type ReactNode } from "react";
+import { useContext, type ReactNode } from "react";
 
 import chalk, { type ForegroundColorName } from "../ansi/chalk.ts";
 import colorize from "../colorize.ts";

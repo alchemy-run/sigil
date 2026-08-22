@@ -1,5 +1,3 @@
-import React from "react";
-
 import { Box, Text, render } from "../../src/index.ts";
 
 function Clear() {

@@ -1,11 +1,7 @@
-import { createRequire } from "node:module";
 import path from "node:path";
 import process from "node:process";
 
-const require = createRequire(import.meta.url);
-
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports
-const { spawn } = require("node-pty") as typeof import("node-pty");
+import { spawn } from "zigpty";
 
 const fixturesDir = path.join(import.meta.dirname, "../fixtures");
 
@@ -51,7 +47,7 @@ const term = (fixture: string, args: string[] = []) => {
   };
 
   ps.onData((data) => {
-    result.output += data;
+    result.output += data.toString();
 
     if (result.output.includes("__READY__")) {
       readyResolve();

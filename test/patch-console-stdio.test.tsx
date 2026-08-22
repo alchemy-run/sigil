@@ -1,4 +1,3 @@
-import React from "react";
 import { expect, test } from "vite-plus/test";
 
 import stripAnsi from "../src/ansi/strip.ts";

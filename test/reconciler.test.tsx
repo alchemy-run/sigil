@@ -1,4 +1,4 @@
-import React, { Suspense } from "react";
+import { Suspense } from "react";
 import { expect, test } from "vite-plus/test";
 
 import chalk from "../src/ansi/chalk.ts";
@@ -391,7 +391,7 @@ test("support suspense with concurrent mode", async () => {
     );
   }
 
-  const { act } = await import("react");
+  const { act } = await import("./helpers/act.ts");
 
   await act(async () => {
     render(<Test />, {

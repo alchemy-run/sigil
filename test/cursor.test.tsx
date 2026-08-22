@@ -1,10 +1,11 @@
 import { setTimeout as delay } from "node:timers/promises";
 
-import React, { Suspense, act, useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import { expect, test } from "vite-plus/test";
 
 import ansiEscapes from "../src/ansi/escapes.ts";
 import { render, Box, Text, useInput, useCursor, useStdout, useStderr } from "../src/index.ts";
+import { act } from "./helpers/act.ts";
 import { createStdin, emitReadable } from "./helpers/create-stdin.ts";
 import createStdout, { type FakeStdout } from "./helpers/create-stdout.ts";
 

@@ -1,6 +1,6 @@
 import process from "node:process";
 
-import React, { type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { type FiberRoot } from "react-reconciler";
 import { LegacyRoot, ConcurrentRoot } from "react-reconciler/constants.js";
 

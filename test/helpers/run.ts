@@ -1,11 +1,7 @@
-import { createRequire } from "node:module";
 import path from "node:path";
 import process from "node:process";
 
-const require = createRequire(import.meta.url);
-
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports
-const { spawn } = require("node-pty") as typeof import("node-pty");
+import { spawn } from "zigpty";
 
 type Run = (
   fixture: string,
@@ -37,7 +33,7 @@ export const run: Run = async (fixture, props) => {
     let output = "";
 
     term.onData((data) => {
-      output += data;
+      output += data.toString();
     });
 
     term.onExit(({ exitCode }) => {

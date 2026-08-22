@@ -1,5 +1,3 @@
-import React from "react";
-
 import { Text, render } from "../../src/index.ts";
 
 const { waitUntilExit } = render(<Text>Hello World</Text>);

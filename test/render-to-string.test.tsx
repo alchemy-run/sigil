@@ -1,4 +1,3 @@
-import boxen from "boxen";
 import React, { useEffect, useLayoutEffect, useState } from "react";
 import { expect, test } from "vite-plus/test";
 
@@ -141,10 +140,7 @@ test("render box with border", () => {
   );
 
   expect(output).toBe(
-    boxen("Bordered", {
-      width: 20,
-      borderStyle: "single",
-    }),
+    ["┌──────────────────┐", "│Bordered          │", "└──────────────────┘"].join("\n"),
   );
 });
 

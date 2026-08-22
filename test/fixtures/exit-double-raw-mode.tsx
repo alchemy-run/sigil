@@ -1,6 +1,6 @@
 import process from "node:process";
 
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 
 import { Text, render, useStdin } from "../../src/index.ts";
 

@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 
 import { render, Text, useStdin } from "../../src/index.ts";
 

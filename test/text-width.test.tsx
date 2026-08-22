@@ -1,4 +1,3 @@
-import React from "react";
 import { expect, test } from "vite-plus/test";
 
 import stringWidth from "../src/ansi/string-width.ts";

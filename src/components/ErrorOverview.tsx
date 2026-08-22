@@ -1,8 +1,6 @@
 import * as fs from "node:fs";
 import { cwd } from "node:process";
 
-import React from "react";
-
 import codeExcerpt, { type CodeExcerpt } from "../code-excerpt.ts";
 import parseStackLine from "../parse-stack-line.ts";
 import Box from "./Box.tsx";

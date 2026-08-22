@@ -1,5 +1,3 @@
-import React from "react";
-
 import { render } from "../../src/index.ts";
 
 const Test = () => {

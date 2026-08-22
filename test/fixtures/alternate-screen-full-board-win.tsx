@@ -1,4 +1,4 @@
-import { gameReducer } from "../../examples/alternate-screen/alternate-screen.tsx";
+import { gameReducer } from "../../examples/alternate-screen/game.ts";
 
 const boardWidth = 20;
 const boardHeight = 15;
