@@ -75,7 +75,7 @@ export type RenderOptions = {
   /**
 	Enable screen reader support. See https://github.com/vadimdemedes/ink/blob/master/readme.md#screen-reader-support
 
-	@default process.env['INK_SCREEN_READER'] === 'true'
+	@default process.env['SIGIL_SCREEN_READER'] === 'true'
 	*/
   isScreenReaderEnabled?: boolean;
 

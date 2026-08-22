@@ -29,9 +29,9 @@ import Yoga from "./yoga/index.ts";
 // accidentally breaking other third-party code.
 // See https://github.com/vadimdemedes/ink/issues/384
 // See https://github.com/vadimdemedes/ink/issues/648
-if (process.env["INK_DEV"] === "true") {
+if (process.env["SIGIL_DEV"] === "true") {
   // Intentionally no warning when the package is missing.
-  // DEV may be set for other reasons; devtools is opt-in via installing the package.
+  // SIGIL_DEV may be set for other reasons; devtools is opt-in via installing the package.
   let isDevtoolsInstalled = false;
   try {
     import.meta.resolve("react-devtools-core");

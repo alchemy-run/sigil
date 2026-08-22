@@ -121,11 +121,11 @@ test("don’t exit while raw mode is active", async () => {
   });
 });
 
-test("exit when DEV is set", async () => {
+test("exit when SIGIL_DEV is set", async () => {
   const output = await run("exit-normally", {
     env: {
       // eslint-disable-next-line @typescript-eslint/naming-convention
-      DEV: "true",
+      SIGIL_DEV: "true",
     },
   });
   // Warning output depends on whether a local React DevTools server is running.

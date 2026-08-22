@@ -38,6 +38,6 @@ if (await isDevToolsReachable()) {
   (devtools as any).connectToDevTools();
 } else {
   console.warn(
-    "DEV is set to true, but the React DevTools server is not running. Start it with:\n\n$ npx react-devtools\n",
+    "SIGIL_DEV is set to true, but the React DevTools server is not running. Start it with:\n\n$ npx react-devtools\n",
   );
 }

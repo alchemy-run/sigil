@@ -386,7 +386,7 @@ export default class Ink {
     this.rootNode.onComputeLayout = this.calculateLayout;
 
     this.isScreenReaderEnabled =
-      options.isScreenReaderEnabled ?? process.env["INK_SCREEN_READER"] === "true";
+      options.isScreenReaderEnabled ?? process.env["SIGIL_SCREEN_READER"] === "true";
 
     // CI detection takes precedence: even a TTY stdout in CI defaults to non-interactive.
     // Using Boolean(isTTY) (rather than an 'in' guard) correctly handles piped streams
@@ -478,7 +478,7 @@ export default class Ink {
 
     this.setAlternateScreen(Boolean(options.alternateScreen));
 
-    if (process.env["DEV"] === "true") {
+    if (process.env["SIGIL_DEV"] === "true") {
       // @ts-expect-error outdated types
       reconciler.injectIntoDevTools();
     }

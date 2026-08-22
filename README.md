@@ -2640,7 +2640,7 @@ To run code after output is flushed, use [`waitUntilRenderFlush()`](#waituntilre
 ###### isScreenReaderEnabled
 
 Type: `boolean`\
-Default: `process.env['INK_SCREEN_READER'] === 'true'`
+Default: `process.env['SIGIL_SCREEN_READER'] === 'true'`
 
 Enable screen reader support. See [Screen Reader Support](#screen-reader-support).
 
@@ -2977,10 +2977,10 @@ Check out [ink-testing-library](https://github.com/vadimdemedes/ink-testing-libr
 
 ![](media/devtools.jpg)
 
-Ink supports [React Devtools](https://github.com/facebook/react/tree/master/packages/react-devtools) out of the box. To enable integration with React Devtools in your Ink-based CLI, first ensure you have installed the optional `react-devtools-core` dependency, and then run your app with the `DEV=true` environment variable:
+Ink supports [React Devtools](https://github.com/facebook/react/tree/master/packages/react-devtools) out of the box. To enable integration with React Devtools in your Ink-based CLI, first ensure you have installed the optional `react-devtools-core` dependency, and then run your app with the `SIGIL_DEV=true` environment variable:
 
 ```sh
-DEV=true my-cli
+SIGIL_DEV=true my-cli
 ```
 
 Then, start React Devtools itself:
@@ -2999,7 +2999,7 @@ You can even inspect and change the props of components, and see the results imm
 
 Ink has basic support for screen readers.
 
-To enable it, you can either pass the `isScreenReaderEnabled` option to the `render` function or set the `INK_SCREEN_READER` environment variable to `true`.
+To enable it, you can either pass the `isScreenReaderEnabled` option to the `render` function or set the `SIGIL_SCREEN_READER` environment variable to `true`.
 
 Ink implements a small subset of functionality from the [ARIA specification](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA).
 
