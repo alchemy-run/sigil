@@ -1,8 +1,6 @@
-import process from "node:process";
-
 import { useEffect } from "react";
 
-import { render, useInput, useApp, Text } from "../../src/index.ts";
+import { render, useInput, useApp, Text } from "#/index.ts";
 
 // Detect MaxListenersExceededWarning
 process.on("warning", (warning) => {

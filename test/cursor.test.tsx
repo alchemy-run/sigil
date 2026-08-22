@@ -1,10 +1,11 @@
 import { setTimeout as delay } from "node:timers/promises";
 
 import React, { Suspense, useEffect, useState } from "react";
-import { expect, test } from "vite-plus/test";
+import { expect, test, vi } from "vite-plus/test";
 
-import ansiEscapes from "../src/ansi/escapes.ts";
-import { render, Box, Text, useInput, useCursor, useStdout, useStderr } from "../src/index.ts";
+import { ansiEscapes } from "#/ansi/escapes.ts";
+import { render, Box, Text, useInput, useCursor, useStdout, useStderr } from "#/index.ts";
+
 import { act } from "./helpers/act.ts";
 import { createStdin, emitReadable } from "./helpers/create-stdin.ts";
 import createStdout, { type FakeStdout } from "./helpers/create-stdout.ts";
@@ -12,38 +13,15 @@ import createStdout, { type FakeStdout } from "./helpers/create-stdout.ts";
 const showCursorEscape = "\u001B[?25h";
 const hideCursorEscape = "\u001B[?25l";
 
-const waitForCondition = async (condition: () => boolean): Promise<void> => {
-  if (condition()) {
-    return;
-  }
-
-  const timeoutMs = 2000;
-  const intervalMs = 10;
-  const maxAttempts = Math.ceil(timeoutMs / intervalMs);
-
-  await new Promise<void>((resolve, reject) => {
-    let attempts = 0;
-    const interval = setInterval(() => {
-      try {
-        if (condition()) {
-          clearInterval(interval);
-          resolve();
-          return;
-        }
-      } catch (error) {
-        clearInterval(interval);
-        reject(error instanceof Error ? error : new Error("Condition check threw"));
-        return;
+const waitForCondition = async (condition: () => boolean): Promise<void> =>
+  vi.waitFor(
+    () => {
+      if (!condition()) {
+        throw new Error("Condition was not met");
       }
-
-      attempts++;
-      if (attempts >= maxAttempts) {
-        clearInterval(interval);
-        reject(new Error(`Condition was not met in ${timeoutMs}ms`));
-      }
-    }, intervalMs);
-  });
-};
+    },
+    { timeout: 2000, interval: 10 },
+  );
 
 function InputApp() {
   const [text, setText] = useState("");
@@ -81,10 +59,9 @@ test("cursor is shown at specified position after render", async () => {
   // combined output of the first render rather than a single firstCall.
   const firstRenderOutput = stdout.getWrites().join("");
   // Cursor should be shown at x=2 (after "> ")
-  expect(
-    firstRenderOutput.includes(showCursorEscape),
-    "cursor should be visible after first render",
-  ).toBe(true);
+  expect(firstRenderOutput, "cursor should be visible after first render").toContain(
+    showCursorEscape,
+  );
   expect(firstRenderOutput.includes(ansiEscapes.cursorTo(2)), "cursor should be at column 2").toBe(
     true,
   );
@@ -129,11 +106,10 @@ test("cursor follows text input", async () => {
   // wrapper rather than the render content, so check all writes combined.
   const allOutput = stdout.getWrites().join("");
   // After typing 'a', cursor should be at x=3 ("> a" = 3 chars)
-  expect(allOutput.includes(showCursorEscape)).toBe(true);
-  expect(
-    allOutput.includes(ansiEscapes.cursorTo(3)),
-    'cursor should move to column 3 after typing "a"',
-  ).toBe(true);
+  expect(allOutput).toContain(showCursorEscape);
+  expect(allOutput, 'cursor should move to column 3 after typing "a"').toContain(
+    ansiEscapes.cursorTo(3),
+  );
 
   unmount();
 });
@@ -162,10 +138,7 @@ test("cursor moves on space input even when output is identical", async () => {
   // wrapper rather than the render content, so check all writes combined.
   const allOutput = stdout.getWrites().join("");
   // After "a ", cursor should be at x=4
-  expect(
-    allOutput.includes(ansiEscapes.cursorTo(4)),
-    'cursor should be at column 4 after "a "',
-  ).toBe(true);
+  expect(allOutput, 'cursor should be at column 4 after "a "').toContain(ansiEscapes.cursorTo(4));
 
   unmount();
 });
@@ -226,10 +199,7 @@ test("cursor position does not leak from suspended concurrent render to fallback
   const stdout = createStdout();
   const stdin = createStdin();
 
-  let resolvePromise: () => void;
-  const promise = new Promise<void>((resolve) => {
-    resolvePromise = resolve;
-  });
+  const { promise, resolve: resolvePromise } = Promise.withResolvers<void>();
 
   let suspended = true;
 
@@ -257,15 +227,15 @@ test("cursor position does not leak from suspended concurrent render to fallback
   });
 
   const fallbackOutput = stdout.getWrites().join("");
-  expect(fallbackOutput.includes("loading")).toBe(true);
+  expect(fallbackOutput).toContain("loading");
   expect(
-    fallbackOutput.includes(showCursorEscape),
+    fallbackOutput,
     "fallback output should not contain show cursor escape from suspended concurrent render",
-  ).toBe(false);
+  ).not.toContain(showCursorEscape);
 
   // Cleanup: resolve promise and unmount
   suspended = false;
-  resolvePromise!();
+  resolvePromise();
   await act(async () => {
     await delay(50);
   });
@@ -314,7 +284,7 @@ test("screen does not scroll up on subsequent renders", async () => {
     true,
   );
   // The write should include the new text
-  expect(secondRenderOutput.includes("x"), "should contain the typed character").toBe(true);
+  expect(secondRenderOutput, "should contain the typed character").toContain("x");
 
   unmount();
 });
@@ -357,7 +327,7 @@ const hookWriteCases: HookWriteCase[] = [
     testName: "cursor remains visible after useStdout().write()",
     App: StdoutWriteApp,
     assertTargetWrite(output) {
-      expect(output.includes("from stdout hook")).toBe(true);
+      expect(output).toContain("from stdout hook");
     },
   },
   {
@@ -427,7 +397,7 @@ test("debug mode: useStdout().write() replays latest frame", async () => {
   const hookWrite = writes.find((write) => write.includes("from stdout hook\nHello"));
 
   expect(hookWrite).toBeTruthy();
-  expect(writes.includes("")).toBe(false);
+  expect(writes).not.toContain("");
 
   unmount();
 });
@@ -447,7 +417,7 @@ test("debug mode: useStdout().write() does not leak into stderr", async () => {
   const stderrWrites = stderr.getWrites();
   expect(stderrWrites.some((write) => write.includes("from stdout hook\n"))).toBe(false);
   expect(stderrWrites.some((write) => write.includes("Hello"))).toBe(false);
-  expect(stderrWrites.includes("")).toBe(false);
+  expect(stderrWrites).not.toContain("");
 
   unmount();
 });
@@ -476,8 +446,8 @@ test("debug mode: useStderr().write() replays latest frame without empty writes"
   expect(stdoutWritesAfterInitialRender.some((write) => write.includes("from stderr hook\n"))).toBe(
     false,
   );
-  expect(stdoutWrites.includes("")).toBe(false);
-  expect(stderrWrites.includes("")).toBe(false);
+  expect(stdoutWrites).not.toContain("");
+  expect(stderrWrites).not.toContain("");
 
   unmount();
 });
@@ -530,7 +500,7 @@ test("debug mode: useStdout().write() replays rerendered frame", async () => {
 
   expect(stdoutWrites.some((write) => write.includes("from stdout hook\nUpdated"))).toBe(true);
   expect(stdoutWrites.some((write) => write.includes("from stdout hook\nInitial"))).toBe(false);
-  expect(stdoutWrites.includes("")).toBe(false);
+  expect(stdoutWrites).not.toContain("");
 
   unmount();
 });
@@ -565,8 +535,8 @@ test("debug mode: useStderr().write() replays rerendered frame", async () => {
   expect(stdoutWritesAfterInitialRender.some((write) => write.includes("from stderr hook\n"))).toBe(
     false,
   );
-  expect(stdoutWrites.includes("")).toBe(false);
-  expect(stderrWrites.includes("")).toBe(false);
+  expect(stdoutWrites).not.toContain("");
+  expect(stderrWrites).not.toContain("");
 
   unmount();
 });
@@ -617,7 +587,7 @@ for (const { name, incremental } of inkRenderingModes) {
     const stdout = createStdout();
     // Output that exactly fills the viewport is fullscreen, so Ink omits
     // the trailing newline and the renderer stops on the last visible line.
-    (stdout as any).rows = 5;
+    stdout.rows = 5;
 
     const { rerender, unmount, waitUntilRenderFlush } = render(
       <FullscreenCursorApp lineCount={5} cursorY={2} marker="" />,
@@ -632,17 +602,17 @@ for (const { name, incremental } of inkRenderingModes) {
     const overshoot = ansiEscapes.cursorUp(3) + ansiEscapes.cursorTo(3) + showCursorEscape;
 
     const firstRender = stdout.getWrites().join("");
-    expect(firstRender.includes(expected), "first frame").toBe(true);
-    expect(firstRender.includes(overshoot), "first frame does not overshoot").toBe(false);
+    expect(firstRender, "first frame").toContain(expected);
+    expect(firstRender, "first frame does not overshoot").not.toContain(overshoot);
 
     const writesBeforeRerender = stdout.write.mock.calls.length;
     rerender(<FullscreenCursorApp lineCount={5} cursorY={2} marker="!" />);
     await waitUntilRenderFlush();
 
     const changedRerender = stdout.getWrites().slice(writesBeforeRerender).join("");
-    expect(changedRerender.includes("Line 1!"), "content actually changed").toBe(true);
-    expect(changedRerender.includes(expected), "changed rerender").toBe(true);
-    expect(changedRerender.includes(overshoot), "changed rerender does not overshoot").toBe(false);
+    expect(changedRerender, "content actually changed").toContain("Line 1!");
+    expect(changedRerender, "changed rerender").toContain(expected);
+    expect(changedRerender, "changed rerender does not overshoot").not.toContain(overshoot);
 
     const writesBeforeCursorMove = stdout.write.mock.calls.length;
     rerender(<FullscreenCursorApp lineCount={5} cursorY={0} marker="!" />);
@@ -654,14 +624,12 @@ for (const { name, incremental } of inkRenderingModes) {
     // path instead, so the expected sequence comes from sync(). It works
     // out to the same bytes, because both measure from lines.length - 1.
     const cursorOnly = stdout.getWrites().slice(writesBeforeCursorMove).join("");
-    expect(
-      cursorOnly.includes(ansiEscapes.cursorUp(4) + ansiEscapes.cursorTo(3) + showCursorEscape),
-      "cursor-only update",
-    ).toBe(true);
-    expect(
-      cursorOnly.includes(ansiEscapes.cursorUp(5) + ansiEscapes.cursorTo(3) + showCursorEscape),
-      "cursor-only update does not overshoot",
-    ).toBe(false);
+    expect(cursorOnly, "cursor-only update").toContain(
+      ansiEscapes.cursorUp(4) + ansiEscapes.cursorTo(3) + showCursorEscape,
+    );
+    expect(cursorOnly, "cursor-only update does not overshoot").not.toContain(
+      ansiEscapes.cursorUp(5) + ansiEscapes.cursorTo(3) + showCursorEscape,
+    );
 
     unmount();
   });
@@ -673,7 +641,7 @@ for (const { name, incremental } of inkRenderingModes) {
 for (const { name, incremental } of inkRenderingModes) {
   test(`${name} - fullscreen: overflowing frame is clamped and keeps cursor positioning`, async () => {
     const stdout = createStdout();
-    (stdout as any).rows = 5;
+    stdout.rows = 5;
 
     const { rerender, unmount, waitUntilRenderFlush } = render(
       <FullscreenCursorApp lineCount={6} cursorY={2} marker="" />,
@@ -689,13 +657,11 @@ for (const { name, incremental } of inkRenderingModes) {
     expect(synced.includes(ansiEscapes.clearTerminal), "must not erase the scrollback buffer").toBe(
       false,
     );
-    expect(synced.includes("Line 1!"), "the changed row survives the clamp").toBe(true);
-    expect(synced.includes("Line 0"), "rows above the viewport are clamped away").toBe(false);
+    expect(synced, "the changed row survives the clamp").toContain("Line 1!");
+    expect(synced, "rows above the viewport are clamped away").not.toContain("Line 0");
     // The clamped frame is 5 lines with no trailing newline: the cursor is
     // left on row 4, so y=2 is cursorUp(2).
-    expect(
-      synced.includes(ansiEscapes.cursorUp(2) + ansiEscapes.cursorTo(3) + showCursorEscape),
-    ).toBe(true);
+    expect(synced).toContain(ansiEscapes.cursorUp(2) + ansiEscapes.cursorTo(3) + showCursorEscape);
 
     unmount();
   });

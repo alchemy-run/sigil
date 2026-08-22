@@ -1,8 +1,8 @@
 import React, { useEffect, useLayoutEffect, useState } from "react";
 import { expect, test } from "vite-plus/test";
 
-import chalk from "../src/ansi/chalk.ts";
-import { Box, Text, Static, Transform, Newline, Spacer, renderToString } from "../src/index.ts";
+import { chalk } from "#/ansi/chalk.ts";
+import { Box, Text, Static, Transform, Newline, Spacer, renderToString } from "#/index.ts";
 
 // ── Basic rendering ─────────────────────────────────────
 
@@ -348,6 +348,6 @@ test("render deeply nested component tree", () => {
     </Box>,
   );
 
-  expect(output.includes("Nested")).toBe(true);
-  expect(output.includes("deep")).toBe(true);
+  expect(output).toContain("Nested");
+  expect(output).toContain("deep");
 });

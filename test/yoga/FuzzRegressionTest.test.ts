@@ -2,7 +2,8 @@
 
 import { describe, expect, test } from "vite-plus/test";
 
-import Yoga from "../../src/yoga/index.ts";
+import { Yoga } from "#/yoga/index.ts";
+
 import { generateCase } from "./fuzz/case.ts";
 import { assertInvariants, executeCase } from "./fuzz/execute.ts";
 

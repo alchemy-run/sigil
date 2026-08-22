@@ -4,7 +4,7 @@
 // Handlers receive `null` (not `undefined`) like the original package did —
 // Ink's unmount() relies on that to detect process shutdown.
 /* eslint-disable @typescript-eslint/no-restricted-types */
-import process from "node:process";
+import { isWindows } from "#/env.ts";
 
 type ExitHandler = (code: number | null, signal: NodeJS.Signals | null) => void;
 
@@ -13,10 +13,9 @@ type Registration = {
   alwaysLast: boolean;
 };
 
-const signals: NodeJS.Signals[] =
-  process.platform === "win32"
-    ? ["SIGHUP", "SIGINT", "SIGTERM", "SIGBREAK"]
-    : ["SIGHUP", "SIGINT", "SIGTERM", "SIGQUIT", "SIGUSR2"];
+const signals: NodeJS.Signals[] = isWindows
+  ? ["SIGHUP", "SIGINT", "SIGTERM", "SIGBREAK"]
+  : ["SIGHUP", "SIGINT", "SIGTERM", "SIGQUIT", "SIGUSR2"];
 
 const registrations = new Set<Registration>();
 const signalListeners = new Map<NodeJS.Signals, () => void>();
@@ -85,7 +84,10 @@ const load = (): void => {
   }
 };
 
-const signalExit = (handler: ExitHandler, options: { alwaysLast?: boolean } = {}): (() => void) => {
+export const signalExit = (
+  handler: ExitHandler,
+  options: { alwaysLast?: boolean } = {},
+): (() => void) => {
   const registration: Registration = {
     handler,
     alwaysLast: options.alwaysLast ?? false,
@@ -102,5 +104,3 @@ const signalExit = (handler: ExitHandler, options: { alwaysLast?: boolean } = {}
     }
   };
 };
-
-export default signalExit;

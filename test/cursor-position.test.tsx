@@ -1,13 +1,13 @@
 import { expect, test } from "vite-plus/test";
 
-import ansiEscapes from "../src/ansi/escapes.ts";
+import { ansiEscapes } from "#/ansi/escapes.ts";
 import {
   cursorPositionChanged,
   buildCursorSuffix,
   buildReturnToBottom,
   buildCursorOnlySequence,
   buildReturnToBottomPrefix,
-} from "../src/cursor-position.ts";
+} from "#/cursor-position.ts";
 
 const showCursorEscape = "\u001B[?25h";
 const hideCursorEscape = "\u001B[?25l";
@@ -96,7 +96,7 @@ test("buildCursorOnlySequence - no hide prefix when cursor was not shown", () =>
     cursorPosition: { x: 3, y: 0 },
   });
   expect(result.startsWith(hideCursorEscape)).toBe(false);
-  expect(result.includes(showCursorEscape)).toBe(true);
+  expect(result).toContain(showCursorEscape);
 });
 
 // BuildReturnToBottomPrefix

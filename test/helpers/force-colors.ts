@@ -1,4 +1,4 @@
-import chalk, { supportsColor } from "../../src/ansi/chalk.ts";
+import { chalk, supportsColor } from "#/ansi/chalk.ts";
 
 // Force chalk to output colors even in non-TTY environments for testing
 export const enableTestColors = () => {

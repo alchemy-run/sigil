@@ -1,6 +1,6 @@
 import { useState, useLayoutEffect, useRef, useCallback, useContext } from "react";
 
-import AnimationContext from "../components/AnimationContext.ts";
+import { animationContext as AnimationContext } from "#/components/AnimationContext.ts";
 
 const defaultAnimationInterval = 100;
 const maximumTimerInterval = 2_147_483_647;
@@ -59,7 +59,7 @@ const Spinner = () => {
 };
 ```
 */
-export default function useAnimation(options?: Options): AnimationResult {
+export function useAnimation(options?: Options): AnimationResult {
   const { interval = defaultAnimationInterval, isActive = true } = options ?? {};
   const safeInterval = normalizeAnimationInterval(interval);
   const { subscribe, renderThrottleMs } = useContext(AnimationContext);

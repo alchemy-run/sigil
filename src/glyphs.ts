@@ -1,20 +1,5 @@
 // Derived from `cli-boxes` (MIT, Sindre Sorhus).
-
-/**
-Style of the box border.
-*/
-export type BoxStyle = {
-  readonly topLeft: string;
-  readonly top: string;
-  readonly topRight: string;
-  readonly right: string;
-  readonly bottomRight: string;
-  readonly bottom: string;
-  readonly bottomLeft: string;
-  readonly left: string;
-};
-
-const boxes = {
+export const BOXES = {
   single: {
     topLeft: "┌",
     top: "─",
@@ -95,8 +80,20 @@ const boxes = {
     bottomLeft: "↗",
     left: "→",
   },
-} as const satisfies Record<string, BoxStyle>;
+} as const;
 
-export type Boxes = typeof boxes;
+export type BoxStyle = keyof typeof BOXES;
 
-export default boxes;
+/**
+The set of glyphs making up a box border, for custom `borderStyle` objects.
+*/
+export type BoxGlyphs = {
+  readonly topLeft: string;
+  readonly top: string;
+  readonly topRight: string;
+  readonly right: string;
+  readonly bottomRight: string;
+  readonly bottom: string;
+  readonly bottomLeft: string;
+  readonly left: string;
+};

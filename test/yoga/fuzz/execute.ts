@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 
-import type { Edge } from "../../../src/yoga/generated/YGEnums.ts";
-import type { Yoga as YogaApi } from "../../../src/yoga/index.ts";
+import type { Edge } from "#/yoga/generated/YGEnums.ts";
+import type { Yoga as YogaApi } from "#/yoga/index.ts";
+
 import type { EdgeValue, FuzzCase, LengthSpec, NodeSpec } from "./case.ts";
 
 type EngineNode = ReturnType<YogaApi["Node"]["create"]>;

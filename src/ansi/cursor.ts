@@ -1,10 +1,8 @@
+import { cursorHide, cursorShow } from "#/ansi/escapes.ts";
 // Derived from `cli-cursor` + `restore-cursor` (MIT, Sindre Sorhus),
 // collapsed into one module. Restores the cursor on process exit once
 // `hide()` has been called, like `restore-cursor` did.
-import process from "node:process";
-
-import signalExit from "../signal-exit.ts";
-import { cursorHide, cursorShow } from "./escapes.ts";
+import { signalExit } from "#/signal-exit.ts";
 
 type CursorStream = {
   isTTY?: boolean;
@@ -28,7 +26,7 @@ const registerRestore = (): void => {
   );
 };
 
-const cliCursor = {
+export const cliCursor = {
   show(writableStream: CursorStream = process.stderr): void {
     if (!writableStream.isTTY) {
       return;
@@ -46,5 +44,3 @@ const cliCursor = {
     writableStream.write(cursorHide);
   },
 };
-
-export default cliCursor;

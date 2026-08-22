@@ -1,7 +1,7 @@
 import { useEffect, useEffectEvent } from "react";
 
-import reconciler from "../reconciler.ts";
-import { useStdinContext } from "./use-stdin.ts";
+import { useStdinContext } from "#/hooks/use-stdin.ts";
+import { reconciler } from "#/reconciler.ts";
 
 type Options = {
   /**
@@ -37,7 +37,7 @@ const MyInput = () => {
 };
 ```
 */
-const usePaste = (handler: (text: string) => void, options: Options = {}): void => {
+export const usePaste = (handler: (text: string) => void, options: Options = {}): void => {
   // eslint-disable-next-line @typescript-eslint/naming-convention
   const { setRawMode, setBracketedPasteMode, internal_eventEmitter } = useStdinContext();
 
@@ -76,5 +76,3 @@ const usePaste = (handler: (text: string) => void, options: Options = {}): void 
     };
   }, [options.isActive, internal_eventEmitter]);
 };
-
-export default usePaste;

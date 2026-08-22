@@ -1,7 +1,8 @@
 import { expect, test } from "vite-plus/test";
 
-import chalk from "../src/ansi/chalk.ts";
-import { Box, Text } from "../src/index.ts";
+import { chalk } from "#/ansi/chalk.ts";
+import { Box, Text } from "#/index.ts";
+
 import { renderToString } from "./helpers/render-to-string.ts";
 
 test("row - align text to center", () => {

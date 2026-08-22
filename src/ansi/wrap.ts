@@ -1,14 +1,14 @@
 // Word-wrap a string to a column width, ANSI-aware.
 // Ported from `wrap-ansi` (MIT, Sindre Sorhus).
-import { BEL, C1_CSI, ESC } from "./escapes.ts";
+import { BEL, C1_CSI, ESC } from "#/ansi/escapes.ts";
 //
 // Supported boundary: semicolon-delimited SGR styling, colon-delimited
 // RGB/indexed colors, and OSC 8 hyperlinks are tracked, while ordinary CSI
 // sequences and other complete 7-bit OSC commands are preserved as opaque
 // zero-width units. This is intentionally not a terminal emulator. Newlines
 // always delimit input lines before ANSI parsing.
-import { codes as sgrCodes } from "./sgr.ts";
-import stringWidth from "./string-width.ts";
+import { codes as sgrCodes } from "#/ansi/sgr.ts";
+import { stringWidth } from "#/ansi/string-width.ts";
 
 export type WrapOptions = {
   readonly trim?: boolean;
@@ -59,8 +59,7 @@ const segmenter = new Intl.Segmenter();
 // Complete ANSI sequences have already been removed before measuring these
 // strings. Avoid string-width's ANSI scan so malformed sequences are not
 // rescanned.
-const getStringWidth = (string: string): number =>
-  stringWidth(string, { countAnsiEscapeCodes: true });
+const getStringWidth = (string: string): number => stringWidth(string);
 const TAB_SIZE = 8;
 
 // Finds the next character that could introduce a sequence, so plain text is
@@ -221,18 +220,18 @@ type ActiveStyle = {
   readonly close: number;
 };
 
+const EXTENDED_COLOR_CODES = new Set([
+  ANSI_SGR_FOREGROUND_EXTENDED,
+  ANSI_SGR_BACKGROUND_EXTENDED,
+  ANSI_SGR_UNDERLINE_COLOR_EXTENDED,
+]);
+
 const getColonColorToken = (parameter: string): SgrToken | undefined => {
   const parts = parameter.split(":");
   const code = Number.parseInt(parts[0]!, 10);
   const mode = Number.parseInt(parts[1]!, 10);
 
-  if (
-    ![
-      ANSI_SGR_FOREGROUND_EXTENDED,
-      ANSI_SGR_BACKGROUND_EXTENDED,
-      ANSI_SGR_UNDERLINE_COLOR_EXTENDED,
-    ].includes(code)
-  ) {
+  if (!EXTENDED_COLOR_CODES.has(code)) {
     return;
   }
 
@@ -467,8 +466,8 @@ const applyLeadingSgrResets = (
 };
 
 const getClosingSgrSequence = (activeStyles: readonly ActiveStyle[]): string =>
-  [...activeStyles]
-    .reverse()
+  activeStyles
+    .toReversed()
     .map((activeStyle) => wrapAnsiCode(activeStyle.close))
     .join("");
 
@@ -756,7 +755,7 @@ const exec = (string: string, columns: number, options: WrapOptions = {}): strin
   return restoreStylesAcrossRows(rows.join("\n"));
 };
 
-export default function wrapAnsi(string: string, columns: number, options?: WrapOptions): string {
+export function wrapAnsi(string: string, columns: number, options?: WrapOptions): string {
   return string
     .normalize()
     .replaceAll("\r\n", "\n")

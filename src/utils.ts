@@ -1,5 +1,5 @@
-import type { OutputStream } from "./stream.ts";
-import terminalSize from "./terminal-size.ts";
+import type { OutputStream } from "#/stream.ts";
+import { terminalSize } from "#/terminal-size.ts";
 
 const resolveDimension = (
   value: number | undefined,

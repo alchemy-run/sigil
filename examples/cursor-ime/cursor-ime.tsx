@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 
-import stringWidth from "../../src/ansi/string-width.ts";
-import { render, Box, Text, useInput, useCursor } from "../../src/index.ts";
+import { stringWidth } from "#/ansi/string-width.ts";
+import { render, Box, Text, useInput, useCursor } from "#/index.ts";
 
 function App() {
   const [text, setText] = useState("");

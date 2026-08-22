@@ -8,9 +8,9 @@ import {
   styledCharsToString,
   tokenize,
   type StyledChar,
-} from "./tokenize.ts";
+} from "#/ansi/tokenize.ts";
 
-export default function sliceAnsi(string: string, start: number, end?: number): string {
+export function sliceAnsi(string: string, start: number, end?: number): string {
   const sliceEnd = end ?? Number.POSITIVE_INFINITY;
 
   if (start >= sliceEnd || string === "") {

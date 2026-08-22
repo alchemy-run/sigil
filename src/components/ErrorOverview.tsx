@@ -1,10 +1,12 @@
-import * as fs from "node:fs";
+/** @jsxImportSource react */
+
+import { existsSync, readFileSync } from "node:fs";
 import { cwd } from "node:process";
 
-import codeExcerpt, { type CodeExcerpt } from "../code-excerpt.ts";
-import parseStackLine from "../parse-stack-line.ts";
-import Box from "./Box.tsx";
-import Text from "./Text.tsx";
+import { codeExcerpt, type CodeExcerpt } from "#/code-excerpt.ts";
+import { Box } from "#/components/Box.tsx";
+import { Text } from "#/components/Text.tsx";
+import { parseStackLine } from "#/parse-stack-line.ts";
 
 // Error's source file is reported as file:///home/user/file.js
 // This function removes the file://[cwd] part
@@ -16,7 +18,7 @@ type Props = {
   readonly error: Error;
 };
 
-export default function ErrorOverview({ error }: Props) {
+export function ErrorOverview({ error }: Props) {
   const stack = error.stack ? error.stack.split("\n").slice(1) : undefined;
   const origin = stack ? parseStackLine(stack[0]!) : undefined;
   const filePath = cleanupPath(origin?.file);
@@ -24,8 +26,8 @@ export default function ErrorOverview({ error }: Props) {
   let lineWidth = 0;
   const stackLineCounts = new Map<string, number>();
 
-  if (filePath && origin?.line && fs.existsSync(filePath)) {
-    const sourceCode = fs.readFileSync(filePath, "utf8");
+  if (filePath && origin?.line && existsSync(filePath)) {
+    const sourceCode = readFileSync(filePath, "utf8");
     excerpt = codeExcerpt(sourceCode, origin.line);
 
     if (excerpt) {

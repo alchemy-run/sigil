@@ -10,7 +10,7 @@ import type {
   Overflow,
   PositionType,
   Wrap,
-} from "../../../src/yoga/generated/YGEnums.ts";
+} from "#/yoga/generated/YGEnums.ts";
 
 export type LengthUnit =
   | "undefined"

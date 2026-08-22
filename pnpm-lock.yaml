@@ -31,9 +31,6 @@ importers:
       '@types/scheduler':
         specifier: ^0.26.0
         version: 0.26.0
-      '@types/ws':
-        specifier: ^8.18.1
-        version: 8.18.1
       react:
         specifier: ^19.2.8
         version: 19.2.8
@@ -55,9 +52,6 @@ importers:
       vitest:
         specifier: 4.1.10
         version: 4.1.10(@types/node@25.9.5)(@vitest/browser-preview@4.1.10)(@voidzero-dev/vite-plus-core@0.2.9(@types/node@25.9.5)(esbuild@0.28.2)(tsx@4.23.12)(typescript@7.0.2))
-      ws:
-        specifier: ^8.20.0
-        version: 8.21.3
       zigpty:
         specifier: ^0.2.1
         version: 0.2.1
@@ -564,9 +558,6 @@ packages:
 
   '@types/scheduler@0.26.0':
     resolution: {integrity: sha512-WFHp9YUJQ6CKshqoC37iOlHnQSmxNc795UhB26CyBBttrN9svdIrUjl/NjnNmfcwtncN0h/0PPAFWv9ovP8mLA==}
-
-  '@types/ws@8.18.1':
-    resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
 
   '@typescript/typescript-aix-ppc64@7.0.2':
     resolution: {integrity: sha512-MTKKkWB7p/0E9xi1d1tHtZ5PiLkGEMIq88pK2CubZjOsLtYTLqhgIgi6zepFa+9GHZ6h05NMCkQxGKiPXMxXtQ==}
@@ -1631,10 +1622,6 @@ snapshots:
       csstype: 3.2.3
 
   '@types/scheduler@0.26.0': {}
-
-  '@types/ws@8.18.1':
-    dependencies:
-      '@types/node': 25.9.5
 
   '@typescript/typescript-aix-ppc64@7.0.2':
     optional: true

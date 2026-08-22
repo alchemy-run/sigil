@@ -3,8 +3,9 @@ import { setTimeout as delay } from "node:timers/promises";
 import React, { useRef, useState } from "react";
 import { expect, test } from "vite-plus/test";
 
-import stripAnsi from "../src/ansi/strip.ts";
-import { Box, Text, render, useBoxMetrics, type DOMElement } from "../src/index.ts";
+import { stripAnsi } from "#/ansi/strip.ts";
+import { Box, Text, render, useBoxMetrics, type DOMElement } from "#/index.ts";
+
 import createStdout from "./helpers/create-stdout.ts";
 
 test("returns correct size on first render", async () => {
@@ -27,7 +28,7 @@ test("returns correct size on first render", async () => {
   await delay(50);
 
   // Width fills terminal (100); single-line text renders as height 1
-  expect(stripAnsi(stdout.get()).includes("100x1")).toBe(true);
+  expect(stripAnsi(stdout.get())).toContain("100x1");
 });
 
 test("returns correct position", async () => {
@@ -53,7 +54,7 @@ test("returns correct position", async () => {
   await delay(50);
 
   // MarginLeft=5 → left=5; second row → top=1
-  expect(stripAnsi(stdout.get()).includes("5,1")).toBe(true);
+  expect(stripAnsi(stdout.get())).toContain("5,1");
 });
 
 test("updates when terminal is resized", async () => {
@@ -73,13 +74,13 @@ test("updates when terminal is resized", async () => {
   await waitUntilRenderFlush();
   await delay(50);
 
-  expect(stripAnsi(stdout.get()).includes("Width: 100")).toBe(true);
+  expect(stripAnsi(stdout.get())).toContain("Width: 100");
 
-  (stdout as any).columns = 60;
+  stdout.columns = 60;
   stdout.emit("resize");
   await delay(200);
 
-  expect(stripAnsi(stdout.get()).includes("Width: 60")).toBe(true);
+  expect(stripAnsi(stdout.get())).toContain("Width: 60");
 });
 
 test("uses latest tracked ref when terminal is resized", async () => {
@@ -114,19 +115,19 @@ test("uses latest tracked ref when terminal is resized", async () => {
   await waitUntilRenderFlush();
   await delay(50);
 
-  expect(stripAnsi(stdout.get()).includes("Tracked height: 1")).toBe(true);
+  expect(stripAnsi(stdout.get())).toContain("Tracked height: 1");
 
   trackSecondRef();
   await waitUntilRenderFlush();
   await delay(50);
 
-  expect(stripAnsi(stdout.get()).includes("Tracked height: 1")).toBe(true);
+  expect(stripAnsi(stdout.get())).toContain("Tracked height: 1");
 
-  (stdout as any).columns = 20;
+  stdout.columns = 20;
   stdout.emit("resize");
   await delay(200);
 
-  expect(stripAnsi(stdout.get()).includes("Tracked height: 4")).toBe(true);
+  expect(stripAnsi(stdout.get())).toContain("Tracked height: 4");
 });
 
 test("updates when sibling content changes", async () => {
@@ -154,12 +155,12 @@ test("updates when sibling content changes", async () => {
   await waitUntilRenderFlush();
   await delay(50);
 
-  expect(stripAnsi(stdout.get()).includes("Height: 1")).toBe(true);
+  expect(stripAnsi(stdout.get())).toContain("Height: 1");
 
   externalSetSiblingText("line 1\nline 2\nline 3");
   await delay(50);
 
-  expect(stripAnsi(stdout.get()).includes("Height: 3")).toBe(true);
+  expect(stripAnsi(stdout.get())).toContain("Height: 3");
 });
 
 test("updates when sibling content changes but tracked component is memoized", async () => {
@@ -193,13 +194,13 @@ test("updates when sibling content changes but tracked component is memoized", a
   await waitUntilRenderFlush();
   await delay(50);
 
-  expect(stripAnsi(stdout.get()).includes("Top: 1")).toBe(true);
+  expect(stripAnsi(stdout.get())).toContain("Top: 1");
 
   externalSetSiblingText("line 1\nline 2\nline 3");
   await waitUntilRenderFlush();
   await delay(50);
 
-  expect(stripAnsi(stdout.get()).includes("Top: 3")).toBe(true);
+  expect(stripAnsi(stdout.get())).toContain("Top: 3");
 });
 
 test("updates when tracked ref attaches after initial render and component is memoized", async () => {
@@ -242,19 +243,19 @@ test("updates when tracked ref attaches after initial render and component is me
   await waitUntilRenderFlush();
   await delay(50);
 
-  expect(stripAnsi(stdout.get()).includes("Top: 0")).toBe(true);
+  expect(stripAnsi(stdout.get())).toContain("Top: 0");
 
   externalSetIsTrackedElementMounted(true);
   await waitUntilRenderFlush();
   await delay(50);
 
-  expect(stripAnsi(stdout.get()).includes("Top: 1")).toBe(true);
+  expect(stripAnsi(stdout.get())).toContain("Top: 1");
 
   externalSetSiblingText("line 1\nline 2\nline 3");
   await waitUntilRenderFlush();
   await delay(50);
 
-  expect(stripAnsi(stdout.get()).includes("Top: 3")).toBe(true);
+  expect(stripAnsi(stdout.get())).toContain("Top: 3");
 });
 
 test("does not trigger extra re-renders when layout is unchanged", async () => {
@@ -336,7 +337,7 @@ test("returns zeros when ref is not attached", async () => {
   await waitUntilRenderFlush();
   await delay(50);
 
-  expect(stripAnsi(stdout.get()).includes("0,0,0,0,false")).toBe(true);
+  expect(stripAnsi(stdout.get())).toContain("0,0,0,0,false");
 });
 
 test("hasMeasured becomes true when tracked element is mounted on initial render", async () => {
@@ -357,7 +358,7 @@ test("hasMeasured becomes true when tracked element is mounted on initial render
   await waitUntilRenderFlush();
   await delay(50);
 
-  expect(stripAnsi(stdout.get()).includes("Has measured: true")).toBe(true);
+  expect(stripAnsi(stdout.get())).toContain("Has measured: true");
 });
 
 test("hasMeasured resets when tracked ref switches to a detached element", async () => {
@@ -400,19 +401,19 @@ test("hasMeasured resets when tracked ref switches to a detached element", async
   await waitUntilRenderFlush();
   await delay(50);
 
-  expect(stripAnsi(stdout.get()).includes("Has measured: true")).toBe(true);
+  expect(stripAnsi(stdout.get())).toContain("Has measured: true");
 
   trackSecondRef();
   await waitUntilRenderFlush();
   await delay(50);
 
-  expect(stripAnsi(stdout.get()).includes("Has measured: false")).toBe(true);
+  expect(stripAnsi(stdout.get())).toContain("Has measured: false");
 
   mountSecondRef();
   await waitUntilRenderFlush();
   await delay(50);
 
-  expect(stripAnsi(stdout.get()).includes("Has measured: true")).toBe(true);
+  expect(stripAnsi(stdout.get())).toContain("Has measured: true");
 });
 
 test("hasMeasured becomes true after the tracked element is measured", async () => {
@@ -444,13 +445,13 @@ test("hasMeasured becomes true after the tracked element is measured", async () 
   await waitUntilRenderFlush();
   await delay(50);
 
-  expect(stripAnsi(stdout.get()).includes("Has measured: false")).toBe(true);
+  expect(stripAnsi(stdout.get())).toContain("Has measured: false");
 
   mountTrackedElement();
   await waitUntilRenderFlush();
   await delay(50);
 
-  expect(stripAnsi(stdout.get()).includes("Has measured: true")).toBe(true);
+  expect(stripAnsi(stdout.get())).toContain("Has measured: true");
 });
 
 test("resets metrics when tracked element unmounts", async () => {
@@ -484,11 +485,11 @@ test("resets metrics when tracked element unmounts", async () => {
   await waitUntilRenderFlush();
   await delay(50);
 
-  expect(stripAnsi(stdout.get()).includes("Metrics: 10,1,0,0,true")).toBe(true);
+  expect(stripAnsi(stdout.get())).toContain("Metrics: 10,1,0,0,true");
 
   unmountTrackedElement();
   await waitUntilRenderFlush();
   await delay(50);
 
-  expect(stripAnsi(stdout.get()).includes("Metrics: 0,0,0,0,false")).toBe(true);
+  expect(stripAnsi(stdout.get())).toContain("Metrics: 0,0,0,0,false");
 });

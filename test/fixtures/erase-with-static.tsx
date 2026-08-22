@@ -1,6 +1,4 @@
-import process from "node:process";
-
-import { Static, Box, Text, render } from "../../src/index.ts";
+import { Static, Box, Text, render } from "#/index.ts";
 
 function EraseWithStatic() {
   return (

@@ -1,8 +1,8 @@
 import { spawn as spawnProcess } from "node:child_process";
-import EventEmitter from "node:events";
+import EventEmitter, { once } from "node:events";
 import * as path from "node:path";
-import process from "node:process";
 import { PassThrough, Readable, Writable } from "node:stream";
+import { text as consumeText } from "node:stream/consumers";
 import { setTimeout as delay } from "node:timers/promises";
 import vm from "node:vm";
 
@@ -14,17 +14,17 @@ import React, {
   useState,
 } from "react";
 import { afterAll, expect, test, vi } from "vite-plus/test";
-import { spawn } from "zigpty";
 
-import ansiEscapes from "../src/ansi/escapes.ts";
-import { bsu, esu } from "../src/ansi/escapes.ts";
-import stripAnsi from "../src/ansi/strip.ts";
-import { render, Box, Text, useApp, useCursor, useInput, useStdin } from "../src/index.ts";
-import { type RenderMetrics } from "../src/ink.tsx";
+import { ansiEscapes } from "#/ansi/escapes.ts";
+import { bsu, esu } from "#/ansi/escapes.ts";
+import { stripAnsi } from "#/ansi/strip.ts";
+import { render, Box, Text, useApp, useCursor, useInput, useStdin } from "#/index.ts";
+import { type RenderMetrics } from "#/ink.tsx";
+
 import { createStdin, emitReadable } from "./helpers/create-stdin.ts";
 import createStdout, { type FakeStdout } from "./helpers/create-stdout.ts";
-import FakeTimers from "./helpers/fake-timers.ts";
 import { reconstructTerminalLines } from "./helpers/reconstruct-terminal.ts";
+import termHelper from "./helpers/term.ts";
 
 const textDecoder = new TextDecoder();
 
@@ -145,61 +145,10 @@ test("handles input without requiring process ref methods", async () => {
   expect(rawModeChanges).toEqual([true, false]);
 });
 
-const term = (fixture: string, args: string[] = [], options: { rows?: number } = {}) => {
-  let resolve: (value?: unknown) => void;
-  let reject: (error: Error) => void;
-
-  const exitPromise = new Promise((resolve2, reject2) => {
-    resolve = resolve2;
-    reject = reject2;
-  });
-
-  const env: Record<string, string> = {
-    ...(process.env as Record<string, string>),
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    NODE_NO_WARNINGS: "1",
-  };
-
-  const ps = spawn(
-    "node",
-    ["--import=tsx", path.join(import.meta.dirname, `./fixtures/${fixture}.tsx`), ...args],
-    {
-      name: "xterm-color",
-      cols: 100,
-      cwd: import.meta.dirname,
-      env,
-      ...(options.rows === undefined ? {} : { rows: options.rows }),
-    },
-  );
-
-  const result = {
-    write(input: string) {
-      ps.write(input);
-    },
-    output: "",
-    waitForExit: async () => exitPromise,
-  };
-
-  ps.onData((data) => {
-    // Strip Synchronized Update Mode sequences (bsu/esu) so tests
-    // only see the actual content, not the transport wrapper.
-    result.output += data
-      .toString()
-      .replaceAll("\u001B[?2026h", "")
-      .replaceAll("\u001B[?2026l", "");
-  });
-
-  ps.onExit(({ exitCode }) => {
-    if (exitCode === 0) {
-      resolve();
-      return;
-    }
-
-    reject(new Error(`Process exited with non-zero exit code: ${exitCode}`));
-  });
-
-  return result;
-};
+// All fixtures here go through the shared pty runner, with Synchronized
+// Update Mode sequences stripped so assertions see content only.
+const term = (fixture: string, args: string[] = [], options: { rows?: number } = {}) =>
+  termHelper(fixture, args, { ...options, stripSyncSequences: true });
 
 const countOccurrences = (text: string, searchValue: string): number => {
   if (searchValue === "") {
@@ -284,15 +233,14 @@ const runIssue450Fixture = async (fixture: Issue450Fixture, rows = 6): Promise<s
 };
 
 const runNonTtyFixture = async (fixture: string, args: string[] = []): Promise<string> => {
-  let output = "";
-  let errorOutput = "";
   const env: Record<string, string> = {
     ...(process.env as Record<string, string>),
     // eslint-disable-next-line @typescript-eslint/naming-convention
     NODE_NO_WARNINGS: "1",
   };
-  // Force non-CI code path while still using a non-TTY stdout stream.
-  env.CI = "false";
+  // Force non-CI code path while still using a non-TTY stdout stream (an
+  // empty string is falsy under Sigil's `Boolean(process.env.CI)` detection).
+  env.CI = "";
 
   const fixtureProcess = spawnProcess(
     "node",
@@ -304,20 +252,12 @@ const runNonTtyFixture = async (fixture: string, args: string[] = []): Promise<s
     },
   );
 
-  fixtureProcess.stdout.on("data", (data: Uint8Array | string) => {
-    output += typeof data === "string" ? data : data.toString();
-  });
-
-  fixtureProcess.stderr.on("data", (data: Uint8Array | string) => {
-    errorOutput += typeof data === "string" ? data : data.toString();
-  });
-
-  const exitCode = await new Promise<number>((resolve, reject) => {
-    fixtureProcess.on("error", reject);
-    fixtureProcess.on("close", (code) => {
-      resolve(code ?? 0);
-    });
-  });
+  const [output, errorOutput, [code]] = await Promise.all([
+    consumeText(fixtureProcess.stdout),
+    consumeText(fixtureProcess.stderr),
+    once(fixtureProcess, "close") as Promise<[number | null]>,
+  ]);
+  const exitCode = code ?? 0;
 
   if (exitCode !== 0) {
     throw new Error(`Non-TTY fixture exited with code ${exitCode}: ${errorOutput}`);
@@ -367,7 +307,7 @@ const runIssue450FixtureBeforeMarker = async (
 };
 
 const assertIssue450DynamicFrameOutput = (output: string): void => {
-  expect(output.includes("frame 8"), "Fixture should render multiple dynamic frames").toBe(true);
+  expect(output, "Fixture should render multiple dynamic frames").toContain("frame 8");
 };
 
 class SynchronousErrorBoundary extends PureComponent<
@@ -417,10 +357,10 @@ function ThrowingComponentWithBoundary() {
 test("do not erase screen", async () => {
   const ps = term("erase", ["4"]);
   await ps.waitForExit();
-  expect(ps.output.includes(ansiEscapes.clearTerminal)).toBe(false);
+  expect(ps.output).not.toContain(ansiEscapes.clearTerminal);
 
   for (const letter of ["A", "B", "C"]) {
-    expect(ps.output.includes(letter)).toBe(true);
+    expect(ps.output).toContain(letter);
   }
 });
 
@@ -428,10 +368,10 @@ test("do not erase screen where <Static> is taller than viewport", async () => {
   const ps = term("erase-with-static", ["4"]);
 
   await ps.waitForExit();
-  expect(ps.output.includes(ansiEscapes.clearTerminal)).toBe(false);
+  expect(ps.output).not.toContain(ansiEscapes.clearTerminal);
 
   for (const letter of ["A", "B", "C", "D", "E", "F"]) {
-    expect(ps.output.includes(letter)).toBe(true);
+    expect(ps.output).toContain(letter);
   }
 });
 
@@ -452,56 +392,55 @@ test("last line of <Static> survives overflowing live updates (related to #973)"
   // exit (before that frame) would leave "F" trivially present and the test
   // would pass without ever exercising the bug.
   expect(
-    visibleLines.includes("LIVE-0"),
+    visibleLines,
     `Expected the bug-triggering live-region update to have rendered, got ${JSON.stringify(
       visibleLines,
     )}`,
-  ).toBe(true);
+  ).toContain("LIVE-0");
 
   // Distinct-frame guards: if the three phases coalesced into fewer renders,
   // the assertions here would pass without exercising the accounting. Only
   // the inflate frame renders "live-4".
-  expect(
-    ps.output.includes("live-4"),
-    "Expected the inflate phase to have rendered as its own frame",
-  ).toBe(true);
+  expect(ps.output, "Expected the inflate phase to have rendered as its own frame").toContain(
+    "live-4",
+  );
   // Overflowing frames are clamped to the viewport now; the historical
   // full-clear path (whose accounting bug #973 tracked) must never fire,
   // since it erased the user's scrollback.
   expect(
-    ps.output.includes(ansiEscapes.clearTerminal),
+    ps.output,
     "Overflowing updates must not route frames through the scrollback-erasing full clear",
-  ).toBe(false);
+  ).not.toContain(ansiEscapes.clearTerminal);
   expect(
-    ps.output.includes("live-0") && ps.output.includes("LIVE-0"),
+    ps.output.includes("live-0") && ps.output,
     "Expected the shrink and nudge phases to have rendered as separate frames",
-  ).toBe(true);
+  ).toContain("LIVE-0");
 
   expect(
-    visibleLines.includes("F"),
+    visibleLines,
     `Last static line (F) must remain visible after a live-region update, got ${JSON.stringify(
       visibleLines,
     )}`,
-  ).toBe(true);
+  ).toContain("F");
 });
 
 test("erase screen", async () => {
   const ps = term("erase", ["3"]);
   await ps.waitForExit();
-  expect(ps.output.includes(ansiEscapes.clearTerminal)).toBe(true);
+  expect(ps.output).toContain(ansiEscapes.clearTerminal);
 
   for (const letter of ["A", "B", "C"]) {
-    expect(ps.output.includes(letter)).toBe(true);
+    expect(ps.output).toContain(letter);
   }
 });
 
 test("erase screen where <Static> exists but interactive part is taller than viewport", async () => {
   const ps = term("erase", ["3"]);
   await ps.waitForExit();
-  expect(ps.output.includes(ansiEscapes.clearTerminal)).toBe(true);
+  expect(ps.output).toContain(ansiEscapes.clearTerminal);
 
   for (const letter of ["A", "B", "C"]) {
-    expect(ps.output.includes(letter)).toBe(true);
+    expect(ps.output).toContain(letter);
   }
 });
 
@@ -529,7 +468,7 @@ test("erase screen where state changes", async () => {
   const lastFrameContent = stripAnsi(lastFrame);
 
   for (const letter of ["A", "B", "C"]) {
-    expect(lastFrameContent.includes(letter)).toBe(false);
+    expect(lastFrameContent).not.toContain(letter);
   }
 });
 
@@ -540,11 +479,11 @@ test("erase screen where state changes in small viewport", async () => {
 
   // The frame exactly filled the viewport, which is erasable in place —
   // clearTerminal (and its ESC[3J scrollback erase) must not fire.
-  expect(ps.output.includes(ansiEscapes.clearTerminal)).toBe(false);
+  expect(ps.output).not.toContain(ansiEscapes.clearTerminal);
 
   const visibleLines = reconstructTerminalLines(ps.output, rows);
   for (const letter of ["A", "B", "C"]) {
-    expect(visibleLines.includes(letter)).toBe(false);
+    expect(visibleLines).not.toContain(letter);
   }
 });
 
@@ -552,7 +491,7 @@ test("fullscreen mode should not add extra newline at the bottom", async () => {
   const ps = term("fullscreen-no-extra-newline", ["5"]);
   await ps.waitForExit();
 
-  expect(ps.output.includes("Bottom line")).toBe(true);
+  expect(ps.output).toContain("Bottom line");
 
   const lastFrame = ps.output.split(ansiEscapes.clearTerminal).at(-1) ?? "";
 
@@ -625,10 +564,9 @@ test("#450: initial overflowing frame should not clear terminal", async () => {
     3,
   );
 
-  expect(
-    outputBeforeMarker.includes(ansiEscapes.clearTerminal),
-    "Initial overflowing render should not clear terminal",
-  ).toBe(false);
+  expect(outputBeforeMarker, "Initial overflowing render should not clear terminal").not.toContain(
+    ansiEscapes.clearTerminal,
+  );
 });
 
 test("#450: initial full-height frame should not clear terminal", async () => {
@@ -639,10 +577,9 @@ test("#450: initial full-height frame should not clear terminal", async () => {
     3,
   );
 
-  expect(
-    outputBeforeMarker.includes(ansiEscapes.clearTerminal),
-    "Initial full-height render should not clear terminal",
-  ).toBe(false);
+  expect(outputBeforeMarker, "Initial full-height render should not clear terminal").not.toContain(
+    ansiEscapes.clearTerminal,
+  );
 });
 
 test("#450 control: rows - 1 rerenders should avoid clearTerminal", async () => {
@@ -705,7 +642,7 @@ test("#450: <Static> with shrink from full-height must not clear the terminal", 
     "issue-450-static-shrink-from-fullscreen-rerender",
   );
 
-  expect(output.includes("#450 static line")).toBe(true);
+  expect(output).toContain("#450 static line");
   assertIssue450DynamicFrameOutput(output);
   expect(clearTerminalCount).toBe(0);
 });
@@ -799,27 +736,27 @@ test("#450: viewport shrink into overflow must not clear the terminal", async ()
 
 test("#450: non-TTY grow-to-overflow rerender should not clear terminal", async () => {
   const output = await runNonTtyFixture("issue-450-grow-to-overflow-rerender", ["3"]);
-  expect(output.includes(ansiEscapes.clearTerminal)).toBe(false);
+  expect(output).not.toContain(ansiEscapes.clearTerminal);
 });
 
 test("#725: non-TTY child process output is flushed", async () => {
   const output = await runNonTtyFixture("issue-725-child-process");
   const plainOutput = stripAnsi(output);
 
-  expect(plainOutput.includes("ready-stdin-not-tty")).toBe(true);
-  expect(plainOutput.includes("exited")).toBe(true);
+  expect(plainOutput).toContain("ready-stdin-not-tty");
+  expect(plainOutput).toContain("exited");
 });
 
 test("useAnimation can drive non-interactive process exit", async () => {
   const output = await runNonTtyFixture("use-animation-non-interactive-exit");
 
-  expect(stripAnsi(output).includes("exited")).toBe(true);
+  expect(stripAnsi(output)).toContain("exited");
 });
 
 test("useAnimation can drive explicitly non-interactive process exit", async () => {
   const output = await runNonTtyFixture("use-animation-interactive-false-exit");
 
-  expect(stripAnsi(output).includes("exited")).toBe(true);
+  expect(stripAnsi(output)).toContain("exited");
 });
 
 test("#450: full-height rerenders with <Static> should not repeatedly clear terminal", async () => {
@@ -827,7 +764,7 @@ test("#450: full-height rerenders with <Static> should not repeatedly clear term
     "issue-450-full-height-with-static-rerender",
   );
 
-  expect(output.includes("#450 static line"), "Fixture should emit static output").toBe(true);
+  expect(output, "Fixture should emit static output").toContain("#450 static line");
   assertIssue450DynamicFrameOutput(output);
   expect(
     clearTerminalCount <= 1,
@@ -845,7 +782,7 @@ test("clear output", async () => {
   const secondFrame = ps.output.split(ansiEscapes.eraseLines(4))[1];
 
   for (const letter of ["A", "B", "C"]) {
-    expect(secondFrame?.includes(letter)).toBe(false);
+    expect(secondFrame).not.toContain(letter);
   }
 });
 
@@ -904,7 +841,7 @@ function ThrottleCursorTestComponent({ text }: { readonly text: string }) {
 }
 
 test("throttle renders to maxFps", () => {
-  const clock = FakeTimers.install(); // Controls timers + Date.now()
+  vi.useFakeTimers(); // Controls timers + Date.now()
   try {
     const stdout = createStdout();
 
@@ -922,17 +859,17 @@ test("throttle renders to maxFps", () => {
     expect(getContentWrites(stdout.write).length).toBe(1);
 
     // Advance 999 ms: still within window, no trailing call yet
-    clock.tick(999);
+    vi.advanceTimersByTime(999);
     expect(getContentWrites(stdout.write).length).toBe(1);
 
     // Cross the boundary: trailing render fires once
-    clock.tick(1);
+    vi.advanceTimersByTime(1);
     expect(getContentWrites(stdout.write).length).toBe(2);
     expect(stripAnsi(getContentWrites(stdout.write)[1])).toBe("World\n");
 
     unmount();
   } finally {
-    clock.uninstall();
+    vi.useRealTimers();
   }
 });
 
@@ -997,7 +934,7 @@ test("outputs renderTime when onRender is passed", async () => {
 });
 
 test("no throttled renders after unmount", () => {
-  const clock = FakeTimers.install();
+  vi.useFakeTimers();
   try {
     const stdout = createStdout();
 
@@ -1014,15 +951,15 @@ test("no throttled renders after unmount", () => {
     const contentCountAfterUnmount = getContentWrites(stdout.write).length;
 
     // Regression test for https://github.com/vadimdemedes/ink/issues/692
-    clock.tick(1000);
+    vi.advanceTimersByTime(1000);
     expect(getContentWrites(stdout.write).length).toBe(contentCountAfterUnmount);
   } finally {
-    clock.uninstall();
+    vi.useRealTimers();
   }
 });
 
 test("unmount forces pending throttled render", () => {
-  const clock = FakeTimers.install();
+  vi.useFakeTimers();
   try {
     const stdout = createStdout();
 
@@ -1047,7 +984,7 @@ test("unmount forces pending throttled render", () => {
     const allContentWrites = getContentWrites(stdout.write).map((w: string) => stripAnsi(w));
     expect(allContentWrites.some((call: string) => call.includes("Final"))).toBe(true);
   } finally {
-    clock.uninstall();
+    vi.useRealTimers();
   }
 });
 
@@ -1301,7 +1238,7 @@ test("waitUntilRenderFlush waits for concurrent rerender commit", async () => {
   rerender(<Text>World</Text>);
   await waitUntilRenderFlush();
 
-  expect(renderedOutput.includes("World")).toBe(true);
+  expect(renderedOutput).toContain("World");
 });
 
 test("waitUntilRenderFlush waits for all concurrent waiters on the same rerender", async () => {
@@ -1820,7 +1757,7 @@ test("unmount does not write to ended stdout stream", async () => {
 });
 
 test("unmount cancels pending throttled log writes when stdout is ended", () => {
-  const clock = FakeTimers.install();
+  vi.useFakeTimers();
   try {
     const stdout = new PassThrough() as unknown as NodeJS.WriteStream;
     stdout.columns = 100;
@@ -1838,7 +1775,7 @@ test("unmount cancels pending throttled log writes when stdout is ended", () => 
     rerender(<ThrottleTestComponent text="World" />);
     stdout.end();
     unmount();
-    clock.tick(1000);
+    vi.advanceTimersByTime(1000);
 
     expect(
       writeErrors.some(
@@ -1846,12 +1783,12 @@ test("unmount cancels pending throttled log writes when stdout is ended", () => 
       ),
     ).toBe(false);
   } finally {
-    clock.uninstall();
+    vi.useRealTimers();
   }
 });
 
 test("unmount cancels pending throttled render when stdout is ended", () => {
-  const clock = FakeTimers.install();
+  vi.useFakeTimers();
   try {
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     const baselineStdout = new PassThrough() as unknown as NodeJS.WriteStream;
@@ -1863,8 +1800,8 @@ test("unmount cancels pending throttled render when stdout is ended", () => {
     });
     baselineStdout.end();
     baselineApp.unmount();
-    const baselineTimers = clock.countTimers();
-    clock.runAll();
+    const baselineTimers = vi.getTimerCount();
+    vi.runAllTimers();
 
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     const stdout = new PassThrough() as unknown as NodeJS.WriteStream;
@@ -1878,9 +1815,9 @@ test("unmount cancels pending throttled render when stdout is ended", () => {
     stdout.end();
     unmount();
 
-    expect(clock.countTimers()).toBe(baselineTimers);
+    expect(vi.getTimerCount()).toBe(baselineTimers);
   } finally {
-    clock.uninstall();
+    vi.useRealTimers();
   }
 });
 
@@ -1890,12 +1827,12 @@ const createTtyStdout = (columns?: number) => {
   return stdout;
 };
 
-const withFakeClock = (run: (clock: ReturnType<typeof FakeTimers.install>) => void) => {
-  const clock = FakeTimers.install();
+const withFakeClock = (run: () => void) => {
+  vi.useFakeTimers();
   try {
-    run(clock);
+    run();
   } finally {
-    clock.uninstall();
+    vi.useRealTimers();
   }
 };
 
@@ -1912,19 +1849,19 @@ const captureWrites = (stdout: FakeStdout): string[] => {
 };
 
 const assertNoBsuEsuForUnchangedTrailingRerender = (element: React.ReactElement) => {
-  withFakeClock((clock) => {
+  withFakeClock(() => {
     const stdout = createTtyStdout();
     const writes = captureWrites(stdout);
     const { unmount, rerender } = render(element, { stdout, maxFps: 1 });
     try {
-      expect(writes.includes(bsu), "initial render should include bsu").toBe(true);
+      expect(writes, "initial render should include bsu").toContain(bsu);
 
       writes.length = 0;
       rerender(element);
-      clock.tick(1000);
+      vi.advanceTimersByTime(1000);
 
-      expect(writes.includes(bsu), "unchanged rerender should not emit bsu").toBe(false);
-      expect(writes.includes(esu), "unchanged rerender should not emit esu").toBe(false);
+      expect(writes, "unchanged rerender should not emit bsu").not.toContain(bsu);
+      expect(writes, "unchanged rerender should not emit esu").not.toContain(esu);
     } finally {
       unmount();
     }
@@ -1940,7 +1877,7 @@ test("no bsu/esu when output and cursor are unchanged", () => {
 });
 
 test("bsu/esu wraps throttledLog trailing call", () => {
-  withFakeClock((clock) => {
+  withFakeClock(() => {
     const stdout = createTtyStdout();
     const writes = captureWrites(stdout);
     const { unmount, rerender } = render(<ThrottleTestComponent text="Hello" />, {
@@ -1966,11 +1903,11 @@ test("bsu/esu wraps throttledLog trailing call", () => {
 
       // Advance past throttle window to trigger trailing call
       writes.length = 0;
-      clock.tick(1000);
+      vi.advanceTimersByTime(1000);
 
       // Trailing call should also be wrapped with bsu/esu
-      expect(writes.includes(bsu), "trailing call should include bsu").toBe(true);
-      expect(writes.includes(esu), "trailing call should include esu").toBe(true);
+      expect(writes, "trailing call should include bsu").toContain(bsu);
+      expect(writes, "trailing call should include esu").toContain(esu);
 
       // Verify bsu comes before content and esu comes after
       const bsuIdx = writes.indexOf(bsu);

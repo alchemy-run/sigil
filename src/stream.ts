@@ -1,3 +1,5 @@
+import { isTty } from "#/env.ts";
+
 export type OutputStream = NodeJS.WritableStream & {
   isTTY?: boolean;
   columns?: number;
@@ -11,10 +13,6 @@ type RawModeStream = NodeJS.ReadableStream & {
   setRawMode: (mode: boolean) => void;
   ref?: () => void;
   unref?: () => void;
-};
-
-export const isTty = (stream: NodeJS.ReadableStream): boolean => {
-  return "isTTY" in stream && stream.isTTY === true;
 };
 
 const isRawModeStream = (stdin: NodeJS.ReadableStream): stdin is RawModeStream => {

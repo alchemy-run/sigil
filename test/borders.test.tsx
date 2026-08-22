@@ -1,8 +1,9 @@
 import { expect, test } from "vite-plus/test";
 
-import chalk from "../src/ansi/chalk.ts";
-import cliBoxes from "../src/boxes.ts";
-import { render, Box, Text } from "../src/index.ts";
+import { chalk } from "#/ansi/chalk.ts";
+import { BOXES as cliBoxes } from "#/glyphs.ts";
+import { render, Box, Text } from "#/index.ts";
+
 import createStdout from "./helpers/create-stdout.ts";
 import { renderToString, renderToStringAsync } from "./helpers/render-to-string.ts";
 import { renderAsync } from "./helpers/test-renderer.ts";
@@ -984,16 +985,15 @@ test("borderDimColor does not dim styled child Text touching left edge", () => {
   // The styled text should be bold and blue (not dimmed)
   // Note: Text component applies color first then bold, so the escape code order is bold+blue
   const styledText = chalk.bold(chalk.blue("styled text"));
-  expect(
-    output.includes(styledText),
-    "Child text should retain its color and bold styling, not be dimmed",
-  ).toBe(true);
+  expect(output, "Child text should retain its color and bold styling, not be dimmed").toContain(
+    styledText,
+  );
 
   // The border should be dimmed (entire top border line is dimmed as a unit)
   const dimmedTopBorder = chalk.dim(
     cliBoxes.round.topLeft + cliBoxes.round.top.repeat(11) + cliBoxes.round.topRight,
   );
-  expect(output.includes(dimmedTopBorder), "Border should be dimmed").toBe(true);
+  expect(output, "Border should be dimmed").toContain(dimmedTopBorder);
 });
 
 // Concurrent mode tests

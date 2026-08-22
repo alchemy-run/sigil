@@ -3,10 +3,10 @@
 
 // Port of yoga/node/LayoutResults.h and yoga/node/CachedMeasurement.h.
 
-import { Dimension, Direction } from "../generated/YGEnums.ts";
-import type { FlexLine } from "./flexLine.ts";
-import { PhysicalEdge, SizingMode } from "./helpers.ts";
-import { isUndefined } from "./numeric.ts";
+import type { FlexLine } from "#/yoga/core/flexLine.ts";
+import { PhysicalEdge, SizingMode } from "#/yoga/core/helpers.ts";
+import { isUndefined } from "#/yoga/core/numeric.ts";
+import { Dimension, Direction } from "#/yoga/generated/YGEnums.ts";
 
 export class CachedMeasurement {
   availableWidth = -1;

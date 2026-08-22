@@ -10,16 +10,14 @@ export default defineConfig({
     format: "esm",
     outExtensions: () => ({ js: ".js", dts: ".d.ts" }),
     dts: true,
-    deps: {
-      neverBundle: ["ws"],
-    },
+    nodeProtocol: true,
   },
   test: {
     projects: [
       {
         test: {
           alias: {
-            "yoga-layout": "src/yoga/index.ts",
+            "yoga-layout": "test/yoga/yoga-layout-compat.ts",
           },
           globalSetup: ["test/yoga/reference/setup.ts"],
           include: [".vendor/yoga/javascript/tests/**/*.test.ts"],

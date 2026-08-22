@@ -1,8 +1,6 @@
-import process from "node:process";
-
 import { useEffect } from "react";
 
-import { Box, Text, render, useApp } from "../../src/index.ts";
+import { Box, Text, render, useApp } from "#/index.ts";
 
 function App() {
   const { exit } = useApp();

@@ -3,8 +3,9 @@
 
 import { expect } from "vite-plus/test";
 
-import type { FlexDirection } from "../../src/yoga/generated/YGEnums.ts";
-import type { Config, Node, Yoga } from "../../src/yoga/index.ts";
+import type { FlexDirection } from "#/yoga/generated/YGEnums.ts";
+import type { Config, Node, Yoga } from "#/yoga/index.ts";
+
 import { defineBackendTest } from "./backends/defineBackendTest.ts";
 
 function createYGNode(

@@ -5,6 +5,16 @@
 // not expose them and no algorithm consumes them).
 
 import {
+  PhysicalEdge,
+  flexStartEdge,
+  flexEndEdge,
+  inlineStartEdge,
+  inlineEndEdge,
+  isRow,
+} from "#/yoga/core/helpers.ts";
+import { isDefined, maxOrDefined } from "#/yoga/core/numeric.ts";
+import { StyleLength, StyleSizeLength } from "#/yoga/core/types.ts";
+import {
   Align,
   BoxSizing,
   Dimension,
@@ -18,17 +28,7 @@ import {
   PositionType,
   Unit,
   Wrap,
-} from "../generated/YGEnums.ts";
-import {
-  PhysicalEdge,
-  flexStartEdge,
-  flexEndEdge,
-  inlineStartEdge,
-  inlineEndEdge,
-  isRow,
-} from "./helpers.ts";
-import { isDefined, maxOrDefined } from "./numeric.ts";
-import { StyleLength, StyleSizeLength } from "./types.ts";
+} from "#/yoga/generated/YGEnums.ts";
 
 const EDGE_COUNT = 9;
 const GUTTER_COUNT = 3;

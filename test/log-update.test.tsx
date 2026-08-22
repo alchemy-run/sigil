@@ -1,7 +1,8 @@
 import { expect, test } from "vite-plus/test";
 
-import ansiEscapes from "../src/ansi/escapes.ts";
-import logUpdate from "../src/log-update.ts";
+import { ansiEscapes } from "#/ansi/escapes.ts";
+import { logUpdate } from "#/log-update.ts";
+
 import createStdout from "./helpers/create-stdout.ts";
 
 test("standard rendering - renders and updates output", () => {
@@ -14,7 +15,7 @@ test("standard rendering - renders and updates output", () => {
 
   render("World\n");
   expect(stdout.write.mock.calls.length).toBe(2);
-  expect(stdout.write.mock.calls[1][0].includes("World")).toBe(true);
+  expect(stdout.write.mock.calls[1][0]).toContain("World");
 });
 
 test("standard rendering - skips identical output", () => {
@@ -40,7 +41,7 @@ test("incremental rendering - renders and updates output", () => {
 
   render("World\n");
   expect(stdout.write.mock.calls.length).toBe(2);
-  expect(stdout.write.mock.calls[1][0].includes("World")).toBe(true);
+  expect(stdout.write.mock.calls[1][0]).toContain("World");
 });
 
 test("incremental rendering - skips identical output", () => {
@@ -67,10 +68,10 @@ test("incremental rendering - surgical updates", () => {
   render("Line 1\nUpdated\nLine 3\n");
 
   const secondCall = stdout.write.mock.calls[1][0];
-  expect(secondCall.includes(ansiEscapes.cursorNextLine)).toBe(true); // Skips unchanged lines
-  expect(secondCall.includes("Updated")).toBe(true); // Only updates changed line
-  expect(secondCall.includes("Line 1")).toBe(false); // Doesn't rewrite unchanged
-  expect(secondCall.includes("Line 3")).toBe(false); // Doesn't rewrite unchanged
+  expect(secondCall).toContain(ansiEscapes.cursorNextLine); // Skips unchanged lines
+  expect(secondCall).toContain("Updated"); // Only updates changed line
+  expect(secondCall).not.toContain("Line 1"); // Doesn't rewrite unchanged
+  expect(secondCall).not.toContain("Line 3"); // Doesn't rewrite unchanged
 });
 
 test("incremental rendering - same-height update rewinds cursor to top with trailing newline", () => {
@@ -103,7 +104,7 @@ test("incremental rendering - clears extra lines when output shrinks", () => {
   render("Line 1\n");
 
   const secondCall = stdout.write.mock.calls[1][0];
-  expect(secondCall.includes(ansiEscapes.eraseLines(2))).toBe(true); // Erases 2 extra lines
+  expect(secondCall).toContain(ansiEscapes.eraseLines(2)); // Erases 2 extra lines
 });
 
 test("incremental rendering - when output grows", () => {
@@ -121,11 +122,11 @@ test("incremental rendering - when output grows", () => {
   // desynchronizes the tracked cursor position when the grown frame reaches
   // the bottom of the terminal.
   const secondCall = stdout.write.mock.calls[1][0];
-  expect(secondCall.includes(ansiEscapes.eraseLines(2))).toBe(true); // Erases the previous frame
-  expect(secondCall.includes("Line 1")).toBe(true); // Rewrites the whole frame
-  expect(secondCall.includes("Line 2")).toBe(true);
-  expect(secondCall.includes("Line 3")).toBe(true);
-  expect(secondCall.includes(ansiEscapes.cursorNextLine)).toBe(false); // No incremental walk
+  expect(secondCall).toContain(ansiEscapes.eraseLines(2)); // Erases the previous frame
+  expect(secondCall).toContain("Line 1"); // Rewrites the whole frame
+  expect(secondCall).toContain("Line 2");
+  expect(secondCall).toContain("Line 3");
+  expect(secondCall).not.toContain(ansiEscapes.cursorNextLine); // No incremental walk
 });
 
 test("incremental rendering - single write call with multiple surgical updates", () => {
@@ -229,10 +230,10 @@ test("incremental rendering - sync() followed by update (assert incremental path
   expect(stdout.write.mock.calls.length).toBe(1);
 
   const firstCall = stdout.write.mock.calls[0][0];
-  expect(firstCall.includes(ansiEscapes.cursorNextLine)).toBe(true); // Skips unchanged lines
-  expect(firstCall.includes("Updated")).toBe(true); // Only updates changed line
-  expect(firstCall.includes("Line 1")).toBe(false); // Doesn't rewrite unchanged
-  expect(firstCall.includes("Line 3")).toBe(false); // Doesn't rewrite unchanged
+  expect(firstCall).toContain(ansiEscapes.cursorNextLine); // Skips unchanged lines
+  expect(firstCall).toContain("Updated"); // Only updates changed line
+  expect(firstCall).not.toContain("Line 1"); // Doesn't rewrite unchanged
+  expect(firstCall).not.toContain("Line 3"); // Doesn't rewrite unchanged
 });
 
 // Cursor positioning tests
@@ -265,7 +266,7 @@ test("standard rendering - positions cursor after output when cursorPosition is 
   // Cursor after write is at line 3 (0-indexed), col 0
   // To reach y=1: cursorUp(3 - 1) = cursorUp(2)
   // Then cursorTo(5) and show cursor
-  expect(written.includes("Line 3")).toBe(true);
+  expect(written).toContain("Line 3");
   expect(
     written.endsWith(ansiEscapes.cursorUp(2) + ansiEscapes.cursorTo(5) + showCursorEscape),
   ).toBe(true);
@@ -296,7 +297,7 @@ test("standard rendering - no cursor positioning when cursorPosition is undefine
   render("Hello\n");
 
   const written = stdout.write.mock.calls[0][0];
-  expect(written.includes(showCursorEscape)).toBe(false);
+  expect(written).not.toContain(showCursorEscape);
 });
 
 test("standard rendering - cursor position at second-to-last line emits cursorUp(1)", () => {
@@ -326,9 +327,9 @@ for (const { name, incremental } of renderingModes) {
     const clearCall = stdout.write.mock.calls[1][0];
     // Cursor was at y=0, output had 4 lines (3 visible + trailing newline).
     // clear() should: hide cursor, move down to bottom (from y=0 to line 3), then erase
-    expect(clearCall.includes(hideCursorEscape)).toBe(true);
-    expect(clearCall.includes(ansiEscapes.cursorDown(3))).toBe(true);
-    expect(clearCall.includes(ansiEscapes.eraseLines(4))).toBe(true);
+    expect(clearCall).toContain(hideCursorEscape);
+    expect(clearCall).toContain(ansiEscapes.cursorDown(3));
+    expect(clearCall).toContain(ansiEscapes.eraseLines(4));
   });
 }
 
@@ -343,7 +344,7 @@ test("standard rendering - clearing cursor position stops cursor positioning", (
   render("World\n");
 
   const secondCall = stdout.write.mock.calls[1][0];
-  expect(secondCall.includes(showCursorEscape)).toBe(false);
+  expect(secondCall).not.toContain(showCursorEscape);
 });
 
 test("incremental rendering - positions cursor after surgical updates", () => {
@@ -399,7 +400,7 @@ for (const { name, incremental } of renderingModes) {
     expect(stdout.write.mock.calls.length).toBe(2);
     const secondCall = stdout.write.mock.calls[1][0];
     // Should reposition cursor: hide + return to bottom + move to new position + show
-    expect(secondCall.includes(showCursorEscape)).toBe(true);
+    expect(secondCall).toContain(showCursorEscape);
     expect(secondCall.endsWith(ansiEscapes.cursorTo(3) + showCursorEscape)).toBe(true);
   });
 }
@@ -417,8 +418,8 @@ test("standard rendering - returns to bottom before erase when cursor was positi
   const secondCall = stdout.write.mock.calls[1][0];
   // Should: hide cursor, move down to bottom (from y=0 to line 3), then erase + rewrite
   expect(secondCall.startsWith(hideCursorEscape)).toBe(true);
-  expect(secondCall.includes(ansiEscapes.cursorDown(3))).toBe(true);
-  expect(secondCall.includes("Line A")).toBe(true);
+  expect(secondCall).toContain(ansiEscapes.cursorDown(3));
+  expect(secondCall).toContain("Line A");
 });
 
 for (const { name, incremental } of renderingModes) {
@@ -436,8 +437,8 @@ for (const { name, incremental } of renderingModes) {
     render("Updated output\n");
 
     const afterSync = stdout.get();
-    expect(afterSync.includes(hideCursorEscape)).toBe(false);
-    expect(afterSync.includes(ansiEscapes.cursorDown(3))).toBe(false);
+    expect(afterSync).not.toContain(hideCursorEscape);
+    expect(afterSync).not.toContain(ansiEscapes.cursorDown(3));
   });
 }
 
@@ -525,7 +526,7 @@ test("incremental rendering - no trailing newline: trailing to no-trailing trans
   const secondCall = stdout.write.mock.calls[1][0];
   // Both lines are unchanged, so only cursor movement should occur.
   // The key is that the cursor does NOT overshoot past line B.
-  expect(secondCall.includes(ansiEscapes.cursorNextLine)).toBe(true); // Skip unchanged A
+  expect(secondCall).toContain(ansiEscapes.cursorNextLine); // Skip unchanged A
   expect(secondCall.endsWith("\n")).toBe(false); // No trailing newline in output
 });
 
@@ -540,8 +541,8 @@ test("incremental rendering - no trailing newline: no-trailing to no-trailing up
   render("A\nC");
 
   const secondCall = stdout.write.mock.calls[1][0];
-  expect(secondCall.includes(ansiEscapes.cursorNextLine)).toBe(true); // Skip unchanged A
-  expect(secondCall.includes("C")).toBe(true); // Updates B to C
+  expect(secondCall).toContain(ansiEscapes.cursorNextLine); // Skip unchanged A
+  expect(secondCall).toContain("C"); // Updates B to C
   expect(secondCall.endsWith("\n")).toBe(false); // No trailing newline
 });
 
@@ -558,7 +559,7 @@ test("incremental rendering - no trailing newline: shrink", () => {
   const secondCall = stdout.write.mock.calls[1][0];
   // Should erase 1 extra line (B), not over-erase A
   // previousVisible=2, visibleCount=1, no trailing newline -> eraseLines(2-1+0) = eraseLines(1)
-  expect(secondCall.includes(ansiEscapes.eraseLines(1))).toBe(true);
+  expect(secondCall).toContain(ansiEscapes.eraseLines(1));
   expect(secondCall.endsWith("\n")).toBe(false); // No trailing newline
 });
 
@@ -600,8 +601,8 @@ test("incremental rendering - no trailing newline: grow", () => {
   render("A\nB\nC");
 
   const secondCall = stdout.write.mock.calls[1][0];
-  expect(secondCall.includes("B")).toBe(true); // New line B
-  expect(secondCall.includes("C")).toBe(true); // New line C
+  expect(secondCall).toContain("B"); // New line B
+  expect(secondCall).toContain("C"); // New line C
   expect(secondCall.endsWith("\n")).toBe(false); // No trailing newline
 });
 
@@ -624,7 +625,7 @@ test("incremental rendering - no trailing newline: unchanged lines do not oversh
   // Should write X with newline to advance to B's line, then skip B.
   // The buffer ends with the \n that moves to B's line, but no extra
   // cursorNextLine past B -- the cursor stays on the last visible line.
-  expect(thirdCall.includes("X")).toBe(true);
+  expect(thirdCall).toContain("X");
   // Verify no cursorNextLine appears after B's position (B is unchanged
   // and last, so no cursor movement is emitted for it)
   const lastCursorNextLine = thirdCall.lastIndexOf(ansiEscapes.cursorNextLine);

@@ -3,7 +3,8 @@ import { setTimeout as delay } from "node:timers/promises";
 import { useEffect } from "react";
 import { expect, test } from "vite-plus/test";
 
-import { render, Box, Text, useFocus, useFocusManager } from "../src/index.ts";
+import { render, Box, Text, useFocus, useFocusManager } from "#/index.ts";
+
 import { createStdin, emitReadable } from "./helpers/create-stdin.ts";
 import createStdout from "./helpers/create-stdout.ts";
 

@@ -1,6 +1,6 @@
 import React from "react";
 
-import { render, Box, Text, useStdout } from "../../src/index.ts";
+import { render, Box, Text, useStdout } from "#/index.ts";
 
 function Example() {
   const { stdout, write } = useStdout();

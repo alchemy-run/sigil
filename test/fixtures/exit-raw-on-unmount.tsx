@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-import { render, Text, useStdin } from "../../src/index.ts";
+import { render, Text, useStdin } from "#/index.ts";
 
 function Test() {
   const { setRawMode } = useStdin();

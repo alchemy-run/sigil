@@ -1,5 +1,5 @@
-import { type DOMElement } from "./dom.ts";
-import sanitizeAnsi from "./sanitize-ansi.ts";
+import { type DOMElement } from "#/dom.ts";
+import { sanitizeAnsi } from "#/sanitize-ansi.ts";
 
 // Squashing text nodes allows to combine multiple text nodes into one and write
 // to `Output` instance only once. For example, <Text>hello{' '}world</Text>
@@ -7,7 +7,7 @@ import sanitizeAnsi from "./sanitize-ansi.ts";
 //
 // Also, this is necessary for libraries like ink-link (https://github.com/sindresorhus/ink-link),
 // which need to wrap all children at once, instead of wrapping 3 text nodes separately.
-const squashTextNodes = (node: DOMElement): string => {
+export const squashTextNodes = (node: DOMElement): string => {
   let text = "";
 
   for (let index = 0; index < node.childNodes.length; index++) {
@@ -38,5 +38,3 @@ const squashTextNodes = (node: DOMElement): string => {
 
   return sanitizeAnsi(text);
 };
-
-export default squashTextNodes;

@@ -1,3 +1,5 @@
+import { kittyQuery } from "#/ansi/escapes.ts";
+
 // Kitty keyboard protocol flags.
 // @see https://sw.kovidgoyal.net/kitty/keyboard-protocol/
 export const kittyFlags = {
@@ -54,4 +56,130 @@ export type KittyKeyboardOptions = {
   // - 'reportAllKeysAsEscapeCodes' - Report all keys as escape codes
   // - 'reportAssociatedText' - Report associated text with key events
   flags?: KittyFlagName[];
+};
+
+const textEncoder = new TextEncoder();
+
+const kittyQueryEscapeByte = 0x1b;
+const kittyQueryOpenBracketByte = 0x5b;
+const kittyQueryQuestionMarkByte = 0x3f;
+const kittyQueryLetterByte = 0x75;
+const zeroByte = 0x30;
+const nineByte = 0x39;
+
+type KittyQueryResponseMatch = { state: "complete"; endIndex: number } | { state: "partial" };
+
+const isDigitByte = (byte: number): boolean => byte >= zeroByte && byte <= nineByte;
+
+const matchKittyQueryResponse = (
+  buffer: number[],
+  startIndex: number,
+): KittyQueryResponseMatch | undefined => {
+  if (
+    buffer[startIndex] !== kittyQueryEscapeByte ||
+    buffer[startIndex + 1] !== kittyQueryOpenBracketByte ||
+    buffer[startIndex + 2] !== kittyQueryQuestionMarkByte
+  ) {
+    return;
+  }
+
+  let index = startIndex + 3;
+  const digitsStartIndex = index;
+  while (index < buffer.length && isDigitByte(buffer[index]!)) {
+    index++;
+  }
+
+  if (index === digitsStartIndex) {
+    return;
+  }
+
+  if (index === buffer.length) {
+    return { state: "partial" };
+  }
+
+  if (buffer[index] === kittyQueryLetterByte) {
+    return { state: "complete", endIndex: index };
+  }
+
+  return;
+};
+
+const hasCompleteKittyQueryResponse = (buffer: number[]): boolean => {
+  for (let index = 0; index < buffer.length; index++) {
+    const match = matchKittyQueryResponse(buffer, index);
+    if (match?.state === "complete") {
+      return true;
+    }
+  }
+
+  return false;
+};
+
+const stripKittyQueryResponsesAndTrailingPartial = (buffer: number[]): number[] => {
+  const keptBytes: number[] = [];
+  let index = 0;
+  while (index < buffer.length) {
+    const match = matchKittyQueryResponse(buffer, index);
+    if (match?.state === "complete") {
+      index = match.endIndex + 1;
+      continue;
+    }
+
+    if (match?.state === "partial") {
+      break;
+    }
+
+    keptBytes.push(buffer[index]!);
+    index++;
+  }
+
+  return keptBytes;
+};
+
+// Query the terminal for kitty keyboard protocol support. The CSI ? u query is
+// safe to send to any terminal — unsupporting terminals simply won't respond,
+// and the 200ms timeout handles that. Stdin bytes that aren't part of the
+// protocol response are re-emitted so they aren't lost from the caller's input
+// pipeline. Returns a cancel function; cancelling (or the timeout firing)
+// means `onSupported` never runs.
+export const detectKittySupport = (
+  stdin: NodeJS.ReadableStream,
+  stdout: { write: (data: string) => unknown },
+  onSupported: () => void,
+): (() => void) => {
+  let responseBuffer: number[] = [];
+
+  const cleanup = (): void => {
+    clearTimeout(timer);
+    stdin.removeListener("data", onData);
+
+    // Re-emit any buffered data that wasn't the protocol response.
+    // Clear responseBuffer afterwards to make cleanup idempotent.
+    const remaining = stripKittyQueryResponsesAndTrailingPartial(responseBuffer);
+    responseBuffer = [];
+    if (remaining.length > 0) {
+      stdin.unshift(Uint8Array.from(remaining));
+    }
+  };
+
+  const onData = (data: Uint8Array | string): void => {
+    const chunk = typeof data === "string" ? textEncoder.encode(data) : data;
+    for (const byte of chunk) {
+      responseBuffer.push(byte);
+    }
+
+    if (hasCompleteKittyQueryResponse(responseBuffer)) {
+      cleanup();
+      onSupported();
+    }
+  };
+
+  // Attach listener before writing the query so that synchronous
+  // or immediate responses are not missed.
+  stdin.on("data", onData);
+  const timer = setTimeout(cleanup, 200);
+
+  stdout.write(kittyQuery);
+
+  return cleanup;
 };

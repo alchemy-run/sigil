@@ -1,6 +1,6 @@
 import React from "react";
 
-import { render, Box, Text } from "../../src/index.ts";
+import { render, Box, Text } from "#/index.ts";
 
 function Borders() {
   return (

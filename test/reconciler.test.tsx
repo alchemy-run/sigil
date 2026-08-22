@@ -1,8 +1,9 @@
 import { Suspense } from "react";
 import { expect, test } from "vite-plus/test";
 
-import chalk from "../src/ansi/chalk.ts";
-import { Box, Text, render } from "../src/index.ts";
+import { chalk } from "#/ansi/chalk.ts";
+import { Box, Text, render } from "#/index.ts";
+
 import createStdout from "./helpers/create-stdout.ts";
 
 test("update child", () => {
@@ -366,10 +367,7 @@ test("support suspense", async () => {
 test("support suspense with concurrent mode", async () => {
   const stdout = createStdout();
 
-  let resolvePromise: () => void;
-  const promise = new Promise<void>((resolve) => {
-    resolvePromise = resolve;
-  });
+  const { promise, resolve: resolvePromise } = Promise.withResolvers<void>();
 
   // eslint-disable-next-line prefer-const
   let data: string | undefined;

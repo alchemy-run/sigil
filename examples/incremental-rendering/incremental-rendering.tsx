@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 
-import { render, Text, Box, useInput, useWindowSize, useApp } from "../../src/index.ts";
+import { render, Text, Box, useInput, useWindowSize, useApp } from "#/index.ts";
 
 const rows = [
   "Server Authentication Module - Handles JWT token validation, OAuth2 flows, and session management across distributed systems",

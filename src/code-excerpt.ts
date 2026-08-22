@@ -18,7 +18,7 @@ const generateLineNumbers = (line: number, around: number): number[] => {
   return lineNumbers;
 };
 
-const codeExcerpt = (
+export const codeExcerpt = (
   source: string,
   line: number,
   options: { around?: number } = {},
@@ -37,5 +37,3 @@ const codeExcerpt = (
     .filter((lineNumber) => lines[lineNumber - 1] !== undefined)
     .map((lineNumber) => ({ line: lineNumber, value: lines[lineNumber - 1]! }));
 };
-
-export default codeExcerpt;

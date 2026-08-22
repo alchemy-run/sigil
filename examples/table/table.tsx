@@ -1,6 +1,6 @@
 import React from "react";
 
-import { Box, Text, render } from "../../src/index.ts";
+import { Box, Text, render } from "#/index.ts";
 
 const names = [
   "Maya Chen",

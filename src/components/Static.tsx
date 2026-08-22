@@ -1,6 +1,7 @@
+/** @jsxImportSource react */
 import { useMemo, useState, useLayoutEffect, type ReactNode } from "react";
 
-import { type Styles } from "../styles.ts";
+import { type Styles } from "#/styles.ts";
 
 export type Props<T> = {
   /**
@@ -26,7 +27,7 @@ It's preferred to use `<Static>` for use cases like these when you can't know or
 
 For example, [Tap](https://github.com/tapjs/node-tap) uses `<Static>` to display a list of completed tests. [Gatsby](https://github.com/gatsbyjs/gatsby) uses it to display a list of generated pages while still displaying a live progress bar.
 */
-export default function Static<T>(props: Props<T>) {
+export function Static<T>(props: Props<T>) {
   const { items, children: render, style: customStyle } = props;
   const [index, setIndex] = useState(0);
 

@@ -1,6 +1,4 @@
-import process from "node:process";
-
-import { render, Text } from "../../src/index.ts";
+import { render, Text } from "#/index.ts";
 
 const app = render(<Text>Hello</Text>, { debug: true });
 

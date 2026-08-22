@@ -1,6 +1,6 @@
 import React from "react";
 
-import { render, useInput, useApp, Box, Text } from "../../src/index.ts";
+import { render, useInput, useApp, Box, Text } from "#/index.ts";
 
 function Robot() {
   const { exit } = useApp();

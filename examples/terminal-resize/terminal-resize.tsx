@@ -1,6 +1,6 @@
 import React from "react";
 
-import { render, Box, Text, useWindowSize } from "../../src/index.ts";
+import { render, Box, Text, useWindowSize } from "#/index.ts";
 
 function TerminalResizeExample() {
   const { columns, rows } = useWindowSize();

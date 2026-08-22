@@ -1,6 +1,6 @@
 import React from "react";
 
-import { Box, Text } from "../../src/index.ts";
+import { Box, Text } from "#/index.ts";
 
 function BoxBackgrounds() {
   return (

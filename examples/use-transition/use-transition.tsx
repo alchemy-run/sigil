@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useTransition } from "react";
 
-import { render, Box, Text, useInput } from "../../src/index.ts";
+import { render, Box, Text, useInput } from "#/index.ts";
 
 // Generate a large list of items for demonstration
 function generateItems(filter: string): string[] {

@@ -1,5 +1,5 @@
-import widestLine from "./ansi/widest-line.ts";
-import QuickLRU from "./quick-lru.ts";
+import { widestLine } from "#/ansi/string-width.ts";
+import { QuickLru as QuickLRU } from "#/quick-lru.ts";
 
 const cache = new QuickLRU<string, Output>({ maxSize: 4096 });
 
@@ -8,7 +8,7 @@ type Output = {
   height: number;
 };
 
-const measureText = (text: string): Output => {
+export const measureText = (text: string): Output => {
   if (text.length === 0) {
     return {
       width: 0,
@@ -29,5 +29,3 @@ const measureText = (text: string): Output => {
 
   return dimensions;
 };
-
-export default measureText;

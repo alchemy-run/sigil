@@ -1,4 +1,4 @@
-import chalk, { type ForegroundColorName, type BackgroundColorName } from "./ansi/chalk.ts";
+import { chalk, type ForegroundColorName, type BackgroundColorName } from "#/ansi/chalk.ts";
 
 type ColorType = "foreground" | "background";
 
@@ -9,7 +9,7 @@ const isNamedColor = (color: string): color is ForegroundColorName => {
   return color in chalk;
 };
 
-const colorize = (str: string, color: string | undefined, type: ColorType): string => {
+export const colorize = (str: string, color: string | undefined, type: ColorType): string => {
   if (!color) {
     return str;
   }
@@ -58,5 +58,3 @@ const colorize = (str: string, color: string | undefined, type: ColorType): stri
 
   return str;
 };
-
-export default colorize;

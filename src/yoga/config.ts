@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Derived from Yoga. See THIRD_PARTY_NOTICES.md.
 
-import { Config as CoreConfig } from "./core/config.ts";
-import type { Errata, ExperimentalFeature } from "./generated/YGEnums.ts";
+import { Config as CoreConfig } from "#/yoga/core/config.ts";
+import type { Errata, ExperimentalFeature } from "#/yoga/generated/YGEnums.ts";
 
 /**
  * Public Config wrapper over the core config, exposing the same surface as
@@ -16,8 +16,10 @@ export class Config {
     return new Config();
   }
 
-  // Binding compatibility: native/WASM configs require explicit destruction,
-  // while JavaScript configs are owned by the garbage collector.
+  /**
+	@deprecated No-op in the TypeScript port: the garbage collector owns this
+	config's lifetime. Kept only for yoga-layout binding compatibility.
+	*/
   free(): void {
     // No-op.
   }

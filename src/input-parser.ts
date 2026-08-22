@@ -1,4 +1,4 @@
-import { ESC, pasteStart, pasteEnd } from "./ansi/escapes.ts";
+import { ESC, pasteStart, pasteEnd } from "#/ansi/escapes.ts";
 
 const escape = ESC;
 

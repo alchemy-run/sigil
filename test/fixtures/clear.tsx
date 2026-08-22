@@ -1,4 +1,4 @@
-import { Box, Text, render } from "../../src/index.ts";
+import { Box, Text, render } from "#/index.ts";
 
 function Clear() {
   return (

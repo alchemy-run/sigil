@@ -3,10 +3,10 @@
 
 // Port of yoga/algorithm/Cache.cpp.
 
-import type { Config } from "./config.ts";
-import { SizingMode } from "./helpers.ts";
-import { inexactEquals, isDefined } from "./numeric.ts";
-import { roundValueToPixelGrid } from "./pixelGrid.ts";
+import type { Config } from "#/yoga/core/config.ts";
+import { SizingMode } from "#/yoga/core/helpers.ts";
+import { inexactEquals, isDefined } from "#/yoga/core/numeric.ts";
+import { roundValueToPixelGrid } from "#/yoga/core/pixelGrid.ts";
 
 function sizeIsExactAndMatchesOldMeasuredSize(
   sizeMode: SizingMode,

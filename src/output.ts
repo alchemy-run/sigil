@@ -1,12 +1,12 @@
-import sliceAnsi from "./ansi/slice.ts";
-import stringWidth from "./ansi/string-width.ts";
+import { sliceAnsi } from "#/ansi/slice.ts";
+import { stringWidth } from "#/ansi/string-width.ts";
 import {
   type StyledChar,
   styledCharsFromTokens,
   styledCharsToString,
   tokenize,
-} from "./ansi/tokenize.ts";
-import { type OutputTransformer } from "./render-node-to-output.ts";
+} from "#/ansi/tokenize.ts";
+import { type OutputTransformer } from "#/render-node-to-output.ts";
 
 /**
 "Virtual" output class
@@ -88,7 +88,7 @@ class OutputCaches {
   }
 }
 
-export default class Output {
+export class Output {
   width: number;
   height: number;
 

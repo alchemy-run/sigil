@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-import { render, Text, useApp, useStdin } from "../../src/index.ts";
+import { render, Text, useApp, useStdin } from "#/index.ts";
 
 function Test() {
   const { exit } = useApp();
@@ -22,5 +22,5 @@ const app = render(<Test />);
 try {
   await app.waitUntilExit();
 } catch (error: unknown) {
-  console.log((error as any).message);
+  console.log((error as Error).message);
 }

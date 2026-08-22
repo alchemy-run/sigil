@@ -1,8 +1,6 @@
-import process from "node:process";
-
 import { useEffect, useState } from "react";
 
-import { Box, Static, Text, render, useApp } from "../../src/index.ts";
+import { Box, Static, Text, render, useApp } from "#/index.ts";
 
 type RerenderFixtureOptions = {
   readonly completionMarker?: string;

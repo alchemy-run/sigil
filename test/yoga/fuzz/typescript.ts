@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
-import Yoga from "../../../src/yoga/index.ts";
+import { Yoga } from "#/yoga/index.ts";
+
 import { generateCase } from "./case.ts";
 import { caseSeed, options, reportFailure, reportSuccess } from "./cli.ts";
 import { assertInvariants, executeCase } from "./execute.ts";

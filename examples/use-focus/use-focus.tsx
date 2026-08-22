@@ -1,6 +1,6 @@
 import React from "react";
 
-import { Box, Text, render, useFocus } from "../../src/index.ts";
+import { Box, Text, render, useFocus } from "#/index.ts";
 
 function Focus() {
   return (

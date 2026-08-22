@@ -3,8 +3,8 @@
 
 // Port of yoga/style/StyleLength.h and yoga/style/StyleSizeLength.h.
 
-import { Unit } from "../generated/YGEnums.ts";
-import { isUndefined, optionalEquals, inexactEquals } from "./numeric.ts";
+import { isUndefined, optionalEquals, inexactEquals } from "#/yoga/core/numeric.ts";
+import { Unit } from "#/yoga/generated/YGEnums.ts";
 
 function isInvalidValue(value: number): boolean {
   return isUndefined(value) || !Number.isFinite(value);

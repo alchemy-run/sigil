@@ -1,8 +1,8 @@
 // Truncate a string to a visible width, ANSI-aware.
 // Ported from `cli-truncate` (MIT, Sindre Sorhus) on top of the shared
 // slice and width modules.
-import sliceAnsi from "./slice.ts";
-import stringWidth from "./string-width.ts";
+import { sliceAnsi } from "#/ansi/slice.ts";
+import { stringWidth } from "#/ansi/string-width.ts";
 
 export type TruncateOptions = {
   readonly position?: "start" | "middle" | "end";
@@ -36,7 +36,9 @@ const ANSI_ESC = 27;
 const ANSI_LEFT_BRACKET = 91;
 const ANSI_LETTER_M = 109;
 
-const isSgrParameter = (code: number): boolean => (code >= 48 && code <= 57) || code === 59; // 0-9 or ;
+// 0-9, ; or : (ITU T.416 colon-form parameters)
+const isSgrParameter = (code: number): boolean =>
+  (code >= 48 && code <= 57) || code === 59 || code === 58;
 
 function leadingSgrSpanEndIndex(string: string): number {
   let index = 0;
@@ -104,11 +106,7 @@ function prependWithInheritedStyleFromStart(prefix: string, visible: string): st
   return visible.slice(0, end) + prefix + visible.slice(end);
 }
 
-export default function cliTruncate(
-  text: string,
-  columns: number,
-  options: TruncateOptions = {},
-): string {
+export function cliTruncate(text: string, columns: number, options: TruncateOptions = {}): string {
   const { position = "end", space = false, preferTruncationOnSpace = false } = options;
 
   let { truncationCharacter = "…" } = options;

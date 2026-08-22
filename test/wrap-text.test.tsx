@@ -1,6 +1,6 @@
 import { expect, test } from "vite-plus/test";
 
-import wrapText, { wrapTextCache } from "../src/wrap-text.ts";
+import { wrapText, wrapTextCache } from "#/wrap-text.ts";
 
 test("wraps text", () => {
   expect(wrapText("hello world", 5, "wrap")).toBe("hello\n \nworld");

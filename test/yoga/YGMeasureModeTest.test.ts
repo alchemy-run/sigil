@@ -3,8 +3,9 @@
 
 import { expect } from "vite-plus/test";
 
-import { MeasureMode } from "../../src/yoga/generated/YGEnums.ts";
-import type { MeasureFunction } from "../../src/yoga/index.ts";
+import { MeasureMode } from "#/yoga/generated/YGEnums.ts";
+import type { MeasureFunction } from "#/yoga/index.ts";
+
 import { defineBackendTest } from "./backends/defineBackendTest.ts";
 
 type MeasureConstraint = {

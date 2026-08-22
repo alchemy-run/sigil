@@ -1,6 +1,6 @@
 import { test, expect } from "vite-plus/test";
 
-import { tokenizeAnsi } from "../src/ansi-tokenizer.ts";
+import { tokenizeAnsi } from "#/ansi-tokenizer.ts";
 
 test("tokenize plain text", () => {
   expect(tokenizeAnsi("hello")).toEqual([{ type: "text", value: "hello" }]);
@@ -173,7 +173,7 @@ test("tokenize DCS with BEL in payload until ST terminator", () => {
     expect.fail("Expected a DCS token");
   }
 
-  expect(dcsToken.value.includes("\u0007")).toBe(true);
+  expect(dcsToken.value).toContain("\u0007");
   expect(dcsToken.value.endsWith("\u001B\\")).toBe(true);
 });
 
@@ -282,7 +282,7 @@ test("tokenize SOS with escaped ESC in payload until final ST terminator", () =>
     expect.fail("Expected an SOS token");
   }
 
-  expect(sosToken.value.includes("\u001B\u001B\\")).toBe(true);
+  expect(sosToken.value).toContain("\u001B\u001B\\");
   expect(sosToken.value.endsWith("\u001B\\")).toBe(true);
 });
 

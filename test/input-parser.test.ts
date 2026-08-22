@@ -1,6 +1,6 @@
 import { expect, test } from "vite-plus/test";
 
-import { createInputParser, type InputEvent } from "../src/input-parser.ts";
+import { createInputParser, type InputEvent } from "#/input-parser.ts";
 
 const parseChunks = (chunks: readonly string[]): InputEvent[] => {
   const parser = createInputParser();

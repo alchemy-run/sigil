@@ -1,6 +1,7 @@
 import { expect, test } from "vite-plus/test";
 
-import { Box, Text } from "../src/index.ts";
+import { Box, Text } from "#/index.ts";
+
 import { enableTestColors, disableTestColors } from "./helpers/force-colors.ts";
 import { renderToString } from "./helpers/render-to-string.ts";
 
@@ -23,15 +24,15 @@ test("border with background color", () => {
   );
 
   // Verify the border characters are rendered
-  expect(output.includes("┌")).toBe(true);
-  expect(output.includes("┐")).toBe(true);
-  expect(output.includes("└")).toBe(true);
-  expect(output.includes("┘")).toBe(true);
-  expect(output.includes("Test")).toBe(true);
+  expect(output).toContain("┌");
+  expect(output).toContain("┐");
+  expect(output).toContain("└");
+  expect(output).toContain("┘");
+  expect(output).toContain("Test");
 
   // Verify background color escape for blue is present
   // Named blue background => ESC[44m
-  expect(output.includes("\u001B[44m")).toBe(true);
+  expect(output).toContain("\u001B[44m");
 });
 
 test("border with different background colors per side", () => {
@@ -50,18 +51,18 @@ test("border with different background colors per side", () => {
   );
 
   // Verify the border characters are rendered
-  expect(output.includes("┌")).toBe(true);
-  expect(output.includes("┐")).toBe(true);
-  expect(output.includes("└")).toBe(true);
-  expect(output.includes("┘")).toBe(true);
-  expect(output.includes("Test")).toBe(true);
+  expect(output).toContain("┌");
+  expect(output).toContain("┐");
+  expect(output).toContain("└");
+  expect(output).toContain("┘");
+  expect(output).toContain("Test");
 
   // Verify background colors for each named color are present
   // red => 41, green => 42, yellow => 43, blue => 44
-  expect(output.includes("\u001B[41m")).toBe(true);
-  expect(output.includes("\u001B[42m")).toBe(true);
-  expect(output.includes("\u001B[43m")).toBe(true);
-  expect(output.includes("\u001B[44m")).toBe(true);
+  expect(output).toContain("\u001B[41m");
+  expect(output).toContain("\u001B[42m");
+  expect(output).toContain("\u001B[43m");
+  expect(output).toContain("\u001B[44m");
 });
 
 test("border background color fallback to general borderBackgroundColor", () => {
@@ -74,15 +75,15 @@ test("border background color fallback to general borderBackgroundColor", () => 
   );
 
   // Verify the border characters are rendered
-  expect(output.includes("┌")).toBe(true);
-  expect(output.includes("┐")).toBe(true);
-  expect(output.includes("└")).toBe(true);
-  expect(output.includes("┘")).toBe(true);
-  expect(output.includes("Test")).toBe(true);
+  expect(output).toContain("┌");
+  expect(output).toContain("┐");
+  expect(output).toContain("└");
+  expect(output).toContain("┘");
+  expect(output).toContain("Test");
 
   // Verify cyan (46) and magenta (45) backgrounds appear
-  expect(output.includes("\u001B[46m")).toBe(true);
-  expect(output.includes("\u001B[45m")).toBe(true);
+  expect(output).toContain("\u001B[46m");
+  expect(output).toContain("\u001B[45m");
 });
 
 test("vertical border background does not bleed into content rows", () => {
@@ -119,7 +120,7 @@ test("foreground, background and dim combine correctly", () => {
   );
 
   // Expect red FG (31), cyan BG (46) and dim (2) to appear
-  expect(output.includes("\u001B[31m")).toBe(true);
-  expect(output.includes("\u001B[46m")).toBe(true);
-  expect(output.includes("\u001B[2m")).toBe(true);
+  expect(output).toContain("\u001B[31m");
+  expect(output).toContain("\u001B[46m");
+  expect(output).toContain("\u001B[2m");
 });

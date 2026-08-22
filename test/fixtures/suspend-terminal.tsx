@@ -1,8 +1,6 @@
-import process from "node:process";
-
 import { useEffect } from "react";
 
-import { render, Text, useApp, useInput } from "../../src/index.ts";
+import { render, Text, useApp, useInput } from "#/index.ts";
 
 function Test() {
   const { suspendTerminal, exit } = useApp();

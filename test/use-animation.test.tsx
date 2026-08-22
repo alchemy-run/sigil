@@ -1,13 +1,12 @@
 import { setTimeout as delay } from "node:timers/promises";
 
 import React, { Suspense, startTransition } from "react";
-import { expect, test } from "vite-plus/test";
+import { expect, test, vi } from "vite-plus/test";
 
-import { render, Text, useAnimation } from "../src/index.ts";
+import { render, Text, useAnimation } from "#/index.ts";
+
 import { act } from "./helpers/act.ts";
 import createStdout from "./helpers/create-stdout.ts";
-import FakeTimers from "./helpers/fake-timers.ts";
-import mockTimerCalls from "./helpers/mock-timer-calls.ts";
 
 function AnimatedCounter({ interval }: { readonly interval?: number }) {
   const { frame } = useAnimation({ interval });
@@ -86,8 +85,9 @@ test("multiple animations with the same interval stay in sync", async () => {
 });
 
 test("multiple animations with the same interval share one timer", async () => {
-  const clock = FakeTimers.install();
-  const mocks = mockTimerCalls();
+  vi.useFakeTimers();
+  const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+  const clearTimeoutSpy = vi.spyOn(globalThis, "clearTimeout");
 
   try {
     function MultiSpinner() {
@@ -106,10 +106,14 @@ test("multiple animations with the same interval share one timer", async () => {
       debug: true,
     });
 
-    expect(mocks.setTimeoutCallCount >= 1).toBe(true);
-    expect(mocks.timeoutDelays.every((timeoutDelay) => timeoutDelay === 50)).toBe(true);
+    expect(setTimeoutSpy.mock.calls.length >= 1).toBe(true);
+    expect(
+      setTimeoutSpy.mock.calls
+        .map(([, timeout]) => timeout ?? 0)
+        .every((timeoutDelay) => timeoutDelay === 50),
+    ).toBe(true);
 
-    await clock.tickAsync(100);
+    await vi.advanceTimersByTimeAsync(100);
     const output = stdout.write.mock.lastCall![0];
     const [frame1, frame2] = output.split(",").map(Number);
     expect(frame1).toBe(frame2);
@@ -117,14 +121,16 @@ test("multiple animations with the same interval share one timer", async () => {
 
     unmount();
   } finally {
-    mocks.restore();
-    clock.uninstall();
+    setTimeoutSpy.mockRestore();
+    clearTimeoutSpy.mockRestore();
+    vi.useRealTimers();
   }
 });
 
 test("animations with different intervals still use the shared timer", async () => {
-  const clock = FakeTimers.install();
-  const mocks = mockTimerCalls();
+  vi.useFakeTimers();
+  const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+  const clearTimeoutSpy = vi.spyOn(globalThis, "clearTimeout");
 
   try {
     function MultiSpinner() {
@@ -143,23 +149,29 @@ test("animations with different intervals still use the shared timer", async () 
       debug: true,
     });
 
-    expect(mocks.timeoutDelays.every((timeoutDelay) => timeoutDelay >= 50)).toBe(true);
+    expect(
+      setTimeoutSpy.mock.calls
+        .map(([, timeout]) => timeout ?? 0)
+        .every((timeoutDelay) => timeoutDelay >= 50),
+    ).toBe(true);
 
-    await clock.tickAsync(170);
+    await vi.advanceTimersByTimeAsync(170);
     const output = stdout.write.mock.lastCall![0];
     const [fastFrame, slowFrame] = output.split(",").map(Number);
     expect(fastFrame > slowFrame).toBe(true);
 
     unmount();
   } finally {
-    mocks.restore();
-    clock.uninstall();
+    setTimeoutSpy.mockRestore();
+    clearTimeoutSpy.mockRestore();
+    vi.useRealTimers();
   }
 });
 
 test("shared timer is cleaned up and recreated after the last animation unmounts", async () => {
-  const clock = FakeTimers.install();
-  const mocks = mockTimerCalls();
+  vi.useFakeTimers();
+  const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+  const clearTimeoutSpy = vi.spyOn(globalThis, "clearTimeout");
 
   try {
     const stdout = createStdout();
@@ -168,32 +180,34 @@ test("shared timer is cleaned up and recreated after the last animation unmounts
       debug: true,
     });
 
-    expect(mocks.setTimeoutCallCount >= 1).toBe(true);
+    expect(setTimeoutSpy.mock.calls.length >= 1).toBe(true);
 
     firstRender.unmount();
-    expect(mocks.clearTimeoutCallCount >= 1).toBe(true);
+    expect(clearTimeoutSpy.mock.calls.length >= 1).toBe(true);
 
     const secondRender = render(<AnimatedCounter interval={50} />, {
       stdout,
       debug: true,
     });
 
-    expect(mocks.setTimeoutCallCount).toBe(2);
+    expect(setTimeoutSpy.mock.calls.length).toBe(2);
 
-    await clock.tickAsync(120);
+    await vi.advanceTimersByTimeAsync(120);
     expect(Number.parseInt(stdout.write.mock.lastCall![0], 10) >= 1).toBe(true);
 
     secondRender.unmount();
-    expect(mocks.clearTimeoutCallCount >= 2).toBe(true);
+    expect(clearTimeoutSpy.mock.calls.length >= 2).toBe(true);
   } finally {
-    mocks.restore();
-    clock.uninstall();
+    setTimeoutSpy.mockRestore();
+    clearTimeoutSpy.mockRestore();
+    vi.useRealTimers();
   }
 });
 
 test("shared timer stays alive while another same-interval animation remains mounted", async () => {
-  const clock = FakeTimers.install();
-  const mocks = mockTimerCalls();
+  vi.useFakeTimers();
+  const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+  const clearTimeoutSpy = vi.spyOn(globalThis, "clearTimeout");
 
   try {
     function AnimationValue() {
@@ -217,32 +231,34 @@ test("shared timer stays alive while another same-interval animation remains mou
       debug: true,
     });
 
-    expect(mocks.setTimeoutCallCount >= 1).toBe(true);
+    expect(setTimeoutSpy.mock.calls.length >= 1).toBe(true);
 
-    await clock.tickAsync(120);
+    await vi.advanceTimersByTimeAsync(120);
     const frameBeforeUnmount = Number.parseInt(stdout.write.mock.lastCall![0].split(",")[0], 10);
     expect(frameBeforeUnmount >= 1).toBe(true);
 
     rerender(<MaybeDualAnimation showSecond={false} />);
 
-    expect(mocks.setTimeoutCallCount >= 1).toBe(true);
-    expect(mocks.clearTimeoutCallCount >= 1).toBe(true);
+    expect(setTimeoutSpy.mock.calls.length >= 1).toBe(true);
+    expect(clearTimeoutSpy.mock.calls.length >= 1).toBe(true);
 
-    await clock.tickAsync(120);
+    await vi.advanceTimersByTimeAsync(120);
     const frameAfterUnmount = Number.parseInt(stdout.write.mock.lastCall![0], 10);
     expect(frameAfterUnmount > frameBeforeUnmount).toBe(true);
 
     unmount();
-    expect(mocks.clearTimeoutCallCount >= 2).toBe(true);
+    expect(clearTimeoutSpy.mock.calls.length >= 2).toBe(true);
   } finally {
-    mocks.restore();
-    clock.uninstall();
+    setTimeoutSpy.mockRestore();
+    clearTimeoutSpy.mockRestore();
+    vi.useRealTimers();
   }
 });
 
 test("shared timer stays alive while another different-interval animation remains mounted", async () => {
-  const clock = FakeTimers.install();
-  const mocks = mockTimerCalls();
+  vi.useFakeTimers();
+  const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+  const clearTimeoutSpy = vi.spyOn(globalThis, "clearTimeout");
 
   try {
     function AnimationValue({ interval }: { readonly interval: number }) {
@@ -266,32 +282,34 @@ test("shared timer stays alive while another different-interval animation remain
       debug: true,
     });
 
-    expect(mocks.setTimeoutCallCount >= 1).toBe(true);
+    expect(setTimeoutSpy.mock.calls.length >= 1).toBe(true);
 
-    await clock.tickAsync(120);
+    await vi.advanceTimersByTimeAsync(120);
     const frameBeforeUnmount = Number.parseInt(stdout.write.mock.lastCall![0].split(",")[0], 10);
     expect(frameBeforeUnmount >= 1).toBe(true);
 
     rerender(<MaybeDualAnimation showSecond={false} />);
 
-    expect(mocks.setTimeoutCallCount >= 1).toBe(true);
-    expect(mocks.clearTimeoutCallCount >= 1).toBe(true);
+    expect(setTimeoutSpy.mock.calls.length >= 1).toBe(true);
+    expect(clearTimeoutSpy.mock.calls.length >= 1).toBe(true);
 
-    await clock.tickAsync(120);
+    await vi.advanceTimersByTimeAsync(120);
     const frameAfterUnmount = Number.parseInt(stdout.write.mock.lastCall![0], 10);
     expect(frameAfterUnmount > frameBeforeUnmount).toBe(true);
 
     unmount();
-    expect(mocks.clearTimeoutCallCount >= 2).toBe(true);
+    expect(clearTimeoutSpy.mock.calls.length >= 2).toBe(true);
   } finally {
-    mocks.restore();
-    clock.uninstall();
+    setTimeoutSpy.mockRestore();
+    clearTimeoutSpy.mockRestore();
+    vi.useRealTimers();
   }
 });
 
 test("inactive animations do not start the shared timer until one becomes active", async () => {
-  const clock = FakeTimers.install();
-  const mocks = mockTimerCalls();
+  vi.useFakeTimers();
+  const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+  const clearTimeoutSpy = vi.spyOn(globalThis, "clearTimeout");
 
   try {
     function MaybeActiveAnimations({
@@ -326,25 +344,26 @@ test("inactive animations do not start the shared timer until one becomes active
       },
     );
 
-    expect(mocks.setTimeoutCallCount).toBe(0);
+    expect(setTimeoutSpy.mock.calls.length).toBe(0);
 
-    await clock.tickAsync(100);
+    await vi.advanceTimersByTimeAsync(100);
     expect(stdout.write.mock.lastCall![0]).toBe("0,0");
 
     rerender(<MaybeActiveAnimations isFirstActive isSecondActive={false} />);
 
-    expect(mocks.setTimeoutCallCount).toBe(1);
+    expect(setTimeoutSpy.mock.calls.length).toBe(1);
 
-    await clock.tickAsync(120);
+    await vi.advanceTimersByTimeAsync(120);
     const [firstFrame, secondFrame] = stdout.write.mock.lastCall![0].split(",").map(Number);
     expect(firstFrame >= 1).toBe(true);
     expect(secondFrame).toBe(0);
 
     unmount();
-    expect(mocks.clearTimeoutCallCount >= 1).toBe(true);
+    expect(clearTimeoutSpy.mock.calls.length >= 1).toBe(true);
   } finally {
-    mocks.restore();
-    clock.uninstall();
+    setTimeoutSpy.mockRestore();
+    clearTimeoutSpy.mockRestore();
+    vi.useRealTimers();
   }
 });
 
@@ -365,8 +384,9 @@ test("cleans up on unmount", async () => {
 });
 
 test("no timer leak when all animations are inactive", async () => {
-  const clock = FakeTimers.install();
-  const mocks = mockTimerCalls();
+  vi.useFakeTimers();
+  const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+  const clearTimeoutSpy = vi.spyOn(globalThis, "clearTimeout");
 
   try {
     const stdout = createStdout();
@@ -377,30 +397,31 @@ test("no timer leak when all animations are inactive", async () => {
       debug: true,
     });
 
-    expect(mocks.setTimeoutCallCount).toBe(0);
+    expect(setTimeoutSpy.mock.calls.length).toBe(0);
 
     // Activate — timer should start
     rerender(<ConditionalAnimation isActive interval={50} />);
-    expect(mocks.setTimeoutCallCount).toBe(1);
+    expect(setTimeoutSpy.mock.calls.length).toBe(1);
 
-    await clock.tickAsync(120);
+    await vi.advanceTimersByTimeAsync(120);
     expect(Number.parseInt(stdout.write.mock.lastCall![0], 10) >= 1).toBe(true);
 
     // Deactivate — subscriber unsubscribes, timer should be cleaned up
     rerender(<ConditionalAnimation isActive={false} interval={50} />);
-    expect(mocks.clearTimeoutCallCount >= 1).toBe(true);
+    expect(clearTimeoutSpy.mock.calls.length >= 1).toBe(true);
 
     // Unmount — timer should already be gone
     unmount();
-    expect(mocks.clearTimeoutCallCount >= 1).toBe(true);
+    expect(clearTimeoutSpy.mock.calls.length >= 1).toBe(true);
   } finally {
-    mocks.restore();
-    clock.uninstall();
+    setTimeoutSpy.mockRestore();
+    clearTimeoutSpy.mockRestore();
+    vi.useRealTimers();
   }
 });
 
 test("frame catches up when the shared timer is delayed", async () => {
-  const clock = FakeTimers.install();
+  vi.useFakeTimers();
 
   try {
     const stdout = createStdout();
@@ -409,12 +430,12 @@ test("frame catches up when the shared timer is delayed", async () => {
       debug: true,
     });
 
-    await clock.tickAsync(220);
+    await vi.advanceTimersByTimeAsync(220);
     expect(stdout.write.mock.lastCall![0]).toBe("4");
 
     unmount();
   } finally {
-    clock.uninstall();
+    vi.useRealTimers();
   }
 });
 
@@ -467,7 +488,7 @@ test("resets frame when interval changes", async () => {
 });
 
 test("time and delta reset to 0 when interval changes", async () => {
-  const clock = FakeTimers.install();
+  vi.useFakeTimers();
 
   try {
     function DynamicInterval({ interval }: { readonly interval: number }) {
@@ -486,7 +507,7 @@ test("time and delta reset to 0 when interval changes", async () => {
       maxFps: 120,
     });
 
-    await clock.tickAsync(200);
+    await vi.advanceTimersByTimeAsync(200);
     const [frameBefore, timeBefore] = stdout.write.mock.lastCall![0].split(",").map(Number);
     expect(frameBefore >= 1).toBe(true);
     expect(timeBefore >= 50).toBe(true);
@@ -497,12 +518,12 @@ test("time and delta reset to 0 when interval changes", async () => {
 
     unmount();
   } finally {
-    clock.uninstall();
+    vi.useRealTimers();
   }
 });
 
 test("time and delta reset to 0 when animation is resumed", async () => {
-  const clock = FakeTimers.install();
+  vi.useFakeTimers();
 
   try {
     function ConditionalDisplay({ isActive }: { readonly isActive: boolean }) {
@@ -521,7 +542,7 @@ test("time and delta reset to 0 when animation is resumed", async () => {
       maxFps: 120,
     });
 
-    await clock.tickAsync(200);
+    await vi.advanceTimersByTimeAsync(200);
     const [frameBefore, timeBefore] = stdout.write.mock.lastCall![0].split(",").map(Number);
     expect(frameBefore >= 1).toBe(true);
     expect(timeBefore >= 50).toBe(true);
@@ -533,7 +554,7 @@ test("time and delta reset to 0 when animation is resumed", async () => {
 
     unmount();
   } finally {
-    clock.uninstall();
+    vi.useRealTimers();
   }
 });
 
@@ -562,7 +583,7 @@ test("different intervals advance at different rates", async () => {
 });
 
 test("defaults to 100ms interval", async () => {
-  const clock = FakeTimers.install();
+  vi.useFakeTimers();
 
   try {
     function DefaultInterval() {
@@ -579,18 +600,18 @@ test("defaults to 100ms interval", async () => {
 
     expect(stdout.write.mock.lastCall![0]).toBe("0");
 
-    await clock.tickAsync(250);
+    await vi.advanceTimersByTimeAsync(250);
 
     expect(Number.parseInt(stdout.write.mock.lastCall![0], 10) >= 1).toBe(true);
 
     unmount();
   } finally {
-    clock.uninstall();
+    vi.useRealTimers();
   }
 });
 
 test("treats NaN interval as the default interval", async () => {
-  const clock = FakeTimers.install();
+  vi.useFakeTimers();
 
   try {
     const stdout = createStdout();
@@ -602,18 +623,18 @@ test("treats NaN interval as the default interval", async () => {
 
     expect(stdout.write.mock.lastCall![0]).toBe("0");
 
-    await clock.tickAsync(250);
+    await vi.advanceTimersByTimeAsync(250);
 
     expect(Number.parseInt(stdout.write.mock.lastCall![0], 10) >= 1).toBe(true);
 
     unmount();
   } finally {
-    clock.uninstall();
+    vi.useRealTimers();
   }
 });
 
 test("treats Infinity interval as the default interval", async () => {
-  const clock = FakeTimers.install();
+  vi.useFakeTimers();
 
   try {
     const stdout = createStdout();
@@ -625,18 +646,18 @@ test("treats Infinity interval as the default interval", async () => {
 
     expect(stdout.write.mock.lastCall![0]).toBe("0");
 
-    await clock.tickAsync(250);
+    await vi.advanceTimersByTimeAsync(250);
 
     expect(Number.parseInt(stdout.write.mock.lastCall![0], 10) >= 1).toBe(true);
 
     unmount();
   } finally {
-    clock.uninstall();
+    vi.useRealTimers();
   }
 });
 
 test("treats negative Infinity interval as the default interval", async () => {
-  const clock = FakeTimers.install();
+  vi.useFakeTimers();
 
   try {
     const stdout = createStdout();
@@ -648,18 +669,18 @@ test("treats negative Infinity interval as the default interval", async () => {
 
     expect(stdout.write.mock.lastCall![0]).toBe("0");
 
-    await clock.tickAsync(250);
+    await vi.advanceTimersByTimeAsync(250);
 
     expect(Number.parseInt(stdout.write.mock.lastCall![0], 10) >= 1).toBe(true);
 
     unmount();
   } finally {
-    clock.uninstall();
+    vi.useRealTimers();
   }
 });
 
 test("clamps oversized finite interval to the timer maximum", async () => {
-  const clock = FakeTimers.install();
+  vi.useFakeTimers();
 
   try {
     const stdout = createStdout();
@@ -671,18 +692,18 @@ test("clamps oversized finite interval to the timer maximum", async () => {
 
     expect(stdout.write.mock.lastCall![0]).toBe("0");
 
-    await clock.tickAsync(1000);
+    await vi.advanceTimersByTimeAsync(1000);
 
     expect(stdout.write.mock.lastCall![0]).toBe("0");
 
     unmount();
   } finally {
-    clock.uninstall();
+    vi.useRealTimers();
   }
 });
 
 test("clamps zero interval to 1ms", async () => {
-  const clock = FakeTimers.install();
+  vi.useFakeTimers();
 
   try {
     const stdout = createStdout();
@@ -694,18 +715,18 @@ test("clamps zero interval to 1ms", async () => {
 
     expect(stdout.write.mock.lastCall![0]).toBe("0");
 
-    await clock.tickAsync(5);
+    await vi.advanceTimersByTimeAsync(5);
 
     expect(stdout.write.mock.lastCall![0]).toBe("5");
 
     unmount();
   } finally {
-    clock.uninstall();
+    vi.useRealTimers();
   }
 });
 
 test("clamps negative interval to 1ms", async () => {
-  const clock = FakeTimers.install();
+  vi.useFakeTimers();
 
   try {
     const stdout = createStdout();
@@ -717,18 +738,18 @@ test("clamps negative interval to 1ms", async () => {
 
     expect(stdout.write.mock.lastCall![0]).toBe("0");
 
-    await clock.tickAsync(5);
+    await vi.advanceTimersByTimeAsync(5);
 
     expect(stdout.write.mock.lastCall![0]).toBe("5");
 
     unmount();
   } finally {
-    clock.uninstall();
+    vi.useRealTimers();
   }
 });
 
 test("maxFps does not speed up animation state", async () => {
-  const clock = FakeTimers.install();
+  vi.useFakeTimers();
 
   try {
     const stdout = createStdout();
@@ -740,18 +761,18 @@ test("maxFps does not speed up animation state", async () => {
 
     expect(stdout.write.mock.lastCall![0]).toBe("0");
 
-    await clock.tickAsync(25);
+    await vi.advanceTimersByTimeAsync(25);
 
     expect(stdout.write.mock.lastCall![0]).toBe("3");
 
     unmount();
   } finally {
-    clock.uninstall();
+    vi.useRealTimers();
   }
 });
 
 test("low maxFps caps animation rerenders", async () => {
-  const clock = FakeTimers.install();
+  vi.useFakeTimers();
 
   try {
     let renderCount = 0;
@@ -770,22 +791,22 @@ test("low maxFps caps animation rerenders", async () => {
 
     expect(renderCount).toBe(1);
 
-    await clock.tickAsync(35);
+    await vi.advanceTimersByTimeAsync(35);
 
     expect(renderCount).toBe(1);
 
-    await clock.tickAsync(1000);
+    await vi.advanceTimersByTimeAsync(1000);
 
     expect(renderCount >= 2).toBe(true);
 
     unmount();
   } finally {
-    clock.uninstall();
+    vi.useRealTimers();
   }
 });
 
 test("maxFps 0 does not affect animation cadence", async () => {
-  const clock = FakeTimers.install();
+  vi.useFakeTimers();
 
   try {
     const stdout = createStdout();
@@ -797,13 +818,13 @@ test("maxFps 0 does not affect animation cadence", async () => {
 
     expect(stdout.write.mock.lastCall![0]).toBe("0");
 
-    await clock.tickAsync(25);
+    await vi.advanceTimersByTimeAsync(25);
 
     expect(stdout.write.mock.lastCall![0]).toBe("3");
 
     unmount();
   } finally {
-    clock.uninstall();
+    vi.useRealTimers();
   }
 });
 
@@ -840,7 +861,7 @@ test("delta accounts for throttled ticks", async () => {
 });
 
 test("pausing animation stops ticks before the next frame", async () => {
-  const clock = FakeTimers.install();
+  vi.useFakeTimers();
 
   try {
     const stdout = createStdout();
@@ -850,7 +871,7 @@ test("pausing animation stops ticks before the next frame", async () => {
       maxFps: 120,
     });
 
-    await clock.tickAsync(25);
+    await vi.advanceTimersByTimeAsync(25);
 
     const pausedFrame = Number.parseInt(stdout.write.mock.lastCall![0], 10);
     expect(pausedFrame >= 1).toBe(true);
@@ -859,18 +880,18 @@ test("pausing animation stops ticks before the next frame", async () => {
 
     expect(stdout.write.mock.lastCall![0]).toBe(String(pausedFrame));
 
-    await clock.tickAsync(25);
+    await vi.advanceTimersByTimeAsync(25);
 
     expect(stdout.write.mock.lastCall![0]).toBe(String(pausedFrame));
 
     unmount();
   } finally {
-    clock.uninstall();
+    vi.useRealTimers();
   }
 });
 
 test("changing interval unsubscribes stale ticks before reset", async () => {
-  const clock = FakeTimers.install();
+  vi.useFakeTimers();
 
   try {
     function DynamicInterval({ interval }: { readonly interval: number }) {
@@ -885,25 +906,25 @@ test("changing interval unsubscribes stale ticks before reset", async () => {
       maxFps: 120,
     });
 
-    await clock.tickAsync(25);
+    await vi.advanceTimersByTimeAsync(25);
     expect(Number.parseInt(stdout.write.mock.lastCall![0], 10) >= 1).toBe(true);
 
     rerender(<DynamicInterval interval={200} />);
 
     expect(stdout.write.mock.lastCall![0]).toBe("0");
 
-    await clock.tickAsync(17);
+    await vi.advanceTimersByTimeAsync(17);
 
     expect(stdout.write.mock.lastCall![0]).toBe("0");
 
     unmount();
   } finally {
-    clock.uninstall();
+    vi.useRealTimers();
   }
 });
 
 test("wall clock changes do not move animations backwards", async () => {
-  const clock = FakeTimers.install();
+  vi.useFakeTimers();
   const originalDateNow = Date.now;
   let wallClockTime = 1000;
   Date.now = () => wallClockTime;
@@ -917,25 +938,25 @@ test("wall clock changes do not move animations backwards", async () => {
     });
 
     wallClockTime = 1024;
-    await clock.tickAsync(25);
+    await vi.advanceTimersByTimeAsync(25);
 
     const frameBeforeClockJump = Number.parseInt(stdout.write.mock.lastCall![0], 10);
     expect(frameBeforeClockJump >= 1).toBe(true);
 
     wallClockTime = 900;
-    await clock.tickAsync(25);
+    await vi.advanceTimersByTimeAsync(25);
 
     expect(Number.parseInt(stdout.write.mock.lastCall![0], 10) >= frameBeforeClockJump).toBe(true);
 
     unmount();
   } finally {
     Date.now = originalDateNow;
-    clock.uninstall();
+    vi.useRealTimers();
   }
 });
 
 test("animations advance in debug mode when interactive is false", async () => {
-  const clock = FakeTimers.install();
+  vi.useFakeTimers();
 
   try {
     const stdout = createStdout();
@@ -948,13 +969,13 @@ test("animations advance in debug mode when interactive is false", async () => {
 
     expect(stdout.write.mock.lastCall![0]).toBe("0");
 
-    await clock.tickAsync(25);
+    await vi.advanceTimersByTimeAsync(25);
 
     expect(Number.parseInt(stdout.write.mock.lastCall![0], 10) >= 1).toBe(true);
 
     unmount();
   } finally {
-    clock.uninstall();
+    vi.useRealTimers();
   }
 });
 
@@ -986,7 +1007,7 @@ test("newly mounted animations do not inherit elapsed time", async () => {
     );
   }
 
-  const clock = FakeTimers.install();
+  vi.useFakeTimers();
 
   try {
     const stdout = createStdout();
@@ -997,11 +1018,11 @@ test("newly mounted animations do not inherit elapsed time", async () => {
 
     const getOutput = () => stdout.write.mock.lastCall![0].replaceAll("\n", "");
 
-    await clock.tickAsync(25);
+    await vi.advanceTimersByTimeAsync(25);
 
     expect(getOutput()).toBe("1,0");
 
-    await clock.tickAsync(40);
+    await vi.advanceTimersByTimeAsync(40);
 
     const [firstFrame, secondFrame] = getOutput().split(",").map(Number);
     expect(firstFrame >= 2).toBe(true);
@@ -1010,7 +1031,7 @@ test("newly mounted animations do not inherit elapsed time", async () => {
 
     unmount();
   } finally {
-    clock.uninstall();
+    vi.useRealTimers();
   }
 });
 
@@ -1048,7 +1069,7 @@ test("newly activated animations do not inherit elapsed time", async () => {
     );
   }
 
-  const clock = FakeTimers.install();
+  vi.useFakeTimers();
 
   try {
     const stdout = createStdout();
@@ -1059,11 +1080,11 @@ test("newly activated animations do not inherit elapsed time", async () => {
 
     const getOutput = () => stdout.write.mock.lastCall![0].replaceAll("\n", "");
 
-    await clock.tickAsync(25);
+    await vi.advanceTimersByTimeAsync(25);
 
     expect(getOutput()).toBe("1,0");
 
-    await clock.tickAsync(40);
+    await vi.advanceTimersByTimeAsync(40);
 
     const [firstFrame, secondFrame] = getOutput().split(",").map(Number);
     expect(firstFrame >= 2).toBe(true);
@@ -1072,7 +1093,7 @@ test("newly activated animations do not inherit elapsed time", async () => {
 
     unmount();
   } finally {
-    clock.uninstall();
+    vi.useRealTimers();
   }
 });
 
@@ -1082,7 +1103,7 @@ test("rerendering with the same interval does not reset the frame", async () => 
     return <Text>{String(frame)}</Text>;
   }
 
-  const clock = FakeTimers.install();
+  vi.useFakeTimers();
 
   try {
     const stdout = createStdout();
@@ -1092,7 +1113,7 @@ test("rerendering with the same interval does not reset the frame", async () => 
       maxFps: 120,
     });
 
-    await clock.tickAsync(50);
+    await vi.advanceTimersByTimeAsync(50);
 
     const frameBeforeRerender = Number.parseInt(stdout.write.mock.lastCall![0], 10);
     expect(frameBeforeRerender >= 1).toBe(true);
@@ -1103,7 +1124,7 @@ test("rerendering with the same interval does not reset the frame", async () => 
 
     unmount();
   } finally {
-    clock.uninstall();
+    vi.useRealTimers();
   }
 });
 
@@ -1155,7 +1176,7 @@ test("delta approximates interval on each tick", async () => {
 });
 
 test("reset() resets frame, time, and delta to 0", async () => {
-  const clock = FakeTimers.install();
+  vi.useFakeTimers();
 
   try {
     let resetAnimation!: () => void;
@@ -1177,7 +1198,7 @@ test("reset() resets frame, time, and delta to 0", async () => {
       maxFps: 120,
     });
 
-    await clock.tickAsync(200);
+    await vi.advanceTimersByTimeAsync(200);
     const [frameBefore, timeBefore] = stdout.write.mock.lastCall![0].split(",").map(Number);
     expect(frameBefore >= 1).toBe(true);
     expect(timeBefore >= 100).toBe(true);
@@ -1185,11 +1206,11 @@ test("reset() resets frame, time, and delta to 0", async () => {
     resetAnimation();
 
     // Let React flush the state update from reset()
-    await clock.tickAsync(1);
+    await vi.advanceTimersByTimeAsync(1);
     expect(stdout.write.mock.lastCall![0]).toBe("0,0,0");
 
     // Confirm it advances again after reset
-    await clock.tickAsync(100);
+    await vi.advanceTimersByTimeAsync(100);
     const [frameAfter, timeAfter, deltaAfter] = stdout.write.mock
       .lastCall![0].split(",")
       .map(Number);
@@ -1201,7 +1222,7 @@ test("reset() resets frame, time, and delta to 0", async () => {
 
     unmount();
   } finally {
-    clock.uninstall();
+    vi.useRealTimers();
   }
 });
 
@@ -1230,7 +1251,7 @@ test("reset is a stable function reference", () => {
 });
 
 test("reset() while paused takes effect when animation is resumed", async () => {
-  const clock = FakeTimers.install();
+  vi.useFakeTimers();
 
   try {
     let resetAnimation!: () => void;
@@ -1249,7 +1270,7 @@ test("reset() while paused takes effect when animation is resumed", async () => 
     });
 
     // Let a few frames accumulate
-    await clock.tickAsync(200);
+    await vi.advanceTimersByTimeAsync(200);
     const pausedFrame = Number.parseInt(stdout.write.mock.lastCall![0], 10);
     expect(pausedFrame >= 1).toBe(true);
 
@@ -1259,7 +1280,7 @@ test("reset() while paused takes effect when animation is resumed", async () => 
     // Call reset while paused — it only bumps the reset key; with isActive
     // false the reset path never runs, so the displayed frame stays frozen.
     resetAnimation();
-    await clock.tickAsync(1);
+    await vi.advanceTimersByTimeAsync(1);
     expect(stdout.write.mock.lastCall![0]).toBe(String(pausedFrame));
 
     // Resume — the pending reset takes effect and frame restarts from 0
@@ -1267,20 +1288,17 @@ test("reset() while paused takes effect when animation is resumed", async () => 
     expect(stdout.write.mock.lastCall![0]).toBe("0");
 
     // And then advance again to confirm animation restarts cleanly
-    await clock.tickAsync(100);
+    await vi.advanceTimersByTimeAsync(100);
     expect(Number.parseInt(stdout.write.mock.lastCall![0], 10) >= 1).toBe(true);
 
     unmount();
   } finally {
-    clock.uninstall();
+    vi.useRealTimers();
   }
 });
 
 test("concurrent aborted renders do not suppress interval reset", async () => {
-  let resolveSuspense!: () => void;
-  const suspendedRender = new Promise<void>((resolve) => {
-    resolveSuspense = resolve;
-  });
+  const { promise: suspendedRender, resolve: resolveSuspense } = Promise.withResolvers<void>();
 
   function MaybeSuspendingAnimation({
     interval,
@@ -1346,8 +1364,9 @@ test("concurrent aborted renders do not suppress interval reset", async () => {
 });
 
 test("unmount before first tick cleans up without error", async () => {
-  const clock = FakeTimers.install();
-  const mocks = mockTimerCalls();
+  vi.useFakeTimers();
+  const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+  const clearTimeoutSpy = vi.spyOn(globalThis, "clearTimeout");
 
   try {
     const stdout = createStdout();
@@ -1357,26 +1376,27 @@ test("unmount before first tick cleans up without error", async () => {
     });
 
     expect(stdout.write.mock.lastCall![0]).toBe("0");
-    expect(mocks.setTimeoutCallCount >= 1).toBe(true);
+    expect(setTimeoutSpy.mock.calls.length >= 1).toBe(true);
 
     // Unmount before any tick fires — exercises the cleanup path where
     // unsubscribe is called while the timer is still pending.
     unmount();
-    expect(mocks.clearTimeoutCallCount >= 1).toBe(true);
+    expect(clearTimeoutSpy.mock.calls.length >= 1).toBe(true);
 
     // Confirm no animation ticks fire after unmount (Ink may write cursor
     // codes on unmount, so compare call counts rather than output value).
     const writeCountAfterUnmount = stdout.write.mock.calls.length;
-    await clock.tickAsync(200);
+    await vi.advanceTimersByTimeAsync(200);
     expect(stdout.write.mock.calls.length).toBe(writeCountAfterUnmount);
   } finally {
-    mocks.restore();
-    clock.uninstall();
+    setTimeoutSpy.mockRestore();
+    clearTimeoutSpy.mockRestore();
+    vi.useRealTimers();
   }
 });
 
 test("frame resets to 0 on each resume across multiple cycles", async () => {
-  const clock = FakeTimers.install();
+  vi.useFakeTimers();
 
   try {
     const stdout = createStdout();
@@ -1387,21 +1407,21 @@ test("frame resets to 0 on each resume across multiple cycles", async () => {
     });
 
     // Cycle 1
-    await clock.tickAsync(120);
+    await vi.advanceTimersByTimeAsync(120);
     expect(Number.parseInt(stdout.write.mock.lastCall![0], 10) >= 1).toBe(true);
     rerender(<ConditionalAnimation isActive={false} interval={50} />);
     rerender(<ConditionalAnimation isActive interval={50} />);
     expect(stdout.write.mock.lastCall![0]).toBe("0");
 
     // Cycle 2
-    await clock.tickAsync(120);
+    await vi.advanceTimersByTimeAsync(120);
     expect(Number.parseInt(stdout.write.mock.lastCall![0], 10) >= 1).toBe(true);
     rerender(<ConditionalAnimation isActive={false} interval={50} />);
     rerender(<ConditionalAnimation isActive interval={50} />);
     expect(stdout.write.mock.lastCall![0]).toBe("0");
 
     // Cycle 3
-    await clock.tickAsync(120);
+    await vi.advanceTimersByTimeAsync(120);
     expect(Number.parseInt(stdout.write.mock.lastCall![0], 10) >= 1).toBe(true);
     rerender(<ConditionalAnimation isActive={false} interval={50} />);
     rerender(<ConditionalAnimation isActive interval={50} />);
@@ -1409,13 +1429,14 @@ test("frame resets to 0 on each resume across multiple cycles", async () => {
 
     unmount();
   } finally {
-    clock.uninstall();
+    vi.useRealTimers();
   }
 });
 
 test("isActive false from mount never starts a timer or advances the frame", async () => {
-  const clock = FakeTimers.install();
-  const mocks = mockTimerCalls();
+  vi.useFakeTimers();
+  const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+  const clearTimeoutSpy = vi.spyOn(globalThis, "clearTimeout");
 
   try {
     const stdout = createStdout();
@@ -1424,27 +1445,25 @@ test("isActive false from mount never starts a timer or advances the frame", asy
       debug: true,
     });
 
-    expect(mocks.setTimeoutCallCount).toBe(0);
+    expect(setTimeoutSpy.mock.calls.length).toBe(0);
     expect(stdout.write.mock.lastCall![0]).toBe("0");
 
-    await clock.tickAsync(500);
+    await vi.advanceTimersByTimeAsync(500);
 
-    expect(mocks.setTimeoutCallCount).toBe(0);
+    expect(setTimeoutSpy.mock.calls.length).toBe(0);
     expect(stdout.write.mock.lastCall![0]).toBe("0");
 
     unmount();
-    expect(mocks.clearTimeoutCallCount).toBe(0);
+    expect(clearTimeoutSpy.mock.calls.length).toBe(0);
   } finally {
-    mocks.restore();
-    clock.uninstall();
+    setTimeoutSpy.mockRestore();
+    clearTimeoutSpy.mockRestore();
+    vi.useRealTimers();
   }
 });
 
 test("suspended transitions do not reset the committed animation before commit", async () => {
-  let resolveSuspense!: () => void;
-  const suspendedRender = new Promise<void>((resolve) => {
-    resolveSuspense = resolve;
-  });
+  const { promise: suspendedRender, resolve: resolveSuspense } = Promise.withResolvers<void>();
   let suspendWithNewInterval!: () => void;
 
   function MaybeSuspendingAnimation({

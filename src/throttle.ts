@@ -15,7 +15,7 @@ the window is open are coalesced into a single trailing invocation with the
 latest arguments. Matches the lodash semantics Ink relied on: a single call
 produces only a leading invocation, no trailing one.
 */
-const throttle = <Arguments extends unknown[]>(
+export const throttle = <Arguments extends unknown[]>(
   fn: (...args: Arguments) => void,
   wait = 0,
 ): Throttled<Arguments> => {
@@ -71,5 +71,3 @@ const throttle = <Arguments extends unknown[]>(
 
   return throttled;
 };
-
-export default throttle;

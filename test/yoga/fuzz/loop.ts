@@ -1,11 +1,12 @@
-// SPDX-License-Identifier: MIT
-
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
+// SPDX-License-Identifier: MIT
+import { setImmediate } from "node:timers/promises";
 
-import Yoga from "../../../src/yoga/index.ts";
-import type { Yoga as YogaApi } from "../../../src/yoga/index.ts";
+import { Yoga } from "#/yoga/index.ts";
+import type { Yoga as YogaApi } from "#/yoga/index.ts";
+
 import Reference, { loadReferenceYoga } from "../reference/index.ts";
 import { generateCase, type FuzzCase } from "./case.ts";
 import { caseSeed, diagnosticJson, errorDetails, loopOptions, type ErrorDetails } from "./cli.ts";
@@ -274,7 +275,7 @@ while (stoppingSignal === undefined) {
     );
   }
   if (caseIndex % 100 === 0) {
-    await new Promise<void>((resolve) => setImmediate(resolve));
+    await setImmediate();
   }
 }
 

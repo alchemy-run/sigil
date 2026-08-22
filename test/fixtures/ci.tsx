@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 
-import { render, Static, Text } from "../../src/index.ts";
+import { render, Static, Text } from "#/index.ts";
 
 function Test() {
   const [items, setItems] = useState<string[]>([]);

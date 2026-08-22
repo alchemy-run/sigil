@@ -1,6 +1,7 @@
+/** @jsxImportSource react */
 import { PureComponent, type ReactNode } from "react";
 
-import ErrorOverview from "./ErrorOverview.tsx";
+import { ErrorOverview } from "#/components/ErrorOverview.tsx";
 
 type Props = {
   readonly children: ReactNode;
@@ -13,7 +14,7 @@ type State = {
 
 // Error boundary must be a class component since getDerivedStateFromError
 // and componentDidCatch are not available as hooks
-export default class ErrorBoundary extends PureComponent<Props, State> {
+export class ErrorBoundary extends PureComponent<Props, State> {
   static displayName = "InternalErrorBoundary";
 
   static getDerivedStateFromError(error: Error) {

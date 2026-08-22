@@ -1,8 +1,6 @@
-import process from "node:process";
-
 import { createContext } from "react";
 
-import type { OutputStream } from "../stream.ts";
+import type { OutputStream } from "#/stream.ts";
 
 export type Props = {
   /**
@@ -20,11 +18,9 @@ export type Props = {
 `StdoutContext` is a React context that exposes the stdout stream where Ink renders your app.
 */
 // eslint-disable-next-line @typescript-eslint/naming-convention
-const StdoutContext = createContext<Props>({
+export const StdoutContext = createContext<Props>({
   stdout: process.stdout,
   write() {},
 });
 
 StdoutContext.displayName = "InternalStdoutContext";
-
-export default StdoutContext;

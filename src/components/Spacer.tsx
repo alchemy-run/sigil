@@ -1,10 +1,11 @@
-import Box from "./Box.tsx";
+/** @jsxImportSource react */
+import { Box } from "#/components/Box.tsx";
 
 /**
 A flexible space that expands along the major axis of its containing layout.
 
 It's useful as a shortcut for filling all the available space between elements.
 */
-export default function Spacer() {
+export function Spacer() {
   return <Box flexGrow={1} />;
 }

@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-import { render, useStderr, Text } from "../../src/index.ts";
+import { render, useStderr, Text } from "#/index.ts";
 
 function WriteToStderr() {
   const { write } = useStderr();

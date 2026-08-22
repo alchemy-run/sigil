@@ -1,20 +1,15 @@
 import { spawn } from "node:child_process";
-import process from "node:process";
+import { once } from "node:events";
 
 import React, { useState } from "react";
 
-import { render, Text, Box, useApp, useInput } from "../../src/index.ts";
+import { render, Text, Box, useApp, useInput } from "#/index.ts";
 
-const runChild = async (command: string, args: string[]): Promise<void> =>
-  new Promise((resolve, reject) => {
-    // With stdio: 'inherit' the child takes full ownership of the terminal, which
-    // is exactly why Ink must release it via suspendTerminal first.
-    const child = spawn(command, args, { stdio: "inherit" });
-    child.on("exit", () => {
-      resolve();
-    });
-    child.on("error", reject);
-  });
+const runChild = async (command: string, args: string[]): Promise<void> => {
+  // With stdio: 'inherit' the child takes full ownership of the terminal, which
+  // is exactly why Ink must release it via suspendTerminal first.
+  await once(spawn(command, args, { stdio: "inherit" }), "exit");
+};
 
 function Example() {
   const { suspendTerminal, exit } = useApp();

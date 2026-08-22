@@ -3,25 +3,23 @@
 // `@alchemy.run/sigil/ansi`.
 
 // Styling
-export { default as chalk } from "./chalk.ts";
-export { default as supportsColor } from "./supports-color.ts";
-export * from "./sgr.ts";
+export { chalk } from "#/ansi/chalk.ts";
+export { supportsColor } from "#/ansi/supports-color.ts";
+export * from "#/ansi/sgr.ts";
 
 // Escape sequences (raw building blocks + named sequences)
-export { default as ansiEscapes } from "./escapes.ts";
-export * from "./escapes.ts";
-export { default as cliCursor } from "./cursor.ts";
+export * from "#/ansi/escapes.ts";
+export { cliCursor } from "#/ansi/cursor.ts";
 
 // Measurement
-export { default as stringWidth } from "./string-width.ts";
-export { default as widestLine } from "./widest-line.ts";
-export * from "./east-asian-width.ts";
+export { stringWidth, widestLine } from "#/ansi/string-width.ts";
+export * from "#/ansi/east-asian-width.ts";
 
 // String manipulation
-export { default as stripAnsi, ansiRegex } from "./strip.ts";
-export { default as sliceAnsi } from "./slice.ts";
-export { default as truncateAnsi } from "./truncate.ts";
-export { default as wrapAnsi } from "./wrap.ts";
+export { stripAnsi } from "#/ansi/strip.ts";
+export { sliceAnsi } from "#/ansi/slice.ts";
+export { cliTruncate as truncateAnsi } from "#/ansi/truncate.ts";
+export { wrapAnsi } from "#/ansi/wrap.ts";
 
 // Tokenizer: style-aware parsing and minimal re-emission
-export * from "./tokenize.ts";
+export * from "#/ansi/tokenize.ts";

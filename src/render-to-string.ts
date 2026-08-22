@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
 import { LegacyRoot } from "react-reconciler/constants.js";
 
-import { createNode, type DOMElement } from "./dom.ts";
-import reconciler from "./reconciler.ts";
-import renderer from "./renderer.ts";
-import Yoga from "./yoga/index.ts";
+import { createNode, type DOMElement } from "#/dom.ts";
+import { reconciler } from "#/reconciler.ts";
+import { renderer } from "#/renderer.ts";
+import { Yoga } from "#/yoga/index.ts";
 
 export type RenderToStringOptions = {
   /**
@@ -42,7 +42,7 @@ const output = renderToString(
 console.log(output);
 ```
 */
-const renderToString = (node: ReactNode, options?: RenderToStringOptions): string => {
+export const renderToString = (node: ReactNode, options?: RenderToStringOptions): string => {
   const columns = options?.columns ?? 80;
 
   // Create a standalone root node — no stdout, stdin, or terminal bindings
@@ -93,60 +93,39 @@ const renderToString = (node: ReactNode, options?: RenderToStringOptions): strin
     () => {},
   );
 
-  let teardownSucceeded = false;
+  // Synchronously render the React tree into the container
+  reconciler.updateContainerSync(node, container, null, () => {});
+  reconciler.flushSyncWork();
 
-  try {
-    // Synchronously render the React tree into the container
-    reconciler.updateContainerSync(node, container, null, () => {});
-    reconciler.flushSyncWork();
+  // Yoga layout has already been calculated by onComputeLayout during commit.
+  // Render the DOM tree to a string — this captures the dynamic (non-static) output.
+  const { output } = renderer(rootNode, false);
 
-    // Yoga layout has already been calculated by onComputeLayout during commit.
-    // Render the DOM tree to a string — this captures the dynamic (non-static) output.
-    const { output } = renderer(rootNode, false);
+  // Tear down: unmount the tree so the reconciler cleans up child nodes
+  // and runs effect cleanup functions. The reconciler detaches removed
+  // subtrees (removeChildFromContainer → detachYogaSubtree); the garbage
+  // collector reclaims the Yoga nodes.
+  reconciler.updateContainerSync(null, container, null, () => {});
+  reconciler.flushSyncWork();
 
-    // Tear down: unmount the tree so the reconciler cleans up child nodes
-    // and runs effect cleanup functions. Child Yoga nodes are freed by the
-    // reconciler's removeChildFromContainer → freeYogaSubtree → freeRecursive.
-    reconciler.updateContainerSync(null, container, null, () => {});
-    reconciler.flushSyncWork();
-    teardownSucceeded = true;
-
-    // Free the root yoga node itself (children already freed by reconciler)
-    rootNode.yogaNode!.free();
-
-    // Re-throw after full cleanup so callers see the original error.
-    if (uncaughtError !== undefined) {
-      throw uncaughtError instanceof Error
-        ? uncaughtError
-        : // eslint-disable-next-line @typescript-eslint/no-base-to-string
-          new Error(String(uncaughtError));
-    }
-
-    // The renderer appends a trailing newline to static output for terminal
-    // rendering (so dynamic output starts on a fresh line). Strip it here
-    // so renderToString returns clean output.
-    const normalizedStaticOutput = capturedStaticOutput.endsWith("\n")
-      ? capturedStaticOutput.slice(0, -1)
-      : capturedStaticOutput;
-
-    if (normalizedStaticOutput && output) {
-      return normalizedStaticOutput + "\n" + output;
-    }
-
-    return normalizedStaticOutput || output;
-  } finally {
-    // Ensure native Yoga memory is freed even if rendering or teardown threw.
-    // Yoga nodes are WASM-backed and not garbage collected.
-    if (!teardownSucceeded && rootNode.yogaNode) {
-      try {
-        // If reconciler teardown failed, some child nodes may not have been
-        // freed. Use freeRecursive to clean up the entire tree as best-effort.
-        rootNode.yogaNode.freeRecursive();
-      } catch {
-        // Best-effort: node may already be partially freed
-      }
-    }
+  // Re-throw after full cleanup so callers see the original error.
+  if (uncaughtError !== undefined) {
+    throw uncaughtError instanceof Error
+      ? uncaughtError
+      : // eslint-disable-next-line @typescript-eslint/no-base-to-string
+        new Error(String(uncaughtError));
   }
-};
 
-export default renderToString;
+  // The renderer appends a trailing newline to static output for terminal
+  // rendering (so dynamic output starts on a fresh line). Strip it here
+  // so renderToString returns clean output.
+  const normalizedStaticOutput = capturedStaticOutput.endsWith("\n")
+    ? capturedStaticOutput.slice(0, -1)
+    : capturedStaticOutput;
+
+  if (normalizedStaticOutput && output) {
+    return normalizedStaticOutput + "\n" + output;
+  }
+
+  return normalizedStaticOutput || output;
+};

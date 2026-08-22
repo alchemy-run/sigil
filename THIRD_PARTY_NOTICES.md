@@ -40,33 +40,16 @@ SOFTWARE.
 ## Packages by Sindre Sorhus (MIT)
 
 Portions of `src/ansi/` and `src/` are derived from the following packages:
-`ansi-escapes`, `ansi-regex`, `ansi-styles`, `auto-bind`, `chalk`, `cli-boxes`,
-`cli-cursor`, `cli-truncate`, `get-east-asian-width`, `indent-string`,
-`is-fullwidth-code-point`, `is-in-ci`, `quick-lru`, `restore-cursor`,
-`slice-ansi`, `string-width`, `strip-ansi`, `terminal-size`, `type-fest`,
-`widest-line`, `wrap-ansi`.
+`ansi-escapes`, `ansi-styles`, `chalk`, `cli-boxes`,
+`cli-cursor`, `cli-truncate`, `get-east-asian-width`,
+`is-fullwidth-code-point`, `quick-lru`, `restore-cursor`,
+`slice-ansi`, `terminal-size`, `type-fest`, `wrap-ansi`.
 
 MIT License
 
 Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (https://sindresorhus.com)
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+Licensed under the MIT License (text above).
 
 ## supports-color (MIT)
 
@@ -109,6 +92,32 @@ Licensed under the MIT License (text above).
 
 Copyright (c) 2016-2022 Isaac Z. Schlueter <i@izs.me>, James Talmage
 <james@talmage.io> (github.com/jamestalmage), and Contributors.
+
+Licensed under the MIT License (text above).
+
+## fast-string-truncated-width (MIT)
+
+`src/ansi/string-width.ts` is derived from `fast-string-truncated-width`.
+
+The MIT License (MIT)
+
+Copyright (c) 2024-present Fabio Spampinato
+
+Licensed under the MIT License (text above).
+
+## es-toolkit (MIT)
+
+`src/throttle.ts` is derived from `throttle` in `es-toolkit/compat`.
+
+Copyright (c) 2024 Viva Republica, Inc.
+
+Licensed under the MIT License (text above).
+
+## enquirer (MIT)
+
+`src/parse-keypress.ts` is derived from `enquirer`'s `lib/keypress.js`.
+
+Copyright (c) 2016-present, Jon Schlinkert and Contributors.
 
 Licensed under the MIT License (text above).
 

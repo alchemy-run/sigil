@@ -1,7 +1,4 @@
-import os from "node:os";
 // Derived from `ansi-escapes` (MIT, Sindre Sorhus), reduced to the escapes Ink uses.
-import process from "node:process";
-
 // Control characters and sequence introducers. This module is the single
 // home for escape sequences: everything else imports these instead of
 // spelling out `\u001B[...` inline.
@@ -51,29 +48,10 @@ export const eraseLines = (count: number): string => {
   return clear;
 };
 
-// Windows 10 builds before 10586 don't support the `3J` escape.
-const isOldWindows = (): boolean => {
-  if (process.platform !== "win32") {
-    return false;
-  }
-
-  const parts = os.release().split(".");
-  const major = Number(parts[0]);
-  const build = Number(parts[2] ?? 0);
-
-  if (major < 10) {
-    return true;
-  }
-
-  return major === 10 && build < 10_586;
-};
-
-export const clearTerminal = isOldWindows()
-  ? `${eraseScreen}${CSI}0f`
-  : // 1. Erases the screen (only done in case `2` is not supported)
-    // 2. Erases the whole screen including scrollback buffer
-    // 3. Moves cursor to the top-left position
-    `${eraseScreen}${CSI}3J${CSI}H`;
+// 1. Erases the screen (only done in case `2` is not supported)
+// 2. Erases the whole screen including scrollback buffer
+// 3. Moves cursor to the top-left position
+export const clearTerminal = `${eraseScreen}${CSI}3J${CSI}H`;
 
 export const enterAlternativeScreen = CSI + "?1049h";
 export const exitAlternativeScreen = CSI + "?1049l";
@@ -100,7 +78,7 @@ export const popKittyKeyboard = CSI + "<u";
 export const link = (text: string, url: string): string =>
   [OSC, "8", sep, sep, url, BEL, text, OSC, "8", sep, sep, BEL].join("");
 
-const ansiEscapes = {
+export const ansiEscapes = {
   cursorTo,
   cursorUp,
   cursorDown,
@@ -126,5 +104,3 @@ const ansiEscapes = {
   popKittyKeyboard,
   link,
 };
-
-export default ansiEscapes;

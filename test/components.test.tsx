@@ -1,13 +1,12 @@
 import EventEmitter from "node:events";
-import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 
 import React, { Component, useEffect, useState } from "react";
 import { expect, test, onTestFinished, vi } from "vite-plus/test";
 
-import chalk from "../src/ansi/chalk.ts";
-import ansiEscapes from "../src/ansi/escapes.ts";
-import stripAnsi from "../src/ansi/strip.ts";
+import { chalk } from "#/ansi/chalk.ts";
+import { ansiEscapes } from "#/ansi/escapes.ts";
+import { stripAnsi } from "#/ansi/strip.ts";
 import {
   Box,
   Newline,
@@ -19,10 +18,10 @@ import {
   useApp,
   useInput,
   useStdin,
-} from "../src/index.ts";
+} from "#/index.ts";
+
 import { createStdin, emitReadable, type FakeStdin } from "./helpers/create-stdin.ts";
 import createStdout from "./helpers/create-stdout.ts";
-import FakeTimers from "./helpers/fake-timers.ts";
 import { renderToString, renderToStringAsync } from "./helpers/render-to-string.ts";
 import { run } from "./helpers/run.ts";
 import { renderAsync } from "./helpers/test-renderer.ts";
@@ -84,7 +83,7 @@ test("wrap text", () => {
   expect(output).toBe("Hello\nWorld");
 });
 
-test("don’t wrap text if there is enough space", () => {
+test("don't wrap text if there is enough space", () => {
   const output = renderToString(
     <Box width={20}>
       <Text wrap="wrap">Hello World</Text>
@@ -114,7 +113,7 @@ test("hard wrap with long word", () => {
   expect(output).toBe("aaaaa\naaaaa");
 });
 
-test("don’t hard wrap text if there is enough space", () => {
+test("don't hard wrap text if there is enough space", () => {
   const output = renderToString(
     <Box width={20}>
       <Text wrap="hard">Hello World</Text>
@@ -313,7 +312,7 @@ test("fail when <Box> is inside <Text> component", () => {
   );
 
   expect(error).toBeTruthy();
-  expect((error as any).message).toBe("<Box> can’t be nested inside <Text> component");
+  expect((error as Error).message).toBe("<Box> can't be nested inside <Text> component");
 });
 
 test("remeasure text dimensions on text change", () => {
@@ -509,7 +508,7 @@ test("static output stops accumulating after Static unmounts (#904)", () => {
   // outputs stay the same length. If not, each render appends duplicate
   // static content, making outputs progressively longer.
   expect(outputAfterChurn.length).toBe(outputAfterUnmount.length);
-  expect(outputAfterChurn.includes("Dynamic")).toBe(true);
+  expect(outputAfterChurn).toContain("Dynamic");
 });
 
 test("fullStaticOutput is reset when <Static> unmounts so stale items are not replayed", () => {
@@ -536,22 +535,22 @@ test("fullStaticOutput is reset when <Static> unmounts so stale items are not re
 
   const afterMount = stdout.write.mock.lastCall![0];
   expect(
-    afterMount.includes("HISTORY-A") && afterMount.includes("HISTORY-B"),
+    afterMount.includes("HISTORY-A") && afterMount,
     "Static items must be emitted on first mount",
-  ).toBe(true);
+  ).toContain("HISTORY-B");
 
   rerender(<App show={false} dynamicLabel="d2" />);
 
   const afterUnmount = stdout.write.mock.lastCall![0];
   expect(
-    afterUnmount.includes("HISTORY-A"),
+    afterUnmount,
     "fullStaticOutput must NOT replay HISTORY-A after Static unmount",
-  ).toBe(false);
+  ).not.toContain("HISTORY-A");
   expect(
-    afterUnmount.includes("HISTORY-B"),
+    afterUnmount,
     "fullStaticOutput must NOT replay HISTORY-B after Static unmount",
-  ).toBe(false);
-  expect(afterUnmount.includes("d2"), "new dynamic output must still render").toBe(true);
+  ).not.toContain("HISTORY-B");
+  expect(afterUnmount, "new dynamic output must still render").toContain("d2");
 });
 
 test("unmounting an ancestor of <Static> clears staticNode and does not crash the renderer", () => {
@@ -585,7 +584,7 @@ test("unmounting an ancestor of <Static> clears staticNode and does not crash th
   });
 
   const afterMount = stdout.write.mock.lastCall![0];
-  expect(afterMount.includes("HISTORY-X"), "Static item emitted on mount").toBe(true);
+  expect(afterMount, "Static item emitted on mount").toContain("HISTORY-X");
 
   // Unmount the Wrapper (ancestor of <Static>), not <Static> directly.
   // Before the fix this left a dangling staticNode pointing at freed WASM
@@ -593,8 +592,8 @@ test("unmounting an ancestor of <Static> clears staticNode and does not crash th
   rerender(<App showWrapper={false} label="live-2" />);
 
   const afterUnmount = stdout.write.mock.lastCall![0];
-  expect(afterUnmount.includes("live-2"), "dynamic content renders after unmount").toBe(true);
-  expect(afterUnmount.includes("HISTORY-X"), "stale static output must not replay").toBe(false);
+  expect(afterUnmount, "dynamic content renders after unmount").toContain("live-2");
+  expect(afterUnmount, "stale static output must not replay").not.toContain("HISTORY-X");
 
   // A second rerender confirms the renderer is still functional.
   rerender(<App showWrapper={false} label="live-3" />);
@@ -629,20 +628,20 @@ test("removing a <Static> ancestor that is a direct child of the root does not c
   });
 
   const afterMount = stdout.write.mock.lastCall![0];
-  expect(afterMount.includes("ROOT-HISTORY"), "Static item emitted on mount").toBe(true);
+  expect(afterMount, "Static item emitted on mount").toContain("ROOT-HISTORY");
 
   rerender(<App showWrapper={false} label="root-2" />);
 
   const afterUnmount = stdout.write.mock.lastCall![0];
-  expect(afterUnmount.includes("root-2"), "dynamic content renders after unmount").toBe(true);
-  expect(afterUnmount.includes("ROOT-HISTORY"), "stale static output must not replay").toBe(false);
+  expect(afterUnmount, "dynamic content renders after unmount").toContain("root-2");
+  expect(afterUnmount, "stale static output must not replay").not.toContain("ROOT-HISTORY");
 });
 
-test("separate Ink instances do not clobber each other’s staticNode", () => {
-  // The owning root must be derived from the removal hook’s host parent, not a
+test("separate Ink instances do not clobber each other's staticNode", () => {
+  // The owning root must be derived from the removal hook's host parent, not a
   // module-level global. Rendering <Static> in the second instance moves the
-  // global pointer to the second root; removing <Static>’s ancestor from the
-  // first instance must still clear the FIRST root’s staticNode.
+  // global pointer to the second root; removing <Static>'s ancestor from the
+  // first instance must still clear the FIRST root's staticNode.
   const stdout1 = createStdout();
   const stdout2 = createStdout();
 
@@ -670,22 +669,21 @@ test("separate Ink instances do not clobber each other’s staticNode", () => {
     debug: true,
   });
 
-  // Remove <Static>’s ancestor from the FIRST instance. With a global-based
-  // lookup this consulted the second root and left the first root’s pointer
+  // Remove <Static>'s ancestor from the FIRST instance. With a global-based
+  // lookup this consulted the second root and left the first root's pointer
   // dangling, replaying stale static output.
   first.rerender(<App show={false} label="first-2" />);
 
   const firstOut = stdout1.write.mock.lastCall![0];
-  expect(firstOut.includes("first-2"), "first instance renders new output").toBe(true);
-  expect(
-    firstOut.includes("first-history"),
-    "first instance must not replay stale static output",
-  ).toBe(false);
+  expect(firstOut, "first instance renders new output").toContain("first-2");
+  expect(firstOut, "first instance must not replay stale static output").not.toContain(
+    "first-history",
+  );
 
   // The second instance stays functional and independent.
   second.rerender(<App show={false} label="second-2" />);
   const secondOut = stdout2.write.mock.lastCall![0];
-  expect(secondOut.includes("second-2"), "second instance renders new output").toBe(true);
+  expect(secondOut, "second instance renders new output").toContain("second-2");
 
   first.unmount();
   second.unmount();
@@ -727,12 +725,12 @@ test("updating <Static> in one instance after another instance mounted <Static> 
   first.rerender(<App items={["A", "B"]} label="first" />);
 
   const firstOut = stdout1.write.mock.lastCall![0];
-  expect(firstOut.includes("B"), "appended static item must reach stdout").toBe(true);
+  expect(firstOut, "appended static item must reach stdout").toContain("B");
 
   // The second instance stays functional and independent.
   second.rerender(<App items={["X", "Y"]} label="second" />);
   const secondOut = stdout2.write.mock.lastCall![0];
-  expect(secondOut.includes("Y"), "second instance static update works").toBe(true);
+  expect(secondOut, "second instance static update works").toContain("Y");
 
   first.unmount();
   second.unmount();
@@ -765,11 +763,10 @@ test("unmounting a <Static> ancestor in screen-reader mode does not replay stale
   rerender(<App showWrapper={false} label="sr-2" />);
 
   const afterUnmount = stdout.write.mock.lastCall![0];
-  expect(afterUnmount.includes("sr-2"), "dynamic content renders after unmount").toBe(true);
-  expect(
-    afterUnmount.includes("SR-HISTORY"),
-    "stale static output must not replay in screen-reader mode",
-  ).toBe(false);
+  expect(afterUnmount, "dynamic content renders after unmount").toContain("sr-2");
+  expect(afterUnmount, "stale static output must not replay in screen-reader mode").not.toContain(
+    "SR-HISTORY",
+  );
 });
 
 test("unmounting a <Static> ancestor in concurrent mode does not crash", async () => {
@@ -808,8 +805,8 @@ test("unmounting a <Static> ancestor in concurrent mode does not crash", async (
   await delay(50);
 
   const afterUnmount = stdout.write.mock.lastCall![0];
-  expect(afterUnmount.includes("cc-2"), "dynamic content renders after unmount").toBe(true);
-  expect(afterUnmount.includes("CC-HISTORY"), "stale static output must not replay").toBe(false);
+  expect(afterUnmount, "dynamic content renders after unmount").toContain("cc-2");
+  expect(afterUnmount, "stale static output must not replay").not.toContain("CC-HISTORY");
 
   instance.unmount();
 });
@@ -836,21 +833,21 @@ test("remounting <Static> via key change emits the new items (nested under <Box>
 
   const afterFirstMount = stdout.write.mock.lastCall![0];
   expect(
-    afterFirstMount.includes("old-A") && afterFirstMount.includes("old-B"),
+    afterFirstMount.includes("old-A") && afterFirstMount,
     "first mount must emit its Static items",
-  ).toBe(true);
+  ).toContain("old-B");
 
   rerender(<App session={2} />);
 
   const afterRemount = stdout.write.mock.lastCall![0];
   expect(
-    afterRemount.includes("new-C"),
+    afterRemount,
     'remounted Static must emit its first new item ("new-C") to stdout',
-  ).toBe(true);
+  ).toContain("new-C");
   expect(
-    afterRemount.includes("new-D"),
+    afterRemount,
     'remounted Static must emit its second new item ("new-D") to stdout',
-  ).toBe(true);
+  ).toContain("new-D");
 });
 
 test("remounting <Static> via key change emits the new items (root-level — removeChildFromContainer)", () => {
@@ -870,21 +867,21 @@ test("remounting <Static> via key change emits the new items (root-level — rem
 
   const afterFirstMount = stdout.write.mock.lastCall![0];
   expect(
-    afterFirstMount.includes("old-A") && afterFirstMount.includes("old-B"),
+    afterFirstMount.includes("old-A") && afterFirstMount,
     "first mount must emit its Static items",
-  ).toBe(true);
+  ).toContain("old-B");
 
   rerender(<App session={2} />);
 
   const afterRemount = stdout.write.mock.lastCall![0];
   expect(
-    afterRemount.includes("new-C"),
+    afterRemount,
     'remounted Static must emit "new-C" via removeChildFromContainer path',
-  ).toBe(true);
+  ).toContain("new-C");
   expect(
-    afterRemount.includes("new-D"),
+    afterRemount,
     'remounted Static must emit "new-D" via removeChildFromContainer path',
-  ).toBe(true);
+  ).toContain("new-D");
 });
 
 test("render only new items in static output on final render", () => {
@@ -915,7 +912,7 @@ test("render only new items in static output on final render", () => {
 });
 
 // See https://github.com/chalk/wrap-ansi/issues/27
-test("ensure wrap-ansi doesn’t trim leading whitespace", () => {
+test("ensure wrap-ansi doesn't trim leading whitespace", () => {
   const output = renderToString(<Text color="red">{" ERROR "}</Text>);
 
   expect(output).toBe(chalk.red(" ERROR "));
@@ -1054,7 +1051,7 @@ test("do not disable raw mode when swapping components that use useInput", async
 });
 
 test("clear pending input parser state when swapping components that use useInput", async () => {
-  const clock = FakeTimers.install({
+  vi.useFakeTimers({
     toFake: ["setTimeout", "clearTimeout"],
   });
 
@@ -1097,11 +1094,11 @@ test("clear pending input parser state when swapping components that use useInpu
       queueMicrotask(() => resolve(undefined));
     });
 
-    await clock.tickAsync(20);
+    await vi.advanceTimersByTimeAsync(20);
 
     expect(receivedInputs).toEqual([]);
   } finally {
-    clock.uninstall();
+    vi.useRealTimers();
   }
 });
 
@@ -1288,28 +1285,27 @@ test("render only last frame when run in CI", async () => {
   });
 
   for (const num of [0, 1, 2, 3, 4]) {
-    expect(output.includes(`Counter: ${num}`)).toBe(false);
+    expect(output).not.toContain(`Counter: ${num}`);
   }
 
-  expect(output.includes("Counter: 5")).toBe(true);
+  expect(output).toContain("Counter: 5");
 });
 
-test("render all frames if CI environment variable equals false", async () => {
+test("render all frames if not in CI environment", async () => {
   const output = await run("ci", {
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    env: { CI: "false" },
+    // We detect CI=1 since thats what every modern CI provider now supports
+    env: {},
     columns: 0,
   });
-
   for (const num of [0, 1, 2, 3, 4, 5]) {
-    expect(output.includes(`Counter: ${num}`)).toBe(true);
+    expect(output).toContain(`Counter: ${num}`);
   }
 });
 
 test("debug mode in CI does not replay final frame during unmount teardown", async () => {
   const output = await run("ci-debug", {
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    env: { CI: "true" },
+    // We detect CI=1 since thats what every modern CI provider now supports
+    env: { CI: "1" },
     columns: 0,
   });
 
@@ -1321,8 +1317,8 @@ test("debug mode in CI does not replay final frame during unmount teardown", asy
 
 test("debug mode in CI keeps final newline separation after waitUntilExit", async () => {
   const output = await run("ci-debug-after-exit", {
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    env: { CI: "true" },
+    // We detect CI=1 since thats what every modern CI provider now supports
+    env: { CI: "1" },
     columns: 0,
   });
 
@@ -1382,7 +1378,7 @@ test("render only last frame when stdout is not a TTY", async () => {
 
   // Verify the final frame is written
   const lastWrite = allWrites.findLast((w) => w.length > 0) ?? "";
-  expect(lastWrite.includes("Count: 3")).toBe(true);
+  expect(lastWrite).toContain("Count: 3");
 });
 
 test("render all frames when interactive is explicitly true", async () => {
@@ -1424,9 +1420,9 @@ test("render all frames when interactive is explicitly true", async () => {
   const contentWrites = stdout.getWrites().filter((w) => w.length > 0);
   expect(contentWrites.length > 1).toBe(true);
   const joined = contentWrites.join("");
-  expect(joined.includes("Count: 0")).toBe(true);
-  expect(joined.includes("Count: 1")).toBe(true);
-  expect(joined.includes("Count: 2")).toBe(true);
+  expect(joined).toContain("Count: 0");
+  expect(joined).toContain("Count: 1");
+  expect(joined).toContain("Count: 2");
 });
 
 test("interactive option overrides TTY detection", async () => {
@@ -1482,7 +1478,7 @@ test("interactive option overrides TTY detection", async () => {
 
   // Verify only the final frame is written
   const lastWrite = allWrites.findLast((w) => w.length > 0) ?? "";
-  expect(lastWrite.includes("Count: 3")).toBe(true);
+  expect(lastWrite).toContain("Count: 3");
 });
 
 test("alternate screen - enters on mount and exits on unmount", async () => {
@@ -1560,9 +1556,9 @@ test("primary screen - cleanup console output follows the native console during 
   );
 
   expect(
-    output.includes("primary cleanup"),
+    output,
     "Should keep cleanup console output out of Ink-managed stdout writes",
-  ).toBe(false);
+  ).not.toContain("primary cleanup");
   expect(nativeConsoleLog, "Should restore the native console before React cleanup runs").toBe(
     true,
   );
@@ -1636,9 +1632,9 @@ test("alternate screen - does not replay teardown output on the primary screen d
   expect(
     replayedOutput.includes("normal ERROR banner") ||
       replayedOutput.includes("Error: Done") ||
-      replayedOutput.includes("Done\n    at"),
+      replayedOutput,
     "Should not replay alternate-screen teardown output onto the primary screen",
-  ).toBe(false);
+  ).not.toContain("Done\n    at");
 });
 
 test("alternate screen - cleanup console output follows the native console during unmount", async () => {
@@ -1691,9 +1687,9 @@ test("alternate screen - cleanup console output follows the native console durin
   );
 
   expect(
-    output.includes("cleanup log"),
+    output,
     "Should keep cleanup console output out of the alternate-screen stream",
-  ).toBe(false);
+  ).not.toContain("cleanup log");
   expect(nativeConsoleLog, "Should restore the native console before React cleanup runs").toBe(
     true,
   );
@@ -1945,17 +1941,16 @@ test("static output is written immediately in non-interactive mode", async () =>
   // Capture writes BEFORE unmount — static items must already be here
   const writesBeforeUnmount = stdout.getWrites().map((w) => stripAnsi(w));
   const preUnmountJoined = writesBeforeUnmount.join("");
-  expect(preUnmountJoined.includes("A"), "Static item A was written before unmount").toBe(true);
-  expect(preUnmountJoined.includes("B"), "Static item B was written before unmount").toBe(true);
+  expect(preUnmountJoined, "Static item A was written before unmount").toContain("A");
+  expect(preUnmountJoined, "Static item B was written before unmount").toContain("B");
 
   unmount();
   await waitUntilExit();
 
   // Verify the dynamic content was deferred to unmount (not written before it)
-  expect(
-    preUnmountJoined.includes("Dynamic"),
-    "Dynamic content was not written before unmount",
-  ).toBe(false);
+  expect(preUnmountJoined, "Dynamic content was not written before unmount").not.toContain(
+    "Dynamic",
+  );
 
   // Verify dynamic content was eventually written
   const allWrites = stdout.getWrites().map((w) => stripAnsi(w));
@@ -1964,7 +1959,7 @@ test("static output is written immediately in non-interactive mode", async () =>
   );
 });
 
-test("reset prop when it’s removed from the element", () => {
+test("reset prop when it's removed from the element", () => {
   const stdout = createStdout();
 
   function Dynamic({ remove }: { readonly remove?: boolean }) {

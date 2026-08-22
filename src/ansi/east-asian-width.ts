@@ -206,6 +206,50 @@ export function eastAsianWidth(
   return 1;
 }
 
+/**
+Grapheme-cluster width test shared by the tokenizer (slice/clip path): the
+base code point's East Asian Width, plus emoji presentation rules.
+*/
+export function isFullwidthGrapheme(grapheme: string, baseCodePoint: number): boolean {
+  if (isFullwidthCodePoint(baseCodePoint)) return true;
+  // Variation Selector 16 forces emoji presentation (2 columns wide)
+  if (grapheme.includes("\uFE0F")) return true;
+  // Regional indicator pairs form flag emoji (2 columns wide)
+  if (baseCodePoint >= 0x1f1e6 && baseCodePoint <= 0x1f1ff) return true;
+  return false;
+}
+
+/**
+Wide code points not covered by string-width's CJKT script regex or emoji
+regex — the fallback bucket of its block parser. A disjoint decomposition of
+the `wide` table above, kept alongside it so the width data lives in one
+module.
+*/
+export const isWideNotCJKTNotEmoji = (x: number): boolean => {
+  return (
+    x === 0x231b ||
+    x === 0x2329 ||
+    (x >= 0x2ff0 && x <= 0x2fff) ||
+    (x >= 0x3001 && x <= 0x303e) ||
+    (x >= 0x3099 && x <= 0x30ff) ||
+    (x >= 0x3105 && x <= 0x312f) ||
+    (x >= 0x3131 && x <= 0x318e) ||
+    (x >= 0x3190 && x <= 0x31e3) ||
+    (x >= 0x31ef && x <= 0x321e) ||
+    (x >= 0x3220 && x <= 0x3247) ||
+    (x >= 0x3250 && x <= 0x4dbf) ||
+    (x >= 0xfe10 && x <= 0xfe19) ||
+    (x >= 0xfe30 && x <= 0xfe52) ||
+    (x >= 0xfe54 && x <= 0xfe66) ||
+    (x >= 0xfe68 && x <= 0xfe6b) ||
+    (x >= 0x1f200 && x <= 0x1f202) ||
+    (x >= 0x1f210 && x <= 0x1f23b) ||
+    (x >= 0x1f240 && x <= 0x1f248) ||
+    (x >= 0x20000 && x <= 0x2fffd) ||
+    (x >= 0x30000 && x <= 0x3fffd)
+  );
+};
+
 export function isFullwidthCodePoint(codePoint: number): boolean {
   if (!Number.isInteger(codePoint)) {
     return false;

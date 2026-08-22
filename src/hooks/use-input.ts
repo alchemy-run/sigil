@@ -1,9 +1,9 @@
 import { useEffect, useEffectEvent } from "react";
 
-import { ESC } from "../ansi/escapes.ts";
-import parseKeypress, { nonAlphanumericKeys } from "../parse-keypress.ts";
-import reconciler from "../reconciler.ts";
-import { useStdinContext } from "./use-stdin.ts";
+import { ESC } from "#/ansi/escapes.ts";
+import { useStdinContext } from "#/hooks/use-stdin.ts";
+import { parseKeypress, nonAlphanumericKeys } from "#/parse-keypress.ts";
+import { reconciler } from "#/reconciler.ts";
 
 /**
 Handy information about a key that was pressed.
@@ -158,7 +158,7 @@ const UserInput = () => {
 };
 ```
 */
-const useInput = (inputHandler: Handler, options: Options = {}) => {
+export const useInput = (inputHandler: Handler, options: Options = {}) => {
   // eslint-disable-next-line @typescript-eslint/naming-convention
   const { setRawMode, internal_exitOnCtrlC, internal_eventEmitter } = useStdinContext();
 
@@ -265,5 +265,3 @@ const useInput = (inputHandler: Handler, options: Options = {}) => {
     };
   }, [options.isActive, internal_eventEmitter]);
 };
-
-export default useInput;

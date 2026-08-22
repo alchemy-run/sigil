@@ -3,9 +3,9 @@
 
 // Port of yoga/algorithm/Baseline.cpp.
 
-import { Align, Dimension, PositionType } from "../generated/YGEnums.ts";
-import { PhysicalEdge, isColumn, resolveChildAlignment } from "./helpers.ts";
-import type { Node } from "./node.ts";
+import { PhysicalEdge, isColumn, resolveChildAlignment } from "#/yoga/core/helpers.ts";
+import type { Node } from "#/yoga/core/node.ts";
+import { Align, Dimension, PositionType } from "#/yoga/generated/YGEnums.ts";
 
 export function calculateBaseline(node: Node): number {
   if (node.hasBaselineFunc()) {

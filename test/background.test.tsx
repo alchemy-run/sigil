@@ -1,7 +1,8 @@
 import { expect, test } from "vite-plus/test";
 
-import chalk from "../src/ansi/chalk.ts";
-import { render, Box, Text } from "../src/index.ts";
+import { chalk } from "#/ansi/chalk.ts";
+import { render, Box, Text } from "#/index.ts";
+
 import createStdout from "./helpers/create-stdout.ts";
 import { enableTestColors, disableTestColors } from "./helpers/force-colors.ts";
 import { renderToString, renderToStringAsync } from "./helpers/render-to-string.ts";
@@ -201,13 +202,12 @@ test("Box background fills entire area with standard color", () => {
   );
 
   // Should contain background color codes and fill spaces for entire Box area
-  expect(output.includes(ansi.bgRed), "Should contain red background start code").toBe(true);
-  expect(output.includes(ansi.bgReset), "Should contain background reset code").toBe(true);
-  expect(output.includes("Hello"), "Should contain the text").toBe(true);
-  expect(
-    output.includes(`${ansi.bgRed}          ${ansi.bgReset}`),
-    "Should contain background fill line",
-  ).toBe(true);
+  expect(output, "Should contain red background start code").toContain(ansi.bgRed);
+  expect(output, "Should contain background reset code").toContain(ansi.bgReset);
+  expect(output, "Should contain the text").toContain("Hello");
+  expect(output, "Should contain background fill line").toContain(
+    `${ansi.bgRed}          ${ansi.bgReset}`,
+  );
 });
 
 test("Box background fills with hex color", () => {
@@ -218,9 +218,9 @@ test("Box background fills with hex color", () => {
   );
 
   // Should contain hex color background codes and fill spaces
-  expect(output.includes("Hello"), "Should contain the text").toBe(true);
-  expect(output.includes(ansi.bgHexRed), "Should contain hex RGB background code").toBe(true);
-  expect(output.includes(ansi.bgReset), "Should contain background reset code").toBe(true);
+  expect(output, "Should contain the text").toContain("Hello");
+  expect(output, "Should contain hex RGB background code").toContain(ansi.bgHexRed);
+  expect(output, "Should contain background reset code").toContain(ansi.bgReset);
 });
 
 test("Box background fills with rgb color", () => {
@@ -231,9 +231,9 @@ test("Box background fills with rgb color", () => {
   );
 
   // Should contain RGB color background codes and fill spaces
-  expect(output.includes("Hello"), "Should contain the text").toBe(true);
-  expect(output.includes(ansi.bgHexRed), "Should contain RGB background code").toBe(true);
-  expect(output.includes(ansi.bgReset), "Should contain background reset code").toBe(true);
+  expect(output, "Should contain the text").toContain("Hello");
+  expect(output, "Should contain RGB background code").toContain(ansi.bgHexRed);
+  expect(output, "Should contain background reset code").toContain(ansi.bgReset);
 });
 
 test("Box background fills with ansi256 color", () => {
@@ -244,9 +244,9 @@ test("Box background fills with ansi256 color", () => {
   );
 
   // Should contain ANSI256 color background codes and fill spaces
-  expect(output.includes("Hello"), "Should contain the text").toBe(true);
-  expect(output.includes(ansi.bgAnsi256Nine), "Should contain ANSI256 background code").toBe(true);
-  expect(output.includes(ansi.bgReset), "Should contain background reset code").toBe(true);
+  expect(output, "Should contain the text").toContain("Hello");
+  expect(output, "Should contain ANSI256 background code").toContain(ansi.bgAnsi256Nine);
+  expect(output, "Should contain background reset code").toContain(ansi.bgReset);
 });
 
 test("Box background with border fills content area", () => {
@@ -257,11 +257,11 @@ test("Box background with border fills content area", () => {
   );
 
   // Should have background fill inside the border and border characters
-  expect(output.includes("Hi"), "Should contain the text").toBe(true);
-  expect(output.includes(ansi.bgCyan), "Should contain cyan background code").toBe(true);
-  expect(output.includes(ansi.bgReset), "Should contain background reset code").toBe(true);
-  expect(output.includes("╭"), "Should contain top-left border").toBe(true);
-  expect(output.includes("╮"), "Should contain top-right border").toBe(true);
+  expect(output, "Should contain the text").toContain("Hi");
+  expect(output, "Should contain cyan background code").toContain(ansi.bgCyan);
+  expect(output, "Should contain background reset code").toContain(ansi.bgReset);
+  expect(output, "Should contain top-left border").toContain("╭");
+  expect(output, "Should contain top-right border").toContain("╮");
 });
 
 test("Box background with padding fills entire padded area", () => {
@@ -272,9 +272,9 @@ test("Box background with padding fills entire padded area", () => {
   );
 
   // Background should fill the entire Box area including padding
-  expect(output.includes("Hi"), "Should contain the text").toBe(true);
-  expect(output.includes(ansi.bgMagenta), "Should contain magenta background code").toBe(true);
-  expect(output.includes(ansi.bgReset), "Should contain background reset code").toBe(true);
+  expect(output, "Should contain the text").toContain("Hi");
+  expect(output, "Should contain magenta background code").toContain(ansi.bgMagenta);
+  expect(output, "Should contain background reset code").toContain(ansi.bgReset);
 });
 
 test("Box background with center alignment fills entire area", () => {
@@ -290,9 +290,9 @@ test("Box background with center alignment fills entire area", () => {
     </Box>,
   );
 
-  expect(output.includes("Hi"), "Should contain centered text").toBe(true);
-  expect(output.includes(ansi.bgBlue), "Should contain blue background code").toBe(true);
-  expect(output.includes(ansi.bgReset), "Should contain background reset code").toBe(true);
+  expect(output, "Should contain centered text").toContain("Hi");
+  expect(output, "Should contain blue background code").toContain(ansi.bgBlue);
+  expect(output, "Should contain background reset code").toContain(ansi.bgReset);
 });
 
 test("Box background with column layout fills entire area", () => {
@@ -309,10 +309,10 @@ test("Box background with column layout fills entire area", () => {
     </Box>,
   );
 
-  expect(output.includes("Line 1"), "Should contain first line text").toBe(true);
-  expect(output.includes("Line 2"), "Should contain second line text").toBe(true);
-  expect(output.includes(ansi.bgGreen), "Should contain green background code").toBe(true);
-  expect(output.includes(ansi.bgReset), "Should contain background reset code").toBe(true);
+  expect(output, "Should contain first line text").toContain("Line 1");
+  expect(output, "Should contain second line text").toContain("Line 2");
+  expect(output, "Should contain green background code").toContain(ansi.bgGreen);
+  expect(output, "Should contain background reset code").toContain(ansi.bgReset);
 });
 
 // Update tests using render() for comprehensive coverage

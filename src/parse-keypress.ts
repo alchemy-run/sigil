@@ -1,6 +1,6 @@
 // Copied from https://github.com/enquirer/enquirer/blob/36785f3399a41cd61e9d28d1eb9c2fcd73d69b4c/lib/keypress.js
-import { DEL, ESC } from "./ansi/escapes.ts";
-import { kittyModifiers } from "./kitty-keyboard.ts";
+import { DEL, ESC } from "#/ansi/escapes.ts";
+import { kittyModifiers } from "#/kitty-keyboard.ts";
 
 const textDecoder = new TextDecoder();
 
@@ -391,13 +391,12 @@ const parseKittySpecialKey = (s: string): ParsedKey | null => {
   };
 };
 
-const parseKeypress = (s: Uint8Array | string = ""): ParsedKey => {
+export const parseKeypress = (s: Uint8Array | string = ""): ParsedKey => {
   let parts;
 
   if (s instanceof Uint8Array) {
     if (s[0]! > 127 && s[1] === undefined) {
-      (s[0] as unknown as number) -= 128;
-      s = ESC + textDecoder.decode(s);
+      s = ESC + textDecoder.decode(Uint8Array.of(s[0]! - 128));
     } else {
       s = textDecoder.decode(s);
     }
@@ -499,7 +498,7 @@ const parseKeypress = (s: Uint8Array | string = ""): ParsedKey => {
     // the modifier key bitflag and any meaningless "1;" sequence
     const code = [parts[1], parts[2], parts[4], parts[6]].filter(Boolean).join("");
 
-    const modifier = ((parts[3] || parts[5] || 1) as number) - 1;
+    const modifier = Number(parts[3] || parts[5] || 1) - 1;
 
     // Parse the key modifier
     key.ctrl = !!(modifier & 4);
@@ -514,5 +513,3 @@ const parseKeypress = (s: Uint8Array | string = ""): ParsedKey => {
 
   return key;
 };
-
-export default parseKeypress;

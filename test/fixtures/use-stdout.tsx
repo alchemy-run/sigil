@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-import { render, useStdout, Text } from "../../src/index.ts";
+import { render, useStdout, Text } from "#/index.ts";
 
 function WriteToStdout() {
   const { write } = useStdout();

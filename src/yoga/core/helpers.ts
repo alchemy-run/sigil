@@ -5,6 +5,8 @@
 // yoga/algorithm/SizingMode.h, yoga/algorithm/TrailingPosition.h and
 // yoga/algorithm/BoundAxis.h, plus the internal PhysicalEdge enum.
 
+import type { Node } from "#/yoga/core/node.ts";
+import { maxOrDefined } from "#/yoga/core/numeric.ts";
 import {
   Align,
   Dimension,
@@ -13,9 +15,7 @@ import {
   FlexDirection,
   Justify,
   MeasureMode,
-} from "../generated/YGEnums.ts";
-import type { Node } from "./node.ts";
-import { maxOrDefined } from "./numeric.ts";
+} from "#/yoga/generated/YGEnums.ts";
 
 export const PhysicalEdge = {
   Left: 0,

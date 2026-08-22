@@ -1,4 +1,5 @@
-import { render, type Instance } from "../../src/index.ts";
+import { render, type Instance } from "#/index.ts";
+
 import { act } from "./act.ts";
 import createStdout from "./create-stdout.ts";
 
@@ -68,28 +69,4 @@ export function renderSync(node: React.ReactNode, options: TestRenderOptions = {
       instance.rerender(newNode);
     },
   };
-}
-
-/**
-Wrapper to make existing sync code work with concurrent mode.
-
-Use this to gradually migrate tests.
-*/
-export async function withAct<T>(fn: () => T | Promise<T>): Promise<T> {
-  let result!: T;
-  await act(async () => {
-    result = await fn();
-  });
-  return result;
-}
-
-/**
-Wait for pending suspense boundaries to resolve.
-*/
-export async function waitForSuspense(ms = 0): Promise<void> {
-  await act(async () => {
-    await new Promise<void>((resolve) => {
-      setTimeout(resolve, ms);
-    });
-  });
 }

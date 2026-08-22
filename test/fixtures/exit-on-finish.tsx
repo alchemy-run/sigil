@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 
-import { render, Text } from "../../src/index.ts";
+import { render, Text } from "#/index.ts";
 
 function Test() {
   const [counter, setCounter] = useState(0);

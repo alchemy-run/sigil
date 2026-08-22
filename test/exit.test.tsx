@@ -1,20 +1,20 @@
 import * as path from "node:path";
-import process from "node:process";
 
 import { expect, test } from "vite-plus/test";
 import { spawn } from "zigpty";
 
-import stripAnsi from "../src/ansi/strip.ts";
+import { stripAnsi } from "#/ansi/strip.ts";
+
 import { run } from "./helpers/run.ts";
 
 test("exit normally without unmount() or exit()", async () => {
   const output = await run("exit-normally");
-  expect(output.includes("exited")).toBe(true);
+  expect(output).toContain("exited");
 });
 
 test("exit on unmount()", async () => {
   const output = await run("exit-on-unmount");
-  expect(output.includes("exited")).toBe(true);
+  expect(output).toContain("exited");
 });
 
 test("exit when app finishes execution", async () => {
@@ -24,50 +24,50 @@ test("exit when app finishes execution", async () => {
 
 test("exit on exit()", async () => {
   const output = await run("exit-on-exit");
-  expect(output.includes("exited")).toBe(true);
+  expect(output).toContain("exited");
 });
 
 test("exit on exit() with error", async () => {
   const output = await run("exit-on-exit-with-error");
-  expect(output.includes("errored")).toBe(true);
+  expect(output).toContain("errored");
 });
 
 test("exit on exit() with error with value property", async () => {
   const output = await run("exit-on-exit-with-error-value-property");
-  expect(output.includes("errored")).toBe(true);
+  expect(output).toContain("errored");
 });
 
 test("exit on exit() with result value", async () => {
   const output = await run("exit-on-exit-with-result");
-  expect(output.includes("result:hello from ink")).toBe(true);
+  expect(output).toContain("result:hello from ink");
 });
 
 test("exit on exit() with object result", async () => {
   const output = await run("exit-on-exit-with-value-object");
-  expect(output.includes("result:hello from ink object")).toBe(true);
+  expect(output).toContain("result:hello from ink object");
 });
 
 test("exit on exit() with raw mode", async () => {
   const output = await run("exit-raw-on-exit");
-  expect(output.includes("exited")).toBe(true);
+  expect(output).toContain("exited");
 });
 
 test("exit on exit() with raw mode with error", async () => {
   const output = await run("exit-raw-on-exit-with-error");
-  expect(output.includes("errored")).toBe(true);
+  expect(output).toContain("errored");
 });
 
 test("exit on unmount() with raw mode", async () => {
   const output = await run("exit-raw-on-unmount");
-  expect(output.includes("exited")).toBe(true);
+  expect(output).toContain("exited");
 });
 
 test("exit with thrown error", async () => {
   const output = await run("exit-with-thrown-error");
-  expect(output.includes("errored")).toBe(true);
+  expect(output).toContain("errored");
 });
 
-test("don’t exit while raw mode is active", async () => {
+test("don't exit while raw mode is active", async () => {
   await new Promise<void>((resolve, reject) => {
     const env: Record<string, string> = {
       ...process.env,
@@ -110,7 +110,7 @@ test("don’t exit while raw mode is active", async () => {
       isExited = true;
 
       if (exitCode === 0) {
-        expect(output.includes("exited")).toBe(true);
+        expect(output).toContain("exited");
         expect(true).toBe(true); // TODO: ported from t.fail()
         resolve();
         return;
@@ -129,17 +129,17 @@ test("exit when SIGIL_DEV is set", async () => {
     },
   });
   // Warning output depends on whether a local React DevTools server is running.
-  expect(output.includes("exited")).toBe(true);
+  expect(output).toContain("exited");
 });
 
 test("exit on exit() with error and static output", async () => {
   const output = await run("exit-with-static");
   // Error is propagated, not swallowed
-  expect(output.includes("errored")).toBe(true);
+  expect(output).toContain("errored");
   // Static items rendered
-  expect(output.includes("A")).toBe(true);
-  expect(output.includes("B")).toBe(true);
-  expect(output.includes("C")).toBe(true);
+  expect(output).toContain("A");
+  expect(output).toContain("B");
+  expect(output).toContain("C");
   // Static items NOT duplicated (the bug from #397)
   const cleaned = stripAnsi(output);
   expect(cleaned.split("A").length - 1).toBe(1);

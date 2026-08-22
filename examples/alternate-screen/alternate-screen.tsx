@@ -1,6 +1,7 @@
 import React, { useReducer, useEffect, useRef, useCallback } from "react";
 
-import { render, Text, Box, useInput, useApp, useWindowSize } from "../../src/index.ts";
+import { render, Text, Box, useInput, useApp, useWindowSize } from "#/index.ts";
+
 import {
   boardWidth,
   boardHeight,

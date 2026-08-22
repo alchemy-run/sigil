@@ -1,6 +1,4 @@
-import process from "node:process";
-
-import { createContext, version as reactVersion } from "react";
+import { createContext } from "react";
 import createReconciler, { type ReactContext } from "react-reconciler";
 import { DefaultEventPriority, NoEventPriority } from "react-reconciler/constants.js";
 import * as Scheduler from "scheduler";
@@ -10,7 +8,7 @@ import {
   appendChildNode,
   insertBeforeNode,
   removeChildNode,
-  freeYogaSubtree,
+  detachYogaSubtree,
   emitLayoutListeners,
   setStyle,
   setTextNodeValue,
@@ -20,27 +18,22 @@ import {
   type TextNode,
   type ElementNames,
   type DOMElement,
-} from "./dom.ts";
-import { type OutputTransformer } from "./render-node-to-output.ts";
-import applyStyles, { type Styles } from "./styles.ts";
-import Yoga from "./yoga/index.ts";
+} from "#/dom.ts";
+import { isSigilDev } from "#/env.ts";
+import { type OutputTransformer } from "#/render-node-to-output.ts";
+import { styles as applyStyles, type Styles } from "#/styles.ts";
+import { Yoga } from "#/yoga/index.ts";
+
+import pkg from "../package.json" with { type: "json" };
 
 // We need to conditionally perform devtools connection to avoid
 // accidentally breaking other third-party code.
 // See https://github.com/vadimdemedes/ink/issues/384
 // See https://github.com/vadimdemedes/ink/issues/648
-if (process.env["SIGIL_DEV"] === "true") {
+if (isSigilDev) {
   // Intentionally no warning when the package is missing.
   // SIGIL_DEV may be set for other reasons; devtools is opt-in via installing the package.
-  let isDevtoolsInstalled = false;
-  try {
-    import.meta.resolve("react-devtools-core");
-    isDevtoolsInstalled = true;
-  } catch {}
-
-  if (isDevtoolsInstalled) {
-    await import("./devtools.ts");
-  }
+  await import("#/devtools.ts").catch(() => {});
 }
 
 type AnyObject = Record<string, unknown>;
@@ -99,7 +92,7 @@ const findRootNode = (node: DOMElement): DOMElement | undefined => {
  * The previous identity check (`staticNode === removeNode`) only caught direct
  * removal of the `<Static>` element. When an *ancestor* of `<Static>` is
  * removed, the stale `staticNode` reference survives and the next render would
- * replay stale static output (and, before `freeYogaSubtree`, trap on freed
+ * replay stale static output (and, before `detachYogaSubtree`, trap on detached
  * WASM memory — see QwenLM/qwen-code#6820).
  *
  * The owning root is derived from the host parent passed to the removal hook,
@@ -138,47 +131,7 @@ type HostContext = {
 
 let currentUpdatePriority = NoEventPriority;
 
-async function loadPackageJson() {
-  const fs = await import("node:fs");
-  const content = fs.readFileSync(new URL("../package.json", import.meta.url), "utf8");
-
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  const parsedContent = JSON.parse(content) as
-    | {
-        name?: string;
-        version?: string;
-      }
-    | undefined;
-
-  return {
-    name: parsedContent?.name,
-    version: parsedContent?.version,
-  };
-}
-
-let packageInfo = {
-  name: "ink",
-  version: reactVersion,
-};
-
-if (process.env["DEV"] === "true") {
-  try {
-    const loaded = await loadPackageJson();
-    packageInfo = {
-      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-      name: loaded.name || packageInfo.name,
-      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-      version: loaded.version || packageInfo.version,
-    };
-  } catch (error) {
-    console.warn(
-      "Failed to load package.json in development mode. Falling back to default renderer metadata.",
-      error,
-    );
-  }
-}
-
-export default createReconciler<
+export const reconciler = createReconciler<
   ElementNames,
   Props,
   DOMElement,
@@ -246,7 +199,7 @@ export default createReconciler<
   shouldSetTextContent: () => false,
   createInstance(originalType, newProps, rootNode, hostContext) {
     if (hostContext.isInsideText && originalType === "ink-box") {
-      throw new Error(`<Box> can’t be nested inside <Text> component`);
+      throw new Error(`<Box> can't be nested inside <Text> component`);
     }
 
     const type =
@@ -348,7 +301,7 @@ export default createReconciler<
     clearStaticNodeIfContained(findRootNode(node), removeNode);
 
     removeChildNode(node, removeNode);
-    freeYogaSubtree(removeNode);
+    detachYogaSubtree(removeNode);
   },
   commitUpdate(node, _type, oldProps, newProps) {
     if (node.internal_static) {
@@ -406,7 +359,7 @@ export default createReconciler<
     clearStaticNodeIfContained(findRootNode(node), removeNode);
 
     removeChildNode(node, removeNode);
-    freeYogaSubtree(removeNode);
+    detachYogaSubtree(removeNode);
   },
   setCurrentUpdatePriority(newPriority: number) {
     currentUpdatePriority = newPriority;
@@ -446,6 +399,6 @@ export default createReconciler<
   waitForCommitToBeReady() {
     return null;
   },
-  rendererPackageName: packageInfo.name,
-  rendererVersion: packageInfo.version,
+  rendererPackageName: pkg.name,
+  rendererVersion: pkg.version,
 });

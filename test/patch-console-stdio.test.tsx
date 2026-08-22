@@ -1,7 +1,8 @@
 import { expect, test } from "vite-plus/test";
 
-import stripAnsi from "../src/ansi/strip.ts";
-import { render, Text, type CapturedOutputSource } from "../src/index.ts";
+import { stripAnsi } from "#/ansi/strip.ts";
+import { render, Text, type CapturedOutputSource } from "#/index.ts";
+
 import createStdout, { type FakeStdout } from "./helpers/create-stdout.ts";
 
 const getFrames = (stdout: FakeStdout): string[] =>
@@ -23,14 +24,11 @@ test("patchConsole: 'stdio' splices direct stream writes above the frame", async
   await waitUntilRenderFlush();
 
   const spliced = getFrames(stdout).slice(0).join("");
-  expect(stripAnsi(spliced).includes("direct hello"), "captured write is displayed").toBe(true);
+  expect(stripAnsi(spliced), "captured write is displayed").toContain("direct hello");
 
   // The frame is restored after the spliced output.
   const afterWrite = stdout.getWrites().slice(writesBefore).join("");
-  expect(
-    stripAnsi(afterWrite).includes("UI frame"),
-    "frame is repainted after external output",
-  ).toBe(true);
+  expect(stripAnsi(afterWrite), "frame is repainted after external output").toContain("UI frame");
   const output = stripAnsi(afterWrite);
   expect(
     output.indexOf("direct hello") < output.lastIndexOf("UI frame"),
@@ -55,8 +53,8 @@ test("patchConsole: 'stdio' line-buffers partial chunks", async () => {
   await waitUntilRenderFlush();
 
   const afterWrite = stripAnsi(stdout.getWrites().slice(writesBefore).join(""));
-  expect(afterWrite.includes("partial\n"), "chunks are joined into a complete line").toBe(true);
-  expect(afterWrite.includes("par\n"), "a partial chunk is not displayed on its own").toBe(false);
+  expect(afterWrite, "chunks are joined into a complete line").toContain("partial\n");
+  expect(afterWrite, "a partial chunk is not displayed on its own").not.toContain("par\n");
 
   unmount();
 });
@@ -74,9 +72,9 @@ test("patchConsole: 'stdio' flushes a trailing partial line at unmount", async (
   await waitUntilExit();
 
   expect(
-    stripAnsi(stdout.getWrites().join("")).includes("no newline yet"),
+    stripAnsi(stdout.getWrites().join("")),
     "the buffered tail is displayed before teardown",
-  ).toBe(true);
+  ).toContain("no newline yet");
 });
 
 test("onCapturedOutput observes chunks and can take ownership", async () => {
@@ -103,12 +101,12 @@ test("onCapturedOutput observes chunks and can take ownership", async () => {
     captured.map((entry) => entry.source),
     "callback sees direct writes and console output with their sources",
   ).toEqual(["stdio", "stdio", "console"]);
-  expect(captured[0].data.includes("suppress-me")).toBe(true);
+  expect(captured[0].data).toContain("suppress-me");
   expect(captured[2].stream).toBe("stdout");
 
   const output = stripAnsi(stdout.getWrites().join(""));
-  expect(output.includes("suppress-me"), "owned chunks are not displayed by Ink").toBe(false);
-  expect(output.includes("show-me"), "unowned chunks still get the default display").toBe(true);
+  expect(output, "owned chunks are not displayed by Ink").not.toContain("suppress-me");
+  expect(output, "unowned chunks still get the default display").toContain("show-me");
   expect(output.includes("from console"), "console output still gets the default display").toBe(
     true,
   );
@@ -136,7 +134,7 @@ test("patchConsole: 'stdio' restores stream writes on unmount", async () => {
 
 test("resize handling still works with patchConsole: 'stdio'", async () => {
   const stdout = createStdout(40);
-  (stdout as any).rows = 10;
+  stdout.rows = 10;
 
   function WindowLabel() {
     return <Text>W{stdout.columns}</Text>;
@@ -150,7 +148,7 @@ test("resize handling still works with patchConsole: 'stdio'", async () => {
   await waitUntilRenderFlush();
 
   const writesBefore = stdout.getWrites().length;
-  (stdout as any).rows = 20;
+  stdout.rows = 20;
   stdout.emit("resize");
   await new Promise((resolve) => {
     setTimeout(resolve, 100);

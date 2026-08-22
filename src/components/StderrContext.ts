@@ -1,5 +1,3 @@
-import process from "node:process";
-
 import { createContext } from "react";
 
 export type Props = {
@@ -18,11 +16,9 @@ export type Props = {
 `StderrContext` is a React context that exposes the stderr stream.
 */
 // eslint-disable-next-line @typescript-eslint/naming-convention
-const StderrContext = createContext<Props>({
+export const StderrContext = createContext<Props>({
   stderr: process.stderr,
   write() {},
 });
 
 StderrContext.displayName = "InternalStderrContext";
-
-export default StderrContext;

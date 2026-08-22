@@ -1,7 +1,7 @@
-import { type ForegroundColorName } from "./ansi/sgr.ts"; // Note: We import directly from `ansi-styles` to avoid a bug in TypeScript.
-import { type Boxes, type BoxStyle } from "./boxes.ts";
-import { type LiteralUnion } from "./types.ts";
-import Yoga, { type Node as YogaNode, type PositionType } from "./yoga/index.ts";
+import { type ForegroundColorName } from "#/ansi/sgr.ts";
+import { type BoxGlyphs, type BoxStyle } from "#/glyphs.ts";
+import { type LiteralUnion } from "#/types.ts";
+import { Yoga, type Node as YogaNode, type PositionType } from "#/yoga/index.ts";
 
 export type Styles = {
   /*
@@ -134,7 +134,7 @@ export type Styles = {
   readonly flexGrow?: number;
 
   /**
-	It specifies the “flex shrink factor”, which determines how much the flex item will shrink relative to the rest of the flex items in the flex container when there isn’t enough space on the row.
+	It specifies the “flex shrink factor”, which determines how much the flex item will shrink relative to the rest of the flex items in the flex container when there isn't enough space on the row.
 	See [flex-shrink](https://css-tricks.com/almanac/properties/f/flex-shrink/).
 	*/
   readonly flexShrink?: number;
@@ -241,7 +241,7 @@ export type Styles = {
   /**
 	Add a border with a specified style. If `borderStyle` is `undefined` (the default), no border will be added.
 	*/
-  readonly borderStyle?: keyof Boxes | BoxStyle;
+  readonly borderStyle?: BoxStyle | BoxGlyphs;
 
   /**
 	Determines whether the top border is visible.
@@ -736,7 +736,7 @@ const applyGapStyles = (node: YogaNode, style: Styles): void => {
   }
 };
 
-const styles = (node: YogaNode, style: Styles = {}, currentStyle: Styles = style): void => {
+export const styles = (node: YogaNode, style: Styles = {}, currentStyle: Styles = style): void => {
   applyPositionStyles(node, style);
   applyMarginStyles(node, style);
   applyPaddingStyles(node, style);
@@ -746,5 +746,3 @@ const styles = (node: YogaNode, style: Styles = {}, currentStyle: Styles = style
   applyBorderStyles(node, style, currentStyle);
   applyGapStyles(node, style);
 };
-
-export default styles;

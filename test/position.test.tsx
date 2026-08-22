@@ -1,6 +1,7 @@
 import { expect, test } from "vite-plus/test";
 
-import { Box, Text, render } from "../src/index.ts";
+import { Box, Text, render } from "#/index.ts";
+
 import createStdout from "./helpers/create-stdout.ts";
 import { renderToString, renderToStringAsync } from "./helpers/render-to-string.ts";
 

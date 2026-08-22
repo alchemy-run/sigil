@@ -1,6 +1,5 @@
 // Derived from `stack-utils` (MIT, Isaac Z. Schlueter, James Talmage),
 // reduced to the `parseLine()` surface Ink's error overview uses.
-import process from "node:process";
 
 export type ParsedStackLine = {
   line?: number;
@@ -50,7 +49,7 @@ const setFile = (result: ParsedStackLine, filename: string): void => {
   }
 };
 
-const parseStackLine = (line: string): ParsedStackLine | undefined => {
+export const parseStackLine = (line: string): ParsedStackLine | undefined => {
   const match = lineRegExp.exec(line);
 
   if (!match) {
@@ -137,5 +136,3 @@ const parseStackLine = (line: string): ParsedStackLine | undefined => {
 
   return result;
 };
-
-export default parseStackLine;

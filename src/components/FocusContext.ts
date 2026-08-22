@@ -14,7 +14,7 @@ export type Props = {
 };
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
-const FocusContext = createContext<Props>({
+export const FocusContext = createContext<Props>({
   activeId: undefined,
   add() {},
   remove() {},
@@ -28,5 +28,3 @@ const FocusContext = createContext<Props>({
 });
 
 FocusContext.displayName = "InternalFocusContext";
-
-export default FocusContext;

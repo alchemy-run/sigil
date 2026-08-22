@@ -3,7 +3,8 @@
 
 import { expect } from "vite-plus/test";
 
-import { MeasureMode } from "../../src/yoga/generated/YGEnums.ts";
+import { MeasureMode } from "#/yoga/generated/YGEnums.ts";
+
 import { defineBackendTest } from "./backends/defineBackendTest.ts";
 
 function measureTextLike(width: number, widthMode: MeasureMode): { width: number; height: number } {

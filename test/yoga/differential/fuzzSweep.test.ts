@@ -5,8 +5,9 @@
 
 import { test } from "vite-plus/test";
 
-import Yoga from "../../../src/yoga/index.ts";
-import type { Yoga as YogaApi } from "../../../src/yoga/index.ts";
+import { Yoga } from "#/yoga/index.ts";
+import type { Yoga as YogaApi } from "#/yoga/index.ts";
+
 import { generateCase } from "../fuzz/case.ts";
 import { caseSeed } from "../fuzz/cli.ts";
 import { assertEqualLayouts, executeCase } from "../fuzz/execute.ts";

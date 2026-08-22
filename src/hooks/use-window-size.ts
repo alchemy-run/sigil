@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 
-import { getWindowSize } from "../utils.ts";
-import useStdout from "./use-stdout.ts";
+import { useStdout } from "#/hooks/use-stdout.ts";
+import { getWindowSize } from "#/utils.ts";
 
 /**
 Dimensions of the terminal window.
@@ -21,7 +21,7 @@ export type WindowSize = {
 /**
 A React hook that returns the current terminal window dimensions and re-renders the component whenever the terminal is resized.
 */
-const useWindowSize = (): WindowSize => {
+export const useWindowSize = (): WindowSize => {
   const { stdout } = useStdout();
   const [size, setSize] = useState<WindowSize>(() => getWindowSize(stdout));
 
@@ -39,5 +39,3 @@ const useWindowSize = (): WindowSize => {
 
   return size;
 };
-
-export default useWindowSize;

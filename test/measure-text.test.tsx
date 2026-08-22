@@ -1,6 +1,6 @@
 import { expect, test } from "vite-plus/test";
 
-import measureText from "../src/measure-text.ts";
+import { measureText } from "#/measure-text.ts";
 
 test("measure single word", () => {
   expect(measureText("constructor")).toEqual({ width: 11, height: 1 });

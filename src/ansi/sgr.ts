@@ -1,6 +1,6 @@
 // ANSI SGR style tables and color-space conversions.
 // Ported from `ansi-styles` (MIT, Sindre Sorhus).
-import { CSI } from "./escapes.ts";
+import { CSI } from "#/ansi/escapes.ts";
 
 const ANSI_BACKGROUND_OFFSET = 10;
 
@@ -173,10 +173,7 @@ export const hexToRgb = (hex: string): [number, number, number] => {
   let [colorString] = matches;
 
   if (colorString.length === 3) {
-    colorString = colorString
-      .split("")
-      .map((character) => character + character)
-      .join("");
+    colorString = colorString.replaceAll(/./g, "$&$&");
   }
 
   const integer = Number.parseInt(colorString, 16);

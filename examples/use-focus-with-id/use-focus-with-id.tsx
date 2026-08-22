@@ -1,6 +1,6 @@
 import React from "react";
 
-import { render, Box, Text, useFocus, useInput, useFocusManager } from "../../src/index.ts";
+import { render, Box, Text, useFocus, useInput, useFocusManager } from "#/index.ts";
 
 function Focus() {
   const { focus } = useFocusManager();

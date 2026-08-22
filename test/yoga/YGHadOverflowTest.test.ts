@@ -3,7 +3,8 @@
 
 import { expect } from "vite-plus/test";
 
-import { Direction, FlexDirection, Wrap } from "../../src/yoga/generated/YGEnums.ts";
+import { Direction, FlexDirection, Wrap } from "#/yoga/generated/YGEnums.ts";
+
 import { defineBackendTest } from "./backends/defineBackendTest.ts";
 
 defineBackendTest("spacing_overflow_no_wrap_and_no_flex_children", ({ Yoga }) => {

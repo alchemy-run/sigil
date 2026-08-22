@@ -3,10 +3,10 @@
 
 // Port of yoga/algorithm/PixelGrid.cpp.
 
-import { Dimension, NodeType } from "../generated/YGEnums.ts";
-import { PhysicalEdge } from "./helpers.ts";
-import type { Node } from "./node.ts";
-import { inexactEquals } from "./numeric.ts";
+import { PhysicalEdge } from "#/yoga/core/helpers.ts";
+import type { Node } from "#/yoga/core/node.ts";
+import { inexactEquals } from "#/yoga/core/numeric.ts";
+import { Dimension, NodeType } from "#/yoga/generated/YGEnums.ts";
 
 export function roundValueToPixelGrid(
   value: number,

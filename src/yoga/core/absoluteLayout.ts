@@ -5,22 +5,11 @@
 // where they read from style, but Display.Grid is not otherwise supported.
 
 import {
-  Align,
-  Dimension,
-  Direction,
-  Display,
-  Errata,
-  FlexDirection,
-  Justify,
-  PositionType,
-  Wrap,
-} from "../generated/YGEnums.ts";
-import {
   type LayoutData,
   LayoutPassReason,
   calculateLayoutInternal,
   cleanupContentsNodesRecursively,
-} from "./calculateLayout.ts";
+} from "#/yoga/core/calculateLayout.ts";
 import {
   PhysicalEdge,
   SizingMode,
@@ -37,9 +26,20 @@ import {
   resolveCrossDirection,
   resolveDirection,
   setChildTrailingPosition,
-} from "./helpers.ts";
-import type { Node } from "./node.ts";
-import { isDefined, isUndefined } from "./numeric.ts";
+} from "#/yoga/core/helpers.ts";
+import type { Node } from "#/yoga/core/node.ts";
+import { isDefined, isUndefined } from "#/yoga/core/numeric.ts";
+import {
+  Align,
+  Dimension,
+  Direction,
+  Display,
+  Errata,
+  FlexDirection,
+  Justify,
+  PositionType,
+  Wrap,
+} from "#/yoga/generated/YGEnums.ts";
 
 function setFlexStartLayoutPosition(
   parent: Node,

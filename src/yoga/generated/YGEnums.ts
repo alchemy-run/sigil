@@ -169,7 +169,7 @@ export const Wrap = {
 } as const;
 export type Wrap = (typeof Wrap)[keyof typeof Wrap];
 
-const constants = {
+export const constants = {
   ALIGN_AUTO: Align.Auto,
   ALIGN_FLEX_START: Align.FlexStart,
   ALIGN_CENTER: Align.Center,
@@ -261,4 +261,3 @@ const constants = {
   WRAP_WRAP: Wrap.Wrap,
   WRAP_WRAP_REVERSE: Wrap.WrapReverse,
 };
-export default constants;

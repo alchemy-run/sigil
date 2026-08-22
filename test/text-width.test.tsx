@@ -1,8 +1,9 @@
 import { expect, test } from "vite-plus/test";
 
-import stringWidth from "../src/ansi/string-width.ts";
-import stripAnsi from "../src/ansi/strip.ts";
-import { Box, Text } from "../src/index.ts";
+import { stringWidth } from "#/ansi/string-width.ts";
+import { stripAnsi } from "#/ansi/strip.ts";
+import { Box, Text } from "#/index.ts";
+
 import { renderToString } from "./helpers/render-to-string.ts";
 
 test("wide characters do not add extra space inside fixed-width Box", () => {

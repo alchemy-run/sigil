@@ -1,6 +1,7 @@
+/** @jsxImportSource react */
 import { useContext, type ReactNode } from "react";
 
-import { accessibilityContext } from "./AccessibilityContext.ts";
+import { accessibilityContext } from "#/components/AccessibilityContext.ts";
 
 export type Props = {
   /**
@@ -19,7 +20,7 @@ export type Props = {
 /**
 Transform a string representation of React components before they're written to output. For example, you might want to apply a gradient to text, add a clickable link, or create some text effects. These use cases can't accept React nodes as input; they expect a string. That's what the <Transform> component does: it gives you an output string of its child components and lets you transform it in any way.
 */
-export default function Transform({ children, transform, accessibilityLabel }: Props) {
+export function Transform({ children, transform, accessibilityLabel }: Props) {
   const { isScreenReaderEnabled } = useContext(accessibilityContext);
 
   if (children === undefined || children === null) {

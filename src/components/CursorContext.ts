@@ -1,6 +1,6 @@
 import { createContext } from "react";
 
-import { type CursorPosition } from "../log-update.ts";
+import { type CursorPosition } from "#/log-update.ts";
 
 export type Props = {
   /**
@@ -12,10 +12,8 @@ export type Props = {
 };
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
-const CursorContext = createContext<Props>({
+export const CursorContext = createContext<Props>({
   setCursorPosition() {},
 });
 
 CursorContext.displayName = "InternalCursorContext";
-
-export default CursorContext;

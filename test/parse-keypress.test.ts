@@ -1,6 +1,6 @@
 import { expect, test } from "vite-plus/test";
 
-import parseKeypress from "../src/parse-keypress.ts";
+import { parseKeypress } from "#/parse-keypress.ts";
 
 // Vt220-style Ctrl+F1–F4 (ESC [ 1 ; 5 P/Q/R/S)
 test('Ctrl+F1 resolves to name "f1"', () => {

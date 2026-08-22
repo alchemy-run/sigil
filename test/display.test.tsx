@@ -1,6 +1,7 @@
 import { expect, test } from "vite-plus/test";
 
-import { Box, Text } from "../src/index.ts";
+import { Box, Text } from "#/index.ts";
+
 import { renderToString, renderToStringAsync } from "./helpers/render-to-string.ts";
 
 test("display flex", () => {

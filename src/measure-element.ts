@@ -1,4 +1,4 @@
-import { type DOMElement } from "./dom.ts";
+import { type DOMElement } from "#/dom.ts";
 
 type Output = {
   /**
@@ -30,7 +30,7 @@ Returns an object with `x`, `y`, `width`, and `height` properties.
 
 Note: `measureElement()` returns `{x: 0, y: 0, width: 0, height: 0}` when called during render (before layout is calculated). Call it from post-render code, such as `useEffect`, `useLayoutEffect`, input handlers, or timer callbacks. When content changes, pass the relevant dependency to your effect so it re-measures after each update.
 */
-const measureElement = (node: DOMElement): Output => {
+export const measureElement = (node: DOMElement): Output => {
   const { yogaNode } = node;
 
   if (!yogaNode) {
@@ -59,5 +59,4 @@ const measureElement = (node: DOMElement): Output => {
   };
 };
 
-export default measureElement;
 export type { Output as ElementMetrics };

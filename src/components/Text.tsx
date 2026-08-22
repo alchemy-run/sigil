@@ -1,11 +1,12 @@
+/** @jsxImportSource react */
 import { useContext, type ReactNode } from "react";
 
-import chalk, { type ForegroundColorName } from "../ansi/chalk.ts";
-import colorize from "../colorize.ts";
-import { type Styles } from "../styles.ts";
-import { type LiteralUnion } from "../types.ts";
-import { accessibilityContext } from "./AccessibilityContext.ts";
-import { backgroundContext } from "./BackgroundContext.ts";
+import { chalk, type ForegroundColorName } from "#/ansi/chalk.ts";
+import { colorize } from "#/colorize.ts";
+import { accessibilityContext } from "#/components/AccessibilityContext.ts";
+import { backgroundContext } from "#/components/BackgroundContext.ts";
+import { type Styles } from "#/styles.ts";
+import { type LiteralUnion } from "#/types.ts";
 
 export type Props = {
   /**
@@ -69,7 +70,7 @@ export type Props = {
 /**
 This component can display text and change its style to make it bold, underlined, italic, or strikethrough.
 */
-export default function Text({
+export function Text({
   color,
   backgroundColor,
   dimColor = false,

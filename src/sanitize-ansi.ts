@@ -1,4 +1,4 @@
-import { hasAnsiControlCharacters, tokenizeAnsi } from "./ansi-tokenizer.ts";
+import { hasAnsiControlCharacters, tokenizeAnsi } from "#/ansi-tokenizer.ts";
 
 const sgrParametersRegex = /^[\d:;]*$/;
 
@@ -6,7 +6,7 @@ const sgrParametersRegex = /^[\d:;]*$/;
 // Preserved: SGR sequences (colors, bold, etc. - end with 'm') and
 // OSC sequences (hyperlinks, etc. - ESC ] or C1 OSC).
 // Stripped: cursor movement, screen clearing, and other control sequences.
-const sanitizeAnsi = (text: string): string => {
+export const sanitizeAnsi = (text: string): string => {
   if (!hasAnsiControlCharacters(text)) {
     return text;
   }
@@ -31,5 +31,3 @@ const sanitizeAnsi = (text: string): string => {
 
   return output;
 };
-
-export default sanitizeAnsi;

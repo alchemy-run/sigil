@@ -1,5 +1,4 @@
 import { EventEmitter } from "node:events";
-import process from "node:process";
 
 import { createContext } from "react";
 
@@ -35,7 +34,7 @@ export type Props = PublicProps & {
 `StdinContext` is a React context that exposes the input stream.
 */
 // eslint-disable-next-line @typescript-eslint/naming-convention
-const StdinContext = createContext<Props>({
+export const StdinContext = createContext<Props>({
   stdin: process.stdin,
   // eslint-disable-next-line @typescript-eslint/naming-convention
   internal_eventEmitter: new EventEmitter(),
@@ -47,5 +46,3 @@ const StdinContext = createContext<Props>({
 });
 
 StdinContext.displayName = "InternalStdinContext";
-
-export default StdinContext;

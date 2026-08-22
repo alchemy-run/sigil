@@ -1,8 +1,6 @@
-import process from "node:process";
-
 import { useEffect, useState } from "react";
 
-import { Box, Text, render } from "../../src/index.ts";
+import { Box, Text, render } from "#/index.ts";
 
 function Erase() {
   const [show, setShow] = useState(true);

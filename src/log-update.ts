@@ -1,5 +1,5 @@
-import cliCursor from "./ansi/cursor.ts";
-import ansiEscapes from "./ansi/escapes.ts";
+import { cliCursor } from "#/ansi/cursor.ts";
+import { ansiEscapes } from "#/ansi/escapes.ts";
 import {
   type CursorPosition,
   cursorPositionChanged,
@@ -7,9 +7,9 @@ import {
   buildCursorOnlySequence,
   buildReturnToBottomPrefix,
   hideCursorEscape,
-} from "./cursor-position.ts";
+} from "#/cursor-position.ts";
 
-export type { CursorPosition } from "./cursor-position.ts";
+export type { CursorPosition } from "#/cursor-position.ts";
 
 export type LogUpdate = {
   clear: () => void;
@@ -367,5 +367,4 @@ const create = (
   return createStandard(stream, { showCursor });
 };
 
-const logUpdate = { create };
-export default logUpdate;
+export const logUpdate = { create };

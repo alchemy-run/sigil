@@ -1,7 +1,7 @@
-import { useEffect, useContext, useMemo } from "react";
+import { useEffect, useContext, useId } from "react";
 
-import FocusContext from "../components/FocusContext.ts";
-import useStdin from "./use-stdin.ts";
+import { FocusContext } from "#/components/FocusContext.ts";
+import { useStdin } from "#/hooks/use-stdin.ts";
 
 type Input = {
   /**
@@ -36,13 +36,16 @@ type Output = {
 A React hook that returns focus state and focus controls for the current component.
 A component that uses the `useFocus` hook becomes "focusable" to Ink, so when the user presses <kbd>Tab</kbd>, Ink will switch focus to this component. If there are multiple components that execute the `useFocus` hook, focus will be given to them in the order in which these components are rendered.
 */
-const useFocus = ({ isActive = true, autoFocus = false, id: customId }: Input = {}): Output => {
+export const useFocus = ({
+  isActive = true,
+  autoFocus = false,
+  id: customId,
+}: Input = {}): Output => {
   const { isRawModeSupported, setRawMode } = useStdin();
   const { activeId, add, remove, activate, deactivate, focus } = useContext(FocusContext);
 
-  const id = useMemo(() => {
-    return customId ?? Math.random().toString().slice(2, 7);
-  }, [customId]);
+  const autoId = useId();
+  const id = customId ?? autoId;
 
   useEffect(() => {
     add(id, { autoFocus });
@@ -77,5 +80,3 @@ const useFocus = ({ isActive = true, autoFocus = false, id: customId }: Input = 
     focus,
   };
 };
-
-export default useFocus;

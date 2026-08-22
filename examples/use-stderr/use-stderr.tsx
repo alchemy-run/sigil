@@ -1,6 +1,6 @@
 import React from "react";
 
-import { render, Text, useStderr } from "../../src/index.ts";
+import { render, Text, useStderr } from "#/index.ts";
 
 function Example() {
   const { write } = useStderr();

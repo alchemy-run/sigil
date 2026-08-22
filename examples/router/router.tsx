@@ -1,7 +1,7 @@
 import React from "react";
 import { MemoryRouter, Routes, Route, useNavigate } from "react-router";
 
-import { render, useInput, useApp, Box, Text } from "../../src/index.ts";
+import { render, useInput, useApp, Box, Text } from "#/index.ts";
 
 function Home() {
   const { exit } = useApp();

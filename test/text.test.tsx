@@ -1,8 +1,9 @@
 import { afterAll, expect, test } from "vite-plus/test";
 
-import chalk from "../src/ansi/chalk.ts";
-import stripAnsi from "../src/ansi/strip.ts";
-import { render, Box, Text } from "../src/index.ts";
+import { chalk } from "#/ansi/chalk.ts";
+import { stripAnsi } from "#/ansi/strip.ts";
+import { render, Box, Text } from "#/index.ts";
+
 import createStdout from "./helpers/create-stdout.ts";
 import { renderToString, renderToStringAsync } from "./helpers/render-to-string.ts";
 import { renderAsync } from "./helpers/test-renderer.ts";
@@ -176,9 +177,9 @@ test("strip ANSI cursor movement sequences from text", () => {
     </Box>,
   );
 
-  expect(output.includes("\u001B[1A")).toBe(false);
-  expect(output.includes("\u001B[2K")).toBe(false);
-  expect(output.includes("\u001B[1B")).toBe(false);
+  expect(output).not.toContain("\u001B[1A");
+  expect(output).not.toContain("\u001B[2K");
+  expect(output).not.toContain("\u001B[1B");
   expect(stripAnsi(output)).toBe("Starting client ... done");
 });
 
@@ -189,8 +190,8 @@ test("strip ANSI cursor position and erase sequences from text", () => {
     </Box>,
   );
 
-  expect(output.includes("\u001B[5;10H")).toBe(false);
-  expect(output.includes("\u001B[2J")).toBe(false);
+  expect(output).not.toContain("\u001B[5;10H");
+  expect(output).not.toContain("\u001B[2J");
   expect(stripAnsi(output)).toBe("HelloWorld!");
 });
 
@@ -201,47 +202,46 @@ test("preserve SGR color sequences in text", () => {
     </Box>,
   );
 
-  expect(output.includes("\u001B[")).toBe(true);
+  expect(output).toContain("\u001B[");
   expect(stripAnsi(output)).toBe("green normal");
 });
 
 test("preserve OSC hyperlink sequences in text", () => {
   const output = renderText("\u001B]8;;https://example.com\u0007link\u001B]8;;\u0007");
 
-  expect(output.includes("\u001B]8;;")).toBe(true);
+  expect(output).toContain("\u001B]8;;");
   expect(stripAnsi(output)).toBe("link");
 });
 
 test("preserve OSC hyperlink sequences with ST terminator in text", () => {
   const output = renderText("\u001B]8;;https://example.com\u001B\\link\u001B]8;;\u001B\\");
 
-  expect(output.includes("\u001B]8;;")).toBe(true);
-  expect(output.includes("\u001B\\")).toBe(true);
+  expect(output).toContain("\u001B]8;;");
+  expect(output).toContain("\u001B\\");
   expect(stripAnsi(output)).toBe("link");
 });
 
-test("preserve C1 OSC sequences in text", () => {
+test("preserve C1 OSC hyperlinks in text, normalized to 7-bit", () => {
+  // C1 introducers are normalized to their 7-bit form: C1 bytes are not
+  // interpreted as control characters by many terminals in UTF-8 mode, so the
+  // ESC form is the robust way to preserve the link.
   const input = "\u009D8;;https://example.com\u0007link\u009D8;;\u0007";
   const output = renderText(input);
 
-  expect(output.includes("\u009D8;;https://example.com")).toBe(true);
-  expect(output.includes("\u009D8;;\u0007")).toBe(true);
-  expect(output).toBe(input);
+  expect(output).toBe("\u001B]8;;https://example.com\u0007link\u001B]8;;\u0007");
 });
 
-test("preserve C1 OSC hyperlink sequences with ST terminator in text", () => {
+test("preserve C1 OSC hyperlinks with ST terminator in text, normalized to 7-bit", () => {
   const input = "\u009D8;;https://example.com\u001B\\link\u009D8;;\u001B\\";
   const output = renderText(input);
 
-  expect(output.includes("\u009D8;;https://example.com")).toBe(true);
-  expect(output.includes("\u001B\\")).toBe(true);
-  expect(output).toBe(input);
+  expect(output).toBe("\u001B]8;;https://example.com\u001B\\link\u001B]8;;\u001B\\");
 });
 
 test("preserve SGR sequences with colon parameters", () => {
   const output = renderText("A\u001B[38:2::255:100:0mcolor\u001B[0mB");
 
-  expect(output.includes("\u001B[38:2::255:100:0m")).toBe(true);
+  expect(output).toContain("\u001B[38:2::255:100:0m");
   expect(stripAnsi(output)).toBe("AcolorB");
 });
 
@@ -249,24 +249,24 @@ test("strip complete non-SGR CSI sequences without leaking parameters", () => {
   const input = "A\u001B[>4;2mB\u001B[2 qC";
   const output = renderText(input);
 
-  expect(output.includes("4;2m")).toBe(false);
-  expect(output.includes(" q")).toBe(false);
+  expect(output).not.toContain("4;2m");
+  expect(output).not.toContain(" q");
   expect(stripAnsi(output)).toBe("ABC");
 });
 
 test("strip complete C1 non-SGR CSI sequences without leaking parameters", () => {
   const output = renderText("A\u009B>4;2mB\u009B2 qC");
 
-  expect(output.includes("4;2m")).toBe(false);
-  expect(output.includes(" q")).toBe(false);
+  expect(output).not.toContain("4;2m");
+  expect(output).not.toContain(" q");
   expect(stripAnsi(output)).toBe("ABC");
 });
 
 test("strip complete ESC control sequences with intermediates", () => {
   const output = renderText("A\u001B#8B\u001BcC");
 
-  expect(output.includes("\u001B#8")).toBe(false);
-  expect(output.includes("\u001Bc")).toBe(false);
+  expect(output).not.toContain("\u001B#8");
+  expect(output).not.toContain("\u001Bc");
   expect(stripAnsi(output)).toBe("ABC");
 });
 
@@ -275,9 +275,9 @@ test("strip tmux DCS passthrough wrappers without leaking payload", () => {
   const wrappedHyperlinkEnd = "\u001BPtmux;\u001B\u001B]8;;\u0007\u001B\\";
   const output = renderText(`${wrappedHyperlinkStart}link${wrappedHyperlinkEnd}`);
 
-  expect(output.includes("tmux;")).toBe(false);
-  expect(output.includes("\u001BP")).toBe(false);
-  expect(output.includes("\u001B\\")).toBe(false);
+  expect(output).not.toContain("tmux;");
+  expect(output).not.toContain("\u001BP");
+  expect(output).not.toContain("\u001B\\");
   expect(stripAnsi(output)).toBe("link");
 });
 
@@ -287,60 +287,60 @@ test("strip tmux DCS passthrough wrappers with ST-terminated OSC payload", () =>
   const wrappedHyperlinkEnd = "\u001BPtmux;\u001B\u001B]8;;\u001B\u001B\\\u001B\\";
   const output = renderText(`${wrappedHyperlinkStart}link${wrappedHyperlinkEnd}`);
 
-  expect(output.includes("tmux;")).toBe(false);
-  expect(output.includes("\u001B\\")).toBe(false);
+  expect(output).not.toContain("tmux;");
+  expect(output).not.toContain("\u001B\\");
   expect(stripAnsi(output)).toBe("link");
 });
 
 test("strip C1 DCS control strings as complete units", () => {
   const output = renderText("A\u0090payload\u001B\\B\u0090payload\u009CC");
 
-  expect(output.includes("payload")).toBe(false);
+  expect(output).not.toContain("payload");
   expect(stripAnsi(output)).toBe("ABC");
 });
 
 test("strip PM and APC control strings as complete units", () => {
   const output = renderText("A\u001B^pm-payload\u001B\\B\u001B_apc-payload\u001B\\C");
 
-  expect(output.includes("pm-payload")).toBe(false);
-  expect(output.includes("apc-payload")).toBe(false);
+  expect(output).not.toContain("pm-payload");
+  expect(output).not.toContain("apc-payload");
   expect(stripAnsi(output)).toBe("ABC");
 });
 
 test("strip C1 PM and APC control strings as complete units", () => {
   const output = renderText("A\u009Epm-payload\u009CB\u009Fapc-payload\u009CC");
 
-  expect(output.includes("pm-payload")).toBe(false);
-  expect(output.includes("apc-payload")).toBe(false);
+  expect(output).not.toContain("pm-payload");
+  expect(output).not.toContain("apc-payload");
   expect(stripAnsi(output)).toBe("ABC");
 });
 
 test("strip ESC SOS control strings as complete units", () => {
   const output = renderText("A\u001BXpayload\u001B\\B");
 
-  expect(output.includes("payload")).toBe(false);
+  expect(output).not.toContain("payload");
   expect(stripAnsi(output)).toBe("AB");
 });
 
 test("strip C1 SOS control strings as complete units", () => {
   const output = renderText("A\u0098payload\u001B\\B\u0098payload\u009CC");
 
-  expect(output.includes("payload")).toBe(false);
+  expect(output).not.toContain("payload");
   expect(stripAnsi(output)).toBe("ABC");
 });
 
 test("strip malformed SOS control strings to avoid payload leaks", () => {
   const output = renderText("A\u001BXpayload\u0007B\u0098payload");
 
-  expect(output.includes("payload")).toBe(false);
+  expect(output).not.toContain("payload");
   expect(stripAnsi(output)).toBe("A");
 });
 
 test("preserve SGR sequences around stripped SOS control strings", () => {
   const output = renderText("A\u001B[32mgreen\u001B[0m\u001BXpayload\u001B\\B");
 
-  expect(output.includes("\u001B[")).toBe(true);
-  expect(output.includes("payload")).toBe(false);
+  expect(output).toContain("\u001B[");
+  expect(output).not.toContain("payload");
   expect(stripAnsi(output)).toBe("AgreenB");
 });
 
@@ -348,8 +348,8 @@ test("strip tmux DCS passthrough containing BEL until the final ST terminator", 
   const input = "A\u001BPtmux;\u001B\u001B]0;title\u0007\u001B\\B";
   const output = renderText(input);
 
-  expect(output.includes("tmux;")).toBe(false);
-  expect(output.includes("title")).toBe(false);
+  expect(output).not.toContain("tmux;");
+  expect(output).not.toContain("title");
   expect(stripAnsi(output)).toBe("AB");
 });
 
@@ -357,57 +357,57 @@ test("strip incomplete DCS passthrough sequences to avoid payload leaks", () => 
   const incompleteSequence = "\u001BPtmux;\u001B";
   const output = renderText(`${incompleteSequence}link`);
 
-  expect(output.includes("tmux;")).toBe(false);
+  expect(output).not.toContain("tmux;");
   expect(stripAnsi(output)).toBe("");
 });
 
 test("strip incomplete C1 DCS control strings to avoid payload leaks", () => {
   const output = renderText("A\u0090payload");
 
-  expect(output.includes("payload")).toBe(false);
+  expect(output).not.toContain("payload");
   expect(stripAnsi(output)).toBe("A");
 });
 
 test("strip incomplete OSC control strings to avoid payload leaks", () => {
   const output = renderText("A\u001B]8;;https://example.comlink");
 
-  expect(output.includes("https://example.com")).toBe(false);
+  expect(output).not.toContain("https://example.com");
   expect(stripAnsi(output)).toBe("A");
 });
 
 test("strip incomplete C1 OSC control strings to avoid payload leaks", () => {
   const output = renderText("A\u009D8;;https://example.comlink");
 
-  expect(output.includes("https://example.com")).toBe(false);
+  expect(output).not.toContain("https://example.com");
   expect(stripAnsi(output)).toBe("A");
 });
 
 test("strip incomplete ESC control sequences with intermediates to avoid payload leaks", () => {
   const output = renderText("A\u001B#");
 
-  expect(output.includes("\u001B#")).toBe(false);
+  expect(output).not.toContain("\u001B#");
   expect(stripAnsi(output)).toBe("A");
 });
 
 test("strip malformed ESC control sequences with intermediates and non-final bytes", () => {
   const output = renderText("A\u001B#\u0007payload");
 
-  expect(output.includes("payload")).toBe(false);
+  expect(output).not.toContain("payload");
   expect(stripAnsi(output)).toBe("A");
 });
 
 test("strip standalone ST bytes from text output", () => {
   const output = renderText("A\u009CB");
 
-  expect(output.includes("\u009C")).toBe(false);
+  expect(output).not.toContain("\u009C");
   expect(stripAnsi(output)).toBe("AB");
 });
 
 test("strip standalone C1 control characters from text output", () => {
   const output = renderText("A\u0085B\u008EC");
 
-  expect(output.includes("\u0085")).toBe(false);
-  expect(output.includes("\u008E")).toBe(false);
+  expect(output).not.toContain("\u0085");
+  expect(output).not.toContain("\u008E");
   expect(stripAnsi(output)).toBe("ABC");
 });
 

@@ -3,7 +3,7 @@
 
 // Port of yoga/config/Config.h and yoga/config/Config.cpp.
 
-import { Errata, ExperimentalFeature } from "../generated/YGEnums.ts";
+import { Errata, ExperimentalFeature } from "#/yoga/generated/YGEnums.ts";
 
 // Whether moving a node from an old to new config should dirty previously
 // calculated layout results.

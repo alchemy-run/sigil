@@ -11,7 +11,7 @@ type AnimationContextValue = {
   };
 };
 
-const animationContext = createContext<AnimationContextValue>({
+export const animationContext = createContext<AnimationContextValue>({
   renderThrottleMs: 0,
   subscribe() {
     return {
@@ -22,5 +22,3 @@ const animationContext = createContext<AnimationContextValue>({
 });
 
 animationContext.displayName = "InternalAnimationContext";
-
-export default animationContext;

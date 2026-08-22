@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-import { render, Text, useApp } from "../../src/index.ts";
+import { render, Text, useApp } from "#/index.ts";
 
 function Test() {
   const [counter, setCounter] = useState(0);
@@ -28,5 +28,5 @@ const app = render(<Test />);
 try {
   await app.waitUntilExit();
 } catch (error: unknown) {
-  console.log((error as any).message);
+  console.log((error as Error).message);
 }

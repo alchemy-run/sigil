@@ -1,7 +1,7 @@
 // Derived from `quick-lru` (MIT, Sindre Sorhus), reduced to the surface Ink
 // uses. Implements the same two-generation LRU algorithm: when the hot map
 // fills up, it becomes the cold generation and reads promote entries back.
-export default class QuickLru<KeyType, ValueType> {
+export class QuickLru<KeyType, ValueType> {
   #size = 0;
   #cache = new Map<KeyType, ValueType>();
   #oldCache = new Map<KeyType, ValueType>();

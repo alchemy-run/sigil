@@ -1,6 +1,7 @@
 import { expect, test } from "vite-plus/test";
 
-import { Box, Text } from "../src/index.ts";
+import { Box, Text } from "#/index.ts";
+
 import { renderToString, renderToStringAsync } from "./helpers/render-to-string.ts";
 
 test("direction row", () => {
@@ -47,7 +48,7 @@ test("direction column reverse", () => {
   expect(output).toBe("\n\nB\nA");
 });
 
-test("don’t squash text nodes when column direction is applied", () => {
+test("don't squash text nodes when column direction is applied", () => {
   const output = renderToString(
     <Box flexDirection="column">
       <Text>A</Text>

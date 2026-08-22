@@ -1,11 +1,10 @@
-import process from "node:process";
-
 import { afterAll, expect, test, vi } from "vite-plus/test";
 
-import { render, Text } from "../src/index.ts";
-import parseKeypress from "../src/parse-keypress.ts";
+import { render, Text } from "#/index.ts";
+import { parseKeypress } from "#/parse-keypress.ts";
+
 import { createStdin } from "./helpers/create-stdin.ts";
-import createStdout, { type FakeStdout } from "./helpers/create-stdout.ts";
+import createStdout from "./helpers/create-stdout.ts";
 
 const textEncoder = new TextEncoder();
 
@@ -561,19 +560,9 @@ test("kitty protocol - volume keys are non-printable", () => {
 
 // --- Init/cleanup control sequence tests ---
 
-const createFakeStdout = () => {
-  const stdout = createStdout();
-  return { stdout, write: stdout.write };
-};
-
-const createFakeStdin = createStdin;
-
-const getWrittenStrings = (write: FakeStdout["write"]): string[] =>
-  write.mock.calls.map(([chunk]) => chunk);
-
 test("kitty protocol - writes enable sequence on init when mode is enabled", () => {
-  const { stdout, write } = createFakeStdout();
-  const stdin = createFakeStdin();
+  const stdout = createStdout();
+  const stdin = createStdin();
 
   const { unmount } = render(<Text>Hello</Text>, {
     stdout,
@@ -582,14 +571,14 @@ test("kitty protocol - writes enable sequence on init when mode is enabled", () 
   });
 
   // CSI > 1 u (push keyboard mode with disambiguateEscapeCodes flag)
-  expect(getWrittenStrings(write).includes("\u001B[>1u")).toBe(true);
+  expect(stdout.getWrites()).toContain("\u001B[>1u");
 
   unmount();
 });
 
 test("kitty protocol - writes disable sequence on unmount", () => {
-  const { stdout, write } = createFakeStdout();
-  const stdin = createFakeStdin();
+  const stdout = createStdout();
+  const stdin = createStdin();
 
   const { unmount } = render(<Text>Hello</Text>, {
     stdout,
@@ -600,12 +589,12 @@ test("kitty protocol - writes disable sequence on unmount", () => {
   unmount();
 
   // CSI < u (pop keyboard mode)
-  expect(getWrittenStrings(write).includes("\u001B[<u")).toBe(true);
+  expect(stdout.getWrites()).toContain("\u001B[<u");
 });
 
 test("kitty protocol - not enabled when stdin is not a TTY", () => {
-  const { stdout, write } = createFakeStdout();
-  const stdin = createFakeStdin();
+  const stdout = createStdout();
+  const stdin = createStdin();
   stdin.isTTY = false;
 
   const { unmount } = render(<Text>Hello</Text>, {
@@ -614,15 +603,15 @@ test("kitty protocol - not enabled when stdin is not a TTY", () => {
     kittyKeyboard: { mode: "enabled" },
   });
 
-  expect(getWrittenStrings(write).includes("\u001B[>1u")).toBe(false);
+  expect(stdout.getWrites()).not.toContain("\u001B[>1u");
 
   unmount();
 });
 
 test("kitty protocol - not enabled when stdout is not a TTY", () => {
-  const { stdout, write } = createFakeStdout();
+  const stdout = createStdout();
   stdout.isTTY = false;
-  const stdin = createFakeStdin();
+  const stdin = createStdin();
 
   const { unmount } = render(<Text>Hello</Text>, {
     stdout,
@@ -630,7 +619,7 @@ test("kitty protocol - not enabled when stdout is not a TTY", () => {
     kittyKeyboard: { mode: "enabled" },
   });
 
-  expect(getWrittenStrings(write).includes("\u001B[>1u")).toBe(false);
+  expect(stdout.getWrites()).not.toContain("\u001B[>1u");
 
   unmount();
 });
@@ -638,8 +627,8 @@ test("kitty protocol - not enabled when stdout is not a TTY", () => {
 // --- Auto-detection race condition tests ---
 
 test("kitty protocol - auto detection does not enable protocol after unmount", () => {
-  const { stdout, write } = createFakeStdout();
-  const stdin = createFakeStdin();
+  const stdout = createStdout();
+  const stdin = createStdin();
 
   const origKittyId = process.env["KITTY_WINDOW_ID"];
   process.env["KITTY_WINDOW_ID"] = "1";
@@ -664,14 +653,14 @@ test("kitty protocol - auto detection does not enable protocol after unmount", (
   stdin.emit("data", "\u001B[?1u");
 
   // The enable sequence should NOT have been written after unmount
-  const strings = getWrittenStrings(write);
+  const strings = stdout.getWrites();
   const enableCount = strings.filter((s) => s === "\u001B[>1u").length;
   expect(enableCount).toBe(0);
 });
 
 test("kitty protocol - auto detection handles synchronous query response", () => {
-  const { stdout } = createFakeStdout();
-  const stdin = createFakeStdin();
+  const stdout = createStdout();
+  const stdin = createStdin();
   const writtenStrings: string[] = [];
 
   // Override stdout.write to synchronously emit the response on stdin
@@ -702,14 +691,14 @@ test("kitty protocol - auto detection handles synchronous query response", () =>
   });
 
   // The enable sequence should have been written
-  expect(writtenStrings.includes("\u001B[>1u")).toBe(true);
+  expect(writtenStrings).toContain("\u001B[>1u");
 
   unmount();
 });
 
 test("kitty protocol - auto detection handles Uint8Array query response", () => {
-  const { stdout, write } = createFakeStdout();
-  const stdin = createFakeStdin();
+  const stdout = createStdout();
+  const stdin = createStdin();
 
   const origKittyId = process.env["KITTY_WINDOW_ID"];
   process.env["KITTY_WINDOW_ID"] = "1";
@@ -732,15 +721,15 @@ test("kitty protocol - auto detection handles Uint8Array query response", () => 
   stdin.emit("data", response);
 
   // The enable sequence should have been written
-  const strings = getWrittenStrings(write);
-  expect(strings.includes("\u001B[>1u")).toBe(true);
+  const strings = stdout.getWrites();
+  expect(strings).toContain("\u001B[>1u");
 
   unmount();
 });
 
 test("kitty protocol - auto detection preserves split UTF-8 input bytes", async () => {
-  const { stdout } = createFakeStdout();
-  const stdin = createFakeStdin();
+  const stdout = createStdout();
+  const stdin = createStdin();
   const unshifted: Uint8Array[] = [];
 
   const concatUint8Arrays = (chunks: Uint8Array[]): number[] => {
@@ -788,8 +777,8 @@ test("kitty protocol - auto detection preserves split UTF-8 input bytes", async 
 });
 
 test("kitty protocol - auto detection timeout does not leak partial query response", async () => {
-  const { stdout } = createFakeStdout();
-  const stdin = createFakeStdin();
+  const stdout = createStdout();
+  const stdin = createStdin();
   const unshifted: Uint8Array[] = [];
 
   stdin.unshift = ((chunk: Uint8Array) => {
@@ -825,8 +814,8 @@ test("kitty protocol - auto detection timeout does not leak partial query respon
 });
 
 test("kitty protocol - auto detection timeout preserves query prefix without digits", async () => {
-  const { stdout, write } = createFakeStdout();
-  const stdin = createFakeStdin();
+  const stdout = createStdout();
+  const stdin = createStdin();
   const unshifted: Uint8Array[] = [];
 
   stdin.unshift = ((chunk: Uint8Array) => {
@@ -856,7 +845,7 @@ test("kitty protocol - auto detection timeout preserves query prefix without dig
     setTimeout(resolve, 250);
   });
 
-  const strings = getWrittenStrings(write);
+  const strings = stdout.getWrites();
   const enableCount = strings.filter((s) => s === "\u001B[>1u").length;
   expect(enableCount).toBe(0);
   expect(unshifted.map((chunk) => [...chunk])).toEqual([[0x1b, 0x5b, 0x3f]]);
@@ -864,8 +853,8 @@ test("kitty protocol - auto detection timeout preserves query prefix without dig
 });
 
 test("kitty protocol - auto detection ignores query response without digits", async () => {
-  const { stdout, write } = createFakeStdout();
-  const stdin = createFakeStdin();
+  const stdout = createStdout();
+  const stdin = createStdin();
   const unshifted: Uint8Array[] = [];
 
   stdin.unshift = ((chunk: Uint8Array) => {
@@ -895,7 +884,7 @@ test("kitty protocol - auto detection ignores query response without digits", as
     setTimeout(resolve, 250);
   });
 
-  const strings = getWrittenStrings(write);
+  const strings = stdout.getWrites();
   const enableCount = strings.filter((s) => s === "\u001B[>1u").length;
   expect(enableCount).toBe(0);
   expect(unshifted.map((chunk) => [...chunk])).toEqual([[0x1b, 0x5b, 0x3f, 0x75]]);
@@ -903,8 +892,8 @@ test("kitty protocol - auto detection ignores query response without digits", as
 });
 
 test("kitty protocol - auto detection preserves invalid query-like escape sequence", async () => {
-  const { stdout, write } = createFakeStdout();
-  const stdin = createFakeStdin();
+  const stdout = createStdout();
+  const stdin = createStdin();
   const unshifted: Uint8Array[] = [];
 
   stdin.unshift = ((chunk: Uint8Array) => {
@@ -934,7 +923,7 @@ test("kitty protocol - auto detection preserves invalid query-like escape sequen
     setTimeout(resolve, 250);
   });
 
-  const strings = getWrittenStrings(write);
+  const strings = stdout.getWrites();
   const enableCount = strings.filter((s) => s === "\u001B[>1u").length;
   expect(enableCount).toBe(0);
   expect(unshifted.map((chunk) => [...chunk])).toEqual([[0x1b, 0x5b, 0x3f, 0x31, 0x78]]);

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Derived from Yoga. See THIRD_PARTY_NOTICES.md.
 
-import { MeasureMode } from "../../../src/yoga/generated/YGEnums.ts";
-import type { MeasureFunction } from "../../../src/yoga/index.ts";
+import { MeasureMode } from "#/yoga/generated/YGEnums.ts";
+import type { MeasureFunction } from "#/yoga/index.ts";
 
 export type MeasureCounter = {
   inc: MeasureFunction;

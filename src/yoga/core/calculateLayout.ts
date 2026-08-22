@@ -4,26 +4,10 @@
 // Port of yoga/algorithm/CalculateLayout.cpp. The event system and
 // LayoutPassReason-keyed instrumentation are reduced to plain counters.
 
-import {
-  Align,
-  Dimension,
-  Direction,
-  Display,
-  Edge,
-  Errata,
-  ExperimentalFeature,
-  FlexDirection,
-  Gutter,
-  Justify,
-  MeasureMode,
-  Overflow,
-  PositionType,
-  Wrap,
-} from "../generated/YGEnums.ts";
-import { layoutAbsoluteDescendants } from "./absoluteLayout.ts";
-import { calculateBaseline, isBaselineLayout } from "./baseline.ts";
-import { canUseCachedMeasurement } from "./cache.ts";
-import { type FlexLine, calculateFlexLine } from "./flexLine.ts";
+import { layoutAbsoluteDescendants } from "#/yoga/core/absoluteLayout.ts";
+import { calculateBaseline, isBaselineLayout } from "#/yoga/core/baseline.ts";
+import { canUseCachedMeasurement } from "#/yoga/core/cache.ts";
+import { type FlexLine, calculateFlexLine } from "#/yoga/core/flexLine.ts";
 import {
   PhysicalEdge,
   SizingMode,
@@ -42,13 +26,35 @@ import {
   resolveCrossDirection,
   resolveDirection,
   setChildTrailingPosition,
-} from "./helpers.ts";
-import { CachedMeasurement, LayoutResults } from "./layoutResults.ts";
-import type { Node } from "./node.ts";
-import { isDefined, isUndefined, inexactEquals, maxOrDefined, minOrDefined } from "./numeric.ts";
-import { roundLayoutResultsToPixelGrid } from "./pixelGrid.ts";
-import type { Style } from "./style.ts";
-import type { StyleLength } from "./types.ts";
+} from "#/yoga/core/helpers.ts";
+import { CachedMeasurement, LayoutResults } from "#/yoga/core/layoutResults.ts";
+import type { Node } from "#/yoga/core/node.ts";
+import {
+  isDefined,
+  isUndefined,
+  inexactEquals,
+  maxOrDefined,
+  minOrDefined,
+} from "#/yoga/core/numeric.ts";
+import { roundLayoutResultsToPixelGrid } from "#/yoga/core/pixelGrid.ts";
+import type { Style } from "#/yoga/core/style.ts";
+import type { StyleLength } from "#/yoga/core/types.ts";
+import {
+  Align,
+  Dimension,
+  Direction,
+  Display,
+  Edge,
+  Errata,
+  ExperimentalFeature,
+  FlexDirection,
+  Gutter,
+  Justify,
+  MeasureMode,
+  Overflow,
+  PositionType,
+  Wrap,
+} from "#/yoga/generated/YGEnums.ts";
 
 export const LayoutPassReason = {
   Initial: 0,

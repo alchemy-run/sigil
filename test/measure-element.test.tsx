@@ -3,8 +3,9 @@ import { setTimeout as delay } from "node:timers/promises";
 import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { expect, test } from "vite-plus/test";
 
-import stripAnsi from "../src/ansi/strip.ts";
-import { Box, Static, Text, render, measureElement, type DOMElement } from "../src/index.ts";
+import { stripAnsi } from "#/ansi/strip.ts";
+import { Box, Static, Text, render, measureElement, type DOMElement } from "#/index.ts";
+
 import createStdout from "./helpers/create-stdout.ts";
 
 test("measure element", async () => {
@@ -194,7 +195,7 @@ test("measure position of nested element with padding offset", async () => {
   await delay(100);
 
   const lastWrite = stdout.write.mock.lastCall![0];
-  expect(lastWrite.includes("Nested: 4,1")).toBe(true);
+  expect(lastWrite).toContain("Nested: 4,1");
 });
 
 test("measure position of deeply nested element accumulates offsets", async () => {
@@ -228,7 +229,7 @@ test("measure position of deeply nested element accumulates offsets", async () =
   await delay(100);
 
   const lastWrite = stdout.write.mock.lastCall![0];
-  expect(lastWrite.includes("Deep: 5,3")).toBe(true);
+  expect(lastWrite).toContain("Deep: 5,3");
 });
 
 test("measure position accounts for margin offset", async () => {
@@ -262,7 +263,7 @@ test("measure position accounts for margin offset", async () => {
   await delay(100);
 
   const lastWrite = stdout.write.mock.lastCall![0];
-  expect(lastWrite.includes("Margin: 5,2")).toBe(true);
+  expect(lastWrite).toContain("Margin: 5,2");
 });
 
 test("measure position — sibling offset gives correct y", async () => {
@@ -296,7 +297,7 @@ test("measure position — sibling offset gives correct y", async () => {
   await delay(100);
 
   const lastWrite = stdout.write.mock.lastCall![0];
-  expect(lastWrite.includes("Third: 0,2")).toBe(true);
+  expect(lastWrite).toContain("Third: 0,2");
 });
 
 test("Static does not affect layout-tree coordinates", async () => {
@@ -330,7 +331,7 @@ test("Static does not affect layout-tree coordinates", async () => {
 
   const lastWrite = stdout.write.mock.lastCall![0];
   // Static uses position:absolute so it doesn't affect live layout coordinates
-  expect(lastWrite.includes("Live: 0,0")).toBe(true);
+  expect(lastWrite).toContain("Live: 0,0");
 });
 
 test("measure element returns zeros for node without yoga", () => {

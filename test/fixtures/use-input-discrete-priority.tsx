@@ -1,8 +1,6 @@
-import process from "node:process";
-
 import { useState, useTransition, useMemo, useEffect, useRef } from "react";
 
-import { render, Box, Text, useInput, useApp } from "../../src/index.ts";
+import { render, Box, Text, useInput, useApp } from "#/index.ts";
 
 function App() {
   const { exit } = useApp();

@@ -1,6 +1,6 @@
-import { type DOMElement } from "./dom.ts";
-import Output from "./output.ts";
-import renderNodeToOutput, { renderNodeToScreenReaderOutput } from "./render-node-to-output.ts";
+import { type DOMElement } from "#/dom.ts";
+import { Output } from "#/output.ts";
+import { renderNodeToOutput, renderNodeToScreenReaderOutput } from "#/render-node-to-output.ts";
 
 type Result = {
   output: string;
@@ -8,7 +8,7 @@ type Result = {
   staticOutput: string;
 };
 
-const renderer = (node: DOMElement, isScreenReaderEnabled: boolean): Result => {
+export const renderer = (node: DOMElement, isScreenReaderEnabled: boolean): Result => {
   if (node.yogaNode) {
     if (isScreenReaderEnabled) {
       const output = renderNodeToScreenReaderOutput(node, {
@@ -71,5 +71,3 @@ const renderer = (node: DOMElement, isScreenReaderEnabled: boolean): Result => {
     staticOutput: "",
   };
 };
-
-export default renderer;

@@ -1,4 +1,4 @@
-import { Text, useStdin, render } from "../../src/index.ts";
+import { Text, useStdin, render } from "#/index.ts";
 
 function App() {
   const { isRawModeSupported } = useStdin();

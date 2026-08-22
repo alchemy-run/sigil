@@ -1,8 +1,8 @@
-import chalk from "./ansi/chalk.ts";
-import cliBoxes from "./boxes.ts";
-import colorize from "./colorize.ts";
-import { type DOMNode } from "./dom.ts";
-import type Output from "./output.ts";
+import { chalk } from "#/ansi/chalk.ts";
+import { colorize } from "#/colorize.ts";
+import { type DOMNode } from "#/dom.ts";
+import { BOXES } from "#/glyphs.ts";
+import type { Output } from "#/output.ts";
 
 const stylePiece = (segment: string, fg?: string, bg?: string, dim?: boolean): string => {
   let styled = colorize(segment, fg, "foreground");
@@ -14,13 +14,13 @@ const stylePiece = (segment: string, fg?: string, bg?: string, dim?: boolean): s
   return styled;
 };
 
-const renderBorder = (x: number, y: number, node: DOMNode, output: Output): void => {
+export const renderBorder = (x: number, y: number, node: DOMNode, output: Output): void => {
   if (node.style.borderStyle) {
     const width = node.yogaNode!.getComputedWidth();
     const height = node.yogaNode!.getComputedHeight();
     const box =
       typeof node.style.borderStyle === "string"
-        ? cliBoxes[node.style.borderStyle]
+        ? BOXES[node.style.borderStyle]
         : node.style.borderStyle;
 
     const topBorderColor = node.style.borderTopColor ?? node.style.borderColor;
@@ -132,5 +132,3 @@ const renderBorder = (x: number, y: number, node: DOMNode, output: Output): void
     }
   }
 };
-
-export default renderBorder;

@@ -3,8 +3,9 @@
 
 import { expect } from "vite-plus/test";
 
-import { MeasureMode } from "../../src/yoga/generated/YGEnums.ts";
-import type { Config, Node, Yoga } from "../../src/yoga/index.ts";
+import { MeasureMode } from "#/yoga/generated/YGEnums.ts";
+import type { Config, Node, Yoga } from "#/yoga/index.ts";
+
 import { defineBackendTest } from "./backends/defineBackendTest.ts";
 
 // Simulates a min-content-aware text measure: the longest "word" is

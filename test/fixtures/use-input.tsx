@@ -1,8 +1,6 @@
-import process from "node:process";
-
 import React from "react";
 
-import { render, useInput, useApp } from "../../src/index.ts";
+import { render, useInput, useApp } from "#/index.ts";
 
 function UserInput({ test }: { readonly test: string | undefined }) {
   const { exit } = useApp();

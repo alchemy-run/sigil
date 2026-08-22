@@ -1,34 +1,22 @@
-import { isFullwidthCodePoint } from "./east-asian-width.ts";
-// ANSI-aware tokenizer: splits a string into grapheme clusters and ANSI
-// codes, tracks active styles per character, and re-emits minimal escape
-// sequences. This is the style model Ink's renderer is built on.
-// Ported from `@alcalzone/ansi-tokenize` (MIT, AlCalzone).
-import { BEL, C1_ST, ESC } from "./escapes.ts";
-import { codes as sgrCodes, foreground, background, styles } from "./sgr.ts";
+import { tokenizeAnsi } from "#/ansi-tokenizer.ts";
+import { isFullwidthGrapheme } from "#/ansi/east-asian-width.ts";
+// ANSI-aware style tokenizer: splits a string into grapheme clusters and
+// ANSI codes, tracks active styles per character, and re-emits minimal
+// escape sequences. This is the style model Ink's renderer is built on.
+// Style semantics ported from `@alcalzone/ansi-tokenize` (MIT, AlCalzone);
+// escape recognition delegates to the shared ECMA-48 grammar in
+// `src/ansi-tokenizer.ts` (also behind sanitize-ansi), and grapheme widths
+// come from `east-asian-width.ts` — one grammar, one width table.
+import { BEL, C1_ST, ESC } from "#/ansi/escapes.ts";
+import { codes as sgrCodes, foreground, background, styles } from "#/ansi/sgr.ts";
 
 // Single-character introducer suffixes (`ESC [` = CSI, `ESC ]` = OSC).
 const BACKSLASH = "\\";
 const CSI = "[";
 const OSC = "]";
 
-// Char codes
-const CC_BEL = BEL.charCodeAt(0);
-const CC_ESC = ESC.charCodeAt(0);
-const CC_BACKSLASH = BACKSLASH.charCodeAt(0);
-const CC_CSI = CSI.charCodeAt(0);
-const CC_OSC = OSC.charCodeAt(0);
-const CC_C1_ST = C1_ST.charCodeAt(0);
-const CC_0 = "0".charCodeAt(0);
-const CC_9 = "9".charCodeAt(0);
-const CC_SEMI = ";".charCodeAt(0);
-const CC_M = "m".charCodeAt(0);
-
-// Escape code points: \u001B and \u009B
-const ESCAPES = new Set([CC_ESC, 0x9b]);
-
 // OSC 8 hyperlink constants
 const linkCodePrefix = `${ESC}${OSC}8;`;
-const linkCodePrefixCharCodes = linkCodePrefix.split("").map((char) => char.charCodeAt(0));
 const linkCodeSuffix = BEL;
 const linkEndCode = `${ESC}${OSC}8;;${BEL}`;
 const linkEndCodeST = `${ESC}${OSC}8;;${ESC}${BACKSLASH}`;
@@ -103,6 +91,11 @@ export function getEndCode(code: string): string {
     return background.close;
   }
 
+  // Extended underline color (T.416) closes with 59m; not in the SGR map.
+  if (code.startsWith("58")) {
+    return `${ESC}[59m`;
+  }
+
   // Otherwise find the reset code in the SGR code map
   const endCode = sgrCodes.get(Number.parseInt(code, 10));
   if (endCode !== undefined) {
@@ -127,95 +120,6 @@ export function isIntensityCode(code: AnsiCode): boolean {
 }
 
 const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
-
-function isFullwidthGrapheme(grapheme: string, baseCodePoint: number): boolean {
-  if (isFullwidthCodePoint(baseCodePoint)) return true;
-  // Variation Selector 16 forces emoji presentation (2 columns wide)
-  if (grapheme.includes("\uFE0F")) return true;
-  // Regional indicator pairs form flag emoji (2 columns wide)
-  if (baseCodePoint >= 0x1f1e6 && baseCodePoint <= 0x1f1ff) return true;
-  return false;
-}
-
-// HOT PATH: Use only basic string/char code operations for maximum performance
-function parseLinkCode(string: string, offset: number): string | undefined {
-  string = string.slice(offset);
-  for (let index = 1; index < linkCodePrefixCharCodes.length; index++) {
-    if (string.charCodeAt(index) !== linkCodePrefixCharCodes[index]) {
-      return;
-    }
-  }
-
-  // Find the semicolon that ends params
-  const paramsEndIndex = string.indexOf(";", linkCodePrefix.length);
-  if (paramsEndIndex === -1) return;
-
-  // This is a link code (with or without the URL part). Find the end of it.
-  const endIndex = findOscTerminatorIndex(string, paramsEndIndex + 1);
-  if (endIndex === -1) return;
-
-  return string.slice(0, endIndex + 1);
-}
-
-// HOT PATH: Generic fallback for non-link OSC sequences (window title, etc.)
-function parseOscSequence(string: string, offset: number): string | undefined {
-  string = string.slice(offset);
-  // Find the OSC terminator (starting after "ESC ]")
-  const endIndex = findOscTerminatorIndex(string, 2);
-  if (endIndex === -1) return;
-  return string.slice(0, endIndex + 1);
-}
-
-/**
-Finds the index of the last character of the first OSC terminator at or after
-`startIndex`. Recognizes BEL (\u0007), C1 ST (\u009C), and ESC+backslash.
-Returns -1 if no terminator is found.
-*/
-function findOscTerminatorIndex(string: string, startIndex: number): number {
-  for (let index = startIndex; index < string.length; index++) {
-    const charCode = string.charCodeAt(index);
-    if (charCode === CC_BEL) return index;
-    if (charCode === CC_C1_ST) return index;
-    if (
-      charCode === CC_ESC &&
-      index + 1 < string.length &&
-      string.charCodeAt(index + 1) === CC_BACKSLASH
-    ) {
-      return index + 1;
-    }
-  }
-
-  return -1;
-}
-
-/**
-Scans through the given string and finds the index of the last character of an
-SGR sequence like `\u001B[38;2;123;123;123m`. This assumes that the string has
-been checked to start with `\u001B[`. Returns -1 if no valid SGR sequence is
-found.
-*/
-function findSgrSequenceEndIndex(string: string): number {
-  for (let index = 2; index < string.length; index++) {
-    const charCode = string.charCodeAt(index);
-    // m marks the end of the SGR sequence
-    if (charCode === CC_M) return index;
-    // Digits and semicolons are valid
-    if (charCode === CC_SEMI) continue;
-    if (charCode >= CC_0 && charCode <= CC_9) continue;
-    // Everything else is invalid
-    break;
-  }
-
-  return -1;
-}
-
-// HOT PATH: Use only basic string/char code operations for maximum performance
-function parseSgrSequence(string: string, offset: number): string | undefined {
-  string = string.slice(offset);
-  const endIndex = findSgrSequenceEndIndex(string);
-  if (endIndex === -1) return;
-  return string.slice(0, endIndex + 1);
-}
 
 /**
 Splits compound SGR sequences like `\u001B[1;3;31m` into individual components.
@@ -256,73 +160,97 @@ function splitCompoundSgrSequences(code: string): string[] {
   return result.map((part) => `${ESC}[${part}m`);
 }
 
+// SGR parameters: digits separated by `;` or `:` (ITU T.416 colon form).
+const SGR_PARAMETERS_RE = /^[\d;:]*$/;
+
+const c1LinkCodePrefix = "\u009D8;";
+
 export function tokenize(string: string, endChar = Number.POSITIVE_INFINITY): Token[] {
   const result: Token[] = [];
   let visible = 0;
-  let codeEndIndex = 0;
 
-  for (const { segment, index } of segmenter.segment(string)) {
-    // Skip segments consumed as part of an ANSI sequence
-    if (index < codeEndIndex) continue;
+  outer: for (const ansiToken of tokenizeAnsi(string)) {
+    if (ansiToken.type === "text") {
+      for (const { segment } of segmenter.segment(ansiToken.value)) {
+        const fullWidth = isFullwidthGrapheme(segment, segment.codePointAt(0)!);
+        result.push({
+          type: "char",
+          value: segment,
+          fullWidth,
+        });
 
-    const codePoint = segment.codePointAt(0)!;
-    if (ESCAPES.has(codePoint)) {
-      let code: string | undefined;
-      // Peek the next code point to determine the type of ANSI sequence
-      const nextCodePoint = string.codePointAt(index + 1);
-      if (nextCodePoint === CC_OSC) {
-        // ] = operating system commands
-        code = parseLinkCode(string, index);
-        if (code) {
-          // OSC 8 hyperlinks are paired codes with an endCode
+        visible += fullWidth ? 2 : 1;
+        if (visible >= endChar) {
+          break outer;
+        }
+      }
+
+      continue;
+    }
+
+    if (ansiToken.type === "csi") {
+      // SGR sequences carry style state; C1 introducers are normalized to the
+      // 7-bit form so downstream comparisons see a single representation.
+      if (
+        ansiToken.finalCharacter === "m" &&
+        ansiToken.intermediateString === "" &&
+        SGR_PARAMETERS_RE.test(ansiToken.parameterString)
+      ) {
+        // Split compound codes into individual tokens
+        const code = `${ESC}${CSI}${ansiToken.parameterString}m`;
+        for (const individualCode of splitCompoundSgrSequences(code)) {
           result.push({
             type: "ansi",
-            code,
-            endCode: getEndCode(code),
+            code: individualCode,
+            endCode: getEndCode(individualCode),
           });
-        } else {
-          // Other OSC sequences (window title, etc.) are self-contained
-          // control codes with no endCode.
-          code = parseOscSequence(string, index);
-          if (code) {
-            result.push({
-              type: "control",
-              code,
-            });
-          }
         }
-      } else if (nextCodePoint === CC_CSI) {
-        // [ = control sequence introducer, like SGR sequences [...m
-        code = parseSgrSequence(string, index);
-        if (code) {
-          // Split compound codes into individual tokens
-          for (const individualCode of splitCompoundSgrSequences(code)) {
-            result.push({
-              type: "ansi",
-              code: individualCode,
-              endCode: getEndCode(individualCode),
-            });
-          }
-        }
+      } else {
+        result.push({
+          type: "control",
+          code: ansiToken.value,
+        });
       }
 
-      if (code) {
-        codeEndIndex = index + code.length;
-        continue;
-      }
+      continue;
     }
 
-    const fullWidth = isFullwidthGrapheme(segment, codePoint);
+    if (ansiToken.type === "osc") {
+      // OSC 8 hyperlinks are paired codes with an endCode; C1 introducers are
+      // normalized to the 7-bit form. Other OSC sequences (window title,
+      // etc.) are self-contained control codes with no endCode.
+      const { value } = ansiToken;
+      const prefix = value.startsWith(linkCodePrefix)
+        ? linkCodePrefix
+        : value.startsWith(c1LinkCodePrefix)
+          ? c1LinkCodePrefix
+          : undefined;
+
+      if (prefix !== undefined && value.includes(";", prefix.length)) {
+        const code =
+          prefix === linkCodePrefix ? value : `${linkCodePrefix}${value.slice(prefix.length)}`;
+        result.push({
+          type: "ansi",
+          code,
+          endCode: getEndCode(code),
+        });
+      } else {
+        result.push({
+          type: "control",
+          code: value,
+        });
+      }
+
+      continue;
+    }
+
+    // Everything else the grammar recognizes (ESC sequences, DCS/PM/APC/SOS
+    // control strings, stray ST or C1 bytes, malformed tails) is a zero-width
+    // control unit, preserved verbatim.
     result.push({
-      type: "char",
-      value: segment,
-      fullWidth,
+      type: "control",
+      code: ansiToken.value,
     });
-
-    visible += fullWidth ? 2 : 1;
-    if (visible >= endChar) {
-      break;
-    }
   }
 
   return result;
@@ -377,7 +305,7 @@ Returns the combination of ANSI codes needed to undo the given ANSI codes.
 */
 export function undoAnsiCodes(codes: readonly AnsiCode[]): AnsiCode[] {
   return reduceAnsiCodes(codes)
-    .reverse()
+    .toReversed()
     .map((code) => ({
       ...code,
       code: code.endCode,

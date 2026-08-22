@@ -1,4 +1,4 @@
-import { Text, render } from "../../src/index.ts";
+import { Text, render } from "#/index.ts";
 
 const { waitUntilExit } = render(<Text>Hello World</Text>);
 

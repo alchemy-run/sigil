@@ -1,6 +1,6 @@
 import { type RefObject, useState, useEffect, useCallback, useMemo } from "react";
 
-import { type DOMElement, addLayoutListener } from "../dom.ts";
+import { type DOMElement, addLayoutListener } from "#/dom.ts";
 
 // Yoga's `right`/`bottom` are omitted: always `0` for flow layout and unintuitive for absolute positioning.
 /**
@@ -83,7 +83,7 @@ const Example = () => {
 };
 ```
 */
-const useBoxMetrics = (
+export const useBoxMetrics = (
   /* eslint-disable-next-line @typescript-eslint/no-restricted-types --
 		Creating a ref object with an initial null, especially when the ref object
 		will be passed to a DOM node's ref attribute, is common in React. */
@@ -132,5 +132,3 @@ const useBoxMetrics = (
     [metrics, hasMeasured],
   );
 };
-
-export default useBoxMetrics;

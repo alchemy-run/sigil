@@ -1,6 +1,6 @@
 import React from "react";
 
-import { render, Text } from "../../src/index.ts";
+import { render, Text } from "#/index.ts";
 
 function Counter() {
   const [counter, setCounter] = React.useState(0);

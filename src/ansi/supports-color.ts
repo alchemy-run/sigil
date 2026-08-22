@@ -1,8 +1,8 @@
 // Terminal color support detection.
 // Ported from `supports-color` (MIT, Sindre Sorhus & Josh Junon).
-import os from "node:os";
-import process from "node:process";
-import tty from "node:tty";
+import { isatty } from "node:tty";
+
+import { isWindows } from "#/env.ts";
 
 export type ColorSupportLevel = 0 | 1 | 2 | 3;
 
@@ -118,15 +118,9 @@ function supportsColorLevel(
     return min;
   }
 
-  if (process.platform === "win32") {
-    // Windows 10 build 10586 is the first Windows release that supports 256 colors.
-    // Windows 10 build 14931 is the first release that supports 16m/TrueColor.
-    const osRelease = os.release().split(".");
-    if (Number(osRelease[0]) >= 10 && Number(osRelease[2]) >= 10_586) {
-      return Number(osRelease[2]) >= 14_931 ? 3 : 2;
-    }
-
-    return 1;
+  if (isWindows) {
+    // Node 22 requires Windows 10 1809+ (build 17763), which supports TrueColor.
+    return 3;
   }
 
   if ("CI" in env) {
@@ -207,9 +201,7 @@ export function createSupportsColor(
   return translateLevel(level);
 }
 
-const supportsColor = {
-  stdout: createSupportsColor({ isTTY: tty.isatty(1) }),
-  stderr: createSupportsColor({ isTTY: tty.isatty(2) }),
+export const supportsColor = {
+  stdout: createSupportsColor({ isTTY: isatty(1) }),
+  stderr: createSupportsColor({ isTTY: isatty(2) }),
 };
-
-export default supportsColor;

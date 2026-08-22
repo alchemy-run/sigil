@@ -8,9 +8,9 @@
 // receives the start index, returning the index of the first child of the next
 // line alongside the line itself.
 
-import { Direction, Display, PositionType, Wrap } from "../generated/YGEnums.ts";
-import { boundAxisWithinMinAndMax, resolveDirection } from "./helpers.ts";
-import type { Node } from "./node.ts";
+import { boundAxisWithinMinAndMax, resolveDirection } from "#/yoga/core/helpers.ts";
+import type { Node } from "#/yoga/core/node.ts";
+import { Direction, Display, PositionType, Wrap } from "#/yoga/generated/YGEnums.ts";
 
 export interface FlexLineRunningLayout {
   // Total flex grow factors of flex items which are to be laid in the current

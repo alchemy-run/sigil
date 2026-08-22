@@ -1,9 +1,9 @@
-import measureText from "./measure-text.ts";
-import { type OutputTransformer } from "./render-node-to-output.ts";
-import squashTextNodes from "./squash-text-nodes.ts";
-import { type Styles } from "./styles.ts";
-import wrapText from "./wrap-text.ts";
-import Yoga, { type Node as YogaNode } from "./yoga/index.ts";
+import { measureText } from "#/measure-text.ts";
+import { type OutputTransformer } from "#/render-node-to-output.ts";
+import { squashTextNodes } from "#/squash-text-nodes.ts";
+import { type Styles } from "#/styles.ts";
+import { wrapText } from "#/wrap-text.ts";
+import { Yoga, type Node as YogaNode } from "#/yoga/index.ts";
 
 type InkNode = {
   parentNode: DOMElement | undefined;
@@ -101,7 +101,7 @@ export const createNode = (nodeName: ElementNames): DOMElement => {
   };
 
   if (nodeName === "ink-text") {
-    node.yogaNode?.setMeasureFunc(measureTextNode.bind(null, node));
+    node.yogaNode?.setMeasureFunc((width) => measureTextNode(node, width));
   }
 
   return node;
@@ -182,18 +182,16 @@ const nullifyYogaNodes = (node: DOMNode): void => {
 };
 
 /**
-Free the Yoga (WASM) memory of a removed subtree, then drop the `yogaNode`
-reference on every DOM node within it.
+Detach a removed subtree from the layout engine: drop the measure callback
+and null the `yogaNode` reference on every DOM node within it.
 
-`freeRecursive()` releases the WASM memory but leaves each JS wrapper object
-truthy, so every `?.yogaNode` guard in the codebase would still pass and then
-trap on a use-after-free when the wrapper is dereferenced (see
-QwenLM/qwen-code#6820). Nulling the references makes those guards effective and
-turns any lingering access into a safe no-op.
+Nulling the references makes every `?.yogaNode` guard in the codebase
+effective for removed nodes, turns lingering access into a safe no-op (see
+QwenLM/qwen-code#6820), and lets the garbage collector reclaim the Yoga
+tree along with its closures.
 */
-export const freeYogaSubtree = (removeNode: DOMNode): void => {
+export const detachYogaSubtree = (removeNode: DOMNode): void => {
   removeNode.yogaNode?.unsetMeasureFunc();
-  removeNode.yogaNode?.freeRecursive();
   nullifyYogaNodes(removeNode);
 };
 

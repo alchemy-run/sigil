@@ -1,6 +1,6 @@
 import React, { Suspense, useState } from "react";
 
-import { render, Box, Text } from "../../src/index.ts";
+import { render, Box, Text } from "#/index.ts";
 
 // Simulated async data fetching with cache
 const cache = new Map<string, { status: string; data?: string; promise?: Promise<void> }>();

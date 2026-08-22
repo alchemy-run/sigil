@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-import { Text, render } from "../../src/index.ts";
+import { Text, render } from "#/index.ts";
 
 function App() {
   useEffect(() => {

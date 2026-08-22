@@ -1,8 +1,6 @@
-import process from "node:process";
-
 import React from "react";
 
-import { render, useApp, useInput, usePaste } from "../../src/index.ts";
+import { render, useApp, useInput, usePaste } from "#/index.ts";
 
 function PasteDemo({ test }: { readonly test: string | undefined }) {
   const { exit } = useApp();

@@ -106,8 +106,6 @@ const defaultValue: Props = {
 };
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
-const AppContext = createContext(defaultValue);
+export const AppContext = createContext(defaultValue);
 
 AppContext.displayName = "InternalAppContext";
-
-export default AppContext;

@@ -4,13 +4,13 @@
 // Public Yoga API on the engine node itself. This keeps the WASM-compatible
 // surface without allocating a separate binding wrapper for every node.
 
-import { Config } from "./config.ts";
-import { calculateLayout } from "./core/calculateLayout.ts";
-import { getDefaultConfig } from "./core/config.ts";
-import { PhysicalEdge } from "./core/helpers.ts";
-import { LayoutResults } from "./core/layoutResults.ts";
-import { Node as CoreNode } from "./core/node.ts";
-import { StyleLength, StyleSizeLength } from "./core/types.ts";
+import { Config } from "#/yoga/config.ts";
+import { calculateLayout } from "#/yoga/core/calculateLayout.ts";
+import { getDefaultConfig } from "#/yoga/core/config.ts";
+import { PhysicalEdge } from "#/yoga/core/helpers.ts";
+import { LayoutResults } from "#/yoga/core/layoutResults.ts";
+import { Node as CoreNode } from "#/yoga/core/node.ts";
+import { StyleLength, StyleSizeLength } from "#/yoga/core/types.ts";
 import {
   Align,
   BoxSizing,
@@ -26,7 +26,7 @@ import {
   PositionType,
   Unit,
   Wrap,
-} from "./generated/YGEnums.ts";
+} from "#/yoga/generated/YGEnums.ts";
 
 type Layout = {
   left: number;
@@ -147,15 +147,21 @@ export class Node extends CoreNode {
     return new Node(config);
   }
 
-  // WASM nodes require explicit destruction. JavaScript nodes are reclaimed
-  // by the garbage collector, but binding-compatible consumers still call
-  // these lifecycle methods.
+  /**
+	@deprecated No-op in the TypeScript port: the garbage collector owns this
+	node's lifetime. Kept only for yoga-layout binding compatibility (WASM
+	nodes require explicit destruction).
+	*/
   free(): void {
-    // No-op: the garbage collector owns this node's lifetime.
+    // No-op.
   }
 
+  /**
+	@deprecated No-op in the TypeScript port: garbage collection handles
+	object graphs and cycles. Kept only for yoga-layout binding compatibility.
+	*/
   freeRecursive(): void {
-    // No-op: JavaScript garbage collection handles object graphs and cycles.
+    // No-op.
   }
 
   // --- Tree hierarchy ---

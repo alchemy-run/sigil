@@ -8,6 +8,21 @@
 // callbacks) is not exposed through the JS binding, so children are always
 // uniquely owned and cloneChildrenIfNeeded is a no-op.
 
+import { Config, configUpdateInvalidatesLayout, getDefaultConfig } from "#/yoga/core/config.ts";
+import {
+  PhysicalEdge,
+  dimension,
+  inlineStartEdge,
+  inlineEndEdge,
+  isRow,
+  resolveCrossDirection,
+  resolveDirection,
+} from "#/yoga/core/helpers.ts";
+import { LayoutResults } from "#/yoga/core/layoutResults.ts";
+import { isDefined, isUndefined, maxOrDefined } from "#/yoga/core/numeric.ts";
+import { Style } from "#/yoga/core/style.ts";
+import type { Size, StyleSizeLength } from "#/yoga/core/types.ts";
+import { StyleSizeLength as SizeLength } from "#/yoga/core/types.ts";
 import {
   Align,
   BoxSizing,
@@ -18,22 +33,7 @@ import {
   MeasureMode,
   NodeType,
   PositionType,
-} from "../generated/YGEnums.ts";
-import { Config, configUpdateInvalidatesLayout, getDefaultConfig } from "./config.ts";
-import {
-  PhysicalEdge,
-  dimension,
-  inlineStartEdge,
-  inlineEndEdge,
-  isRow,
-  resolveCrossDirection,
-  resolveDirection,
-} from "./helpers.ts";
-import { LayoutResults } from "./layoutResults.ts";
-import { isDefined, isUndefined, maxOrDefined } from "./numeric.ts";
-import { Style } from "./style.ts";
-import type { Size, StyleSizeLength } from "./types.ts";
-import { StyleSizeLength as SizeLength } from "./types.ts";
+} from "#/yoga/generated/YGEnums.ts";
 
 export type MeasureFunc = (
   width: number,

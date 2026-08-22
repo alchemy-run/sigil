@@ -1,9 +1,12 @@
+import { setTimeout as delay } from "node:timers/promises";
+
 import { useEffect } from "react";
 import { expect, test } from "vite-plus/test";
 
-import stripAnsi from "../src/ansi/strip.ts";
-import { type SuspendTerminal } from "../src/components/AppContext.ts";
-import { render, useApp, useInput, useStdout, Text } from "../src/index.ts";
+import { stripAnsi } from "#/ansi/strip.ts";
+import { type SuspendTerminal } from "#/components/AppContext.ts";
+import { render, useApp, useInput, useStdout, Text } from "#/index.ts";
+
 import { createStdin, type FakeStdin } from "./helpers/create-stdin.ts";
 import createStdout, { type FakeStdout } from "./helpers/create-stdout.ts";
 import term from "./helpers/term.ts";
@@ -12,11 +15,6 @@ const showCursor = "[?25h";
 const hideCursor = "[?25l";
 const enterAltScreen = "[?1049h";
 const exitAltScreen = "[?1049l";
-
-const delay = async (ms: number) =>
-  new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
 
 const lastSetRawModeArg = (stdin: FakeStdin): boolean | undefined =>
   stdin.setRawMode.mock.lastCall?.[0];
@@ -29,10 +27,7 @@ const renderWithSuspend = async (
   const stdout = createStdout();
   const stdin = createStdin();
 
-  let finished!: () => void;
-  const done = new Promise<void>((resolve) => {
-    finished = resolve;
-  });
+  const { promise: done, resolve: finished } = Promise.withResolvers<void>();
 
   function Example() {
     const { suspendTerminal } = useApp();
@@ -141,10 +136,7 @@ test("suspendTerminal keeps Ink off the terminal while suspended", async () => {
 
   let writesDuringSuspend: number | undefined;
 
-  let finished!: () => void;
-  const done = new Promise<void>((resolve) => {
-    finished = resolve;
-  });
+  const { promise: done, resolve: finished } = Promise.withResolvers<void>();
 
   function Example() {
     const { suspendTerminal } = useApp();
@@ -184,10 +176,7 @@ test("suspendTerminal runs the callback but skips the handoff when not interacti
 
   let ranCallback = false;
 
-  let finished!: () => void;
-  const done = new Promise<void>((resolve) => {
-    finished = resolve;
-  });
+  const { promise: done, resolve: finished } = Promise.withResolvers<void>();
 
   function Example() {
     const { suspendTerminal } = useApp();
@@ -238,14 +227,14 @@ test("suspendTerminal hands the terminal to a child process, then redraws (PTY)"
   const { output } = ps;
 
   // The child process wrote directly to the terminal during suspension.
-  expect(output.includes("CHILD_OUTPUT")).toBe(true);
+  expect(output).toContain("CHILD_OUTPUT");
   // Ink showed the cursor when handing the terminal over.
-  expect(output.includes(showCursor)).toBe(true);
+  expect(output).toContain(showCursor);
   // Ink reclaimed the terminal and repainted its frame after the child output,
   // re-hiding the cursor as part of the redraw.
   const afterChild = output.slice(output.lastIndexOf("CHILD_OUTPUT") + "CHILD_OUTPUT".length);
-  expect(stripAnsi(afterChild).includes("Ink frame")).toBe(true);
-  expect(afterChild.includes(hideCursor)).toBe(true);
+  expect(stripAnsi(afterChild)).toContain("Ink frame");
+  expect(afterChild).toContain(hideCursor);
 });
 
 test("suspendTerminal exits and re-enters the alternate screen", async () => {
@@ -255,10 +244,7 @@ test("suspendTerminal exits and re-enters the alternate screen", async () => {
   let exitedAltDuringSuspend: boolean | undefined;
   let reEnteredAltAfterResume: boolean | undefined;
 
-  let finished!: () => void;
-  const done = new Promise<void>((resolve) => {
-    finished = resolve;
-  });
+  const { promise: done, resolve: finished } = Promise.withResolvers<void>();
 
   function Example() {
     const { suspendTerminal } = useApp();

@@ -1,6 +1,7 @@
 import { expect, test } from "vite-plus/test";
 
-import { Box, Text, Newline } from "../src/index.ts";
+import { Box, Text, Newline } from "#/index.ts";
+
 import { renderToString } from "./helpers/render-to-string.ts";
 
 test("row - align text to center", () => {

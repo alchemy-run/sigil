@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 
-import Yoga from "../../../src/yoga/index.ts";
-import type { Yoga as YogaApi } from "../../../src/yoga/index.ts";
+import { Yoga } from "#/yoga/index.ts";
+import type { Yoga as YogaApi } from "#/yoga/index.ts";
+
 import Reference from "../reference/index.ts";
 import { generateCase } from "./case.ts";
 import { caseSeed, options, reportFailure, reportSuccess } from "./cli.ts";

@@ -1,4 +1,4 @@
-import ansiEscapes from "./ansi/escapes.ts";
+import { ansiEscapes } from "#/ansi/escapes.ts";
 
 export type CursorPosition = {
   x: number;

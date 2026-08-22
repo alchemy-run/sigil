@@ -1,4 +1,4 @@
-import { BEL, C1_CSI, C1_ST, ESC } from "./ansi/escapes.ts";
+import { BEL, C1_CSI, C1_ST, ESC } from "#/ansi/escapes.ts";
 
 const bellCharacter = BEL;
 const escapeCharacter = ESC;

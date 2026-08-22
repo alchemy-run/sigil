@@ -1,11 +1,10 @@
-import process from "node:process";
 import { Stream, type Writable } from "node:stream";
 
 import type { ReactNode } from "react";
 
-import Ink, { type Options as InkOptions, type RenderMetrics } from "./ink.tsx";
-import instances from "./instances.ts";
-import { type KittyKeyboardOptions } from "./kitty-keyboard.ts";
+import { createInk, type Ink, type Options as InkOptions, type RenderMetrics } from "#/ink.tsx";
+import { instances } from "#/instances.ts";
+import { type KittyKeyboardOptions } from "#/kitty-keyboard.ts";
 
 export type RenderOptions = {
   /**
@@ -122,7 +121,7 @@ export type RenderOptions = {
   /**
 	Override automatic interactive mode detection.
 
-	By default, Ink detects whether the environment is interactive based on CI detection (via [`is-in-ci`](https://github.com/sindresorhus/is-in-ci)) and `stdout.isTTY`. Most users should not need to set this.
+	By default, Ink detects whether the environment is interactive based on CI detection (the `CI` environment variable) and `stdout.isTTY`. Most users should not need to set this.
 
 	When non-interactive, Ink disables ANSI erase sequences, cursor manipulation, synchronized output, resize handling, and kitty keyboard auto-detection, writing only the final frame at unmount.
 
@@ -211,7 +210,7 @@ export type Instance = {
 /**
 Mount a component and render the output.
 */
-const render = (node: ReactNode, options?: Writable | RenderOptions): Instance => {
+export const render = (node: ReactNode, options?: Writable | RenderOptions): Instance => {
   const inkOptions: InkOptions = {
     stdout: process.stdout,
     stdin: process.stdin,
@@ -226,24 +225,22 @@ const render = (node: ReactNode, options?: Writable | RenderOptions): Instance =
     ...getOptions(options),
   };
 
-  const instance: Ink = getInstance(inkOptions.stdout, () => new Ink(inkOptions));
+  const instance: Ink = getInstance(inkOptions.stdout, () => createInk(inkOptions));
   instance.render(node);
 
   return {
-    rerender: instance.render.bind(instance),
+    rerender: instance.render,
     unmount() {
       instance.unmount();
     },
-    waitUntilExit: instance.waitUntilExit.bind(instance),
-    waitUntilRenderFlush: instance.waitUntilRenderFlush.bind(instance),
+    waitUntilExit: instance.waitUntilExit,
+    waitUntilRenderFlush: instance.waitUntilRenderFlush,
     cleanup() {
       instance.unmount();
     },
-    clear: instance.clear.bind(instance),
+    clear: instance.clear,
   };
 };
-
-export default render;
 
 const getOptions = (stdout: Writable | RenderOptions | undefined = {}): RenderOptions => {
   if (stdout instanceof Stream) {

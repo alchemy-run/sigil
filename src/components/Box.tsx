@@ -1,12 +1,12 @@
-import { forwardRef, useContext, type PropsWithChildren } from "react";
+/** @jsxImportSource react */
+import { useContext, type PropsWithChildren, type Ref } from "react";
 
-import { type DOMElement } from "../dom.ts";
-import { type Styles } from "../styles.ts";
-import { type Except } from "../types.ts";
-import { accessibilityContext } from "./AccessibilityContext.ts";
-import { backgroundContext } from "./BackgroundContext.ts";
+import { accessibilityContext } from "#/components/AccessibilityContext.ts";
+import { backgroundContext } from "#/components/BackgroundContext.ts";
+import { type DOMElement } from "#/dom.ts";
+import { type Styles } from "#/styles.ts";
 
-export type Props = Except<Styles, "textWrap"> & {
+export type Props = Omit<Styles, "textWrap"> & {
   /**
 	A label for the element for screen readers.
 	*/
@@ -59,60 +59,50 @@ export type Props = Except<Styles, "textWrap"> & {
 /**
 `<Box>` is an essential Ink component to build your layout. It's like `<div style="display: flex">` in the browser.
 */
-const Box = forwardRef<DOMElement, PropsWithChildren<Props>>(
-  (
-    {
-      children,
-      backgroundColor,
-      "aria-label": ariaLabel,
-      "aria-hidden": ariaHidden,
-      "aria-role": role,
-      "aria-state": ariaState,
-      ...style
-    },
-    ref,
-  ) => {
-    const { isScreenReaderEnabled } = useContext(accessibilityContext);
-    const label = ariaLabel ? <ink-text>{ariaLabel}</ink-text> : undefined;
-    if (isScreenReaderEnabled && ariaHidden) {
-      return null;
-    }
+export function Box({
+  children,
+  ref,
+  backgroundColor,
+  "aria-label": ariaLabel,
+  "aria-hidden": ariaHidden,
+  "aria-role": role,
+  "aria-state": ariaState,
+  ...style
+}: PropsWithChildren<Props> & { readonly ref?: Ref<DOMElement> }) {
+  const { isScreenReaderEnabled } = useContext(accessibilityContext);
+  const label = ariaLabel ? <ink-text>{ariaLabel}</ink-text> : undefined;
+  if (isScreenReaderEnabled && ariaHidden) {
+    return null;
+  }
 
-    const boxElement = (
-      <ink-box
-        ref={ref}
-        style={{
-          flexWrap: "nowrap",
-          flexDirection: "row",
-          flexGrow: 0,
-          flexShrink: 1,
-          ...style,
-          backgroundColor,
-          overflowX: style.overflowX ?? style.overflow ?? "visible",
-          overflowY: style.overflowY ?? style.overflow ?? "visible",
-        }}
-        internal_accessibility={{
-          role,
-          state: ariaState,
-        }}
-      >
-        {isScreenReaderEnabled && label ? label : children}
-      </ink-box>
+  const boxElement = (
+    <ink-box
+      ref={ref}
+      style={{
+        flexWrap: "nowrap",
+        flexDirection: "row",
+        flexGrow: 0,
+        flexShrink: 1,
+        ...style,
+        backgroundColor,
+        overflowX: style.overflowX ?? style.overflow ?? "visible",
+        overflowY: style.overflowY ?? style.overflow ?? "visible",
+      }}
+      internal_accessibility={{
+        role,
+        state: ariaState,
+      }}
+    >
+      {isScreenReaderEnabled && label ? label : children}
+    </ink-box>
+  );
+
+  // If this Box has a background color, provide it to children via context
+  if (backgroundColor) {
+    return (
+      <backgroundContext.Provider value={backgroundColor}>{boxElement}</backgroundContext.Provider>
     );
+  }
 
-    // If this Box has a background color, provide it to children via context
-    if (backgroundColor) {
-      return (
-        <backgroundContext.Provider value={backgroundColor}>
-          {boxElement}
-        </backgroundContext.Provider>
-      );
-    }
-
-    return boxElement;
-  },
-);
-
-Box.displayName = "Box";
-
-export default Box;
+  return boxElement;
+}

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-import { render, Text, Box, useInput, useIsScreenReaderEnabled } from "../../src/index.ts";
+import { render, Text, Box, useInput, useIsScreenReaderEnabled } from "#/index.ts";
 
 const items = ["Red", "Green", "Blue", "Yellow", "Magenta", "Cyan"];
 

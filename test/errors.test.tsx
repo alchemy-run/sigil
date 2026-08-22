@@ -1,11 +1,12 @@
-import process from "node:process";
+import { setImmediate } from "node:timers/promises";
 
 import { useEffect } from "react";
 import { expect, test } from "vite-plus/test";
 
-import stripAnsi from "../src/ansi/strip.ts";
-import { render, useStdin, Text } from "../src/index.ts";
-import patchConsole from "../src/patch-console.ts";
+import { stripAnsi } from "#/ansi/strip.ts";
+import { render, useStdin, Text } from "#/index.ts";
+import { patchConsole } from "#/patch-console.ts";
+
 import createStdout from "./helpers/create-stdout.ts";
 
 let restore = () => {};
@@ -32,22 +33,22 @@ test("catch and display error", () => {
     .filter((w) => w.length > 0 && !w.startsWith("\u001B[?25") && !w.startsWith("\u001B[?2026"));
   const lastContentWrite = writes.at(-1)!;
 
-  expect(stripAnsi(lastContentWrite).split("\n").slice(0, 14)).toEqual([
-    "",
-    "  ERROR  Oh no",
-    "",
-    " test/errors.test.tsx:25:11",
-    "",
-    " 22:   const stdout = createStdout();",
-    " 23:",
-    " 24:   const Test = () => {",
-    ' 25:     throw new Error("Oh no");',
-    " 26:   };",
-    " 27:",
-    " 28:   render(<Test />, { stdout });",
-    "",
-    " - Test (test/errors.test.tsx:25:11)",
-  ]);
+  expect(stripAnsi(lastContentWrite).split("\n").slice(0, 14).join("\n")).toMatchInlineSnapshot(`
+    "
+      ERROR  Oh no
+
+     test/errors.test.tsx:26:11
+
+     23:   const stdout = createStdout();
+     24:
+     25:   const Test = () => {
+     26:     throw new Error("Oh no");
+     27:   };
+     28:
+     29:   render(<Test />, { stdout });
+
+     - Test (test/errors.test.tsx:26:11)"
+  `);
 });
 
 test("does not emit unhandledRejection when render exits with an error and waitUntilExit is unused", async () => {
@@ -66,12 +67,8 @@ test("does not emit unhandledRejection when render exits with an error and waitU
 
     render(<Test />, { stdout });
 
-    await new Promise<void>((resolve) => {
-      setImmediate(resolve);
-    });
-    await new Promise<void>((resolve) => {
-      setImmediate(resolve);
-    });
+    await setImmediate();
+    await setImmediate();
 
     expect(unhandledRejectionReasons.length).toBe(0);
   } finally {
@@ -102,8 +99,8 @@ test("ErrorBoundary catches and displays nested component errors", () => {
     .filter((w) => w.length > 0 && !w.startsWith("\u001B[?25") && !w.startsWith("\u001B[?2026"));
   const lastContentWrite = writes.at(-1)!;
   const output = stripAnsi(lastContentWrite);
-  expect(output.includes("ERROR"), "Error label should be displayed").toBe(true);
-  expect(output.includes("Nested component error"), "Error message should be shown").toBe(true);
+  expect(output, "Error label should be displayed").toContain("ERROR");
+  expect(output, "Error message should be shown").toContain("Nested component error");
 });
 
 test("clean up raw mode when error is thrown", async () => {
@@ -147,7 +144,7 @@ test("clean up raw mode when error is thrown", async () => {
   }
 
   // Verify raw mode was enabled then disabled
-  expect(setRawModeCalls.includes(true), "Raw mode should have been enabled").toBe(true);
+  expect(setRawModeCalls, "Raw mode should have been enabled").toContain(true);
   expect(setRawModeCalls.includes(false), "Raw mode should have been disabled on cleanup").toBe(
     true,
   );

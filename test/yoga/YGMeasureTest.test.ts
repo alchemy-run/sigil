@@ -3,7 +3,8 @@
 
 import { expect } from "vite-plus/test";
 
-import type { Node } from "../../src/yoga/index.ts";
+import type { Node } from "#/yoga/index.ts";
+
 import { defineBackendTest } from "./backends/defineBackendTest.ts";
 import { getMeasureCounter } from "./tools/MeasureCounter.ts";
 

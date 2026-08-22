@@ -1,7 +1,7 @@
 import { useContext, useRef, useCallback, useInsertionEffect } from "react";
 
-import CursorContext from "../components/CursorContext.ts";
-import { type CursorPosition } from "../log-update.ts";
+import { CursorContext } from "#/components/CursorContext.ts";
+import { type CursorPosition } from "#/log-update.ts";
 
 /**
 A React hook that returns methods to control the terminal cursor position.
@@ -10,7 +10,7 @@ Setting a cursor position makes the cursor visible at the specified coordinates 
 
 Pass `undefined` to hide the cursor.
 */
-const useCursor = () => {
+export const useCursor = () => {
   const context = useContext(CursorContext);
   const positionRef = useRef<CursorPosition | undefined>(undefined);
 
@@ -31,5 +31,3 @@ const useCursor = () => {
 
   return { setCursorPosition };
 };
-
-export default useCursor;

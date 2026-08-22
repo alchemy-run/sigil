@@ -2,8 +2,8 @@ import childProcess from "node:child_process";
 
 import React from "react";
 
-import stripAnsi from "../../src/ansi/strip.ts";
-import { render, Text, Box } from "../../src/index.ts";
+import { stripAnsi } from "#/ansi/strip.ts";
+import { render, Text, Box } from "#/index.ts";
 
 const textDecoder = new TextDecoder();
 

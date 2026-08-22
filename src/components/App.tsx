@@ -1,5 +1,5 @@
+/** @jsxImportSource react */
 import { EventEmitter } from "node:events";
-import process from "node:process";
 
 import React, {
   type ReactNode,
@@ -11,19 +11,19 @@ import React, {
   useInsertionEffect,
 } from "react";
 
-import cliCursor from "../ansi/cursor.ts";
-import ansiEscapes, { CSI, ESC } from "../ansi/escapes.ts";
-import { createInputParser } from "../input-parser.ts";
-import { type CursorPosition } from "../log-update.ts";
-import { getRawModeStream, type OutputStream } from "../stream.ts";
-import AnimationContext from "./AnimationContext.ts";
-import AppContext, { type SuspendTerminal } from "./AppContext.ts";
-import CursorContext from "./CursorContext.ts";
-import ErrorBoundary from "./ErrorBoundary.tsx";
-import FocusContext from "./FocusContext.ts";
-import StderrContext from "./StderrContext.ts";
-import StdinContext from "./StdinContext.ts";
-import StdoutContext from "./StdoutContext.ts";
+import { cliCursor } from "#/ansi/cursor.ts";
+import { ansiEscapes, CSI, ESC } from "#/ansi/escapes.ts";
+import { animationContext as AnimationContext } from "#/components/AnimationContext.ts";
+import { AppContext, type SuspendTerminal } from "#/components/AppContext.ts";
+import { CursorContext } from "#/components/CursorContext.ts";
+import { ErrorBoundary } from "#/components/ErrorBoundary.tsx";
+import { FocusContext } from "#/components/FocusContext.ts";
+import { StderrContext } from "#/components/StderrContext.ts";
+import { StdinContext } from "#/components/StdinContext.ts";
+import { StdoutContext } from "#/components/StdoutContext.ts";
+import { createInputParser } from "#/input-parser.ts";
+import { type CursorPosition } from "#/log-update.ts";
+import { getRawModeStream, type OutputStream } from "#/stream.ts";
 
 const tab = "\t";
 const shiftTab = `${CSI}Z`;
@@ -61,7 +61,7 @@ type Focusable = {
 // Root component for all Ink apps
 // It renders stdin and stdout contexts, so that children can access them if needed
 // It also handles Ctrl+C exiting and cursor visibility
-function App({
+export function App({
   children,
   stdin,
   stdout,
@@ -779,5 +779,3 @@ function App({
 }
 
 App.displayName = "InternalApp";
-
-export default App;

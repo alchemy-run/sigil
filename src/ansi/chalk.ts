@@ -1,7 +1,7 @@
 // Terminal string styling with a chalk-compatible API for the styles Ink uses.
 // Ported from `chalk` (MIT, Sindre Sorhus) without the chaining builder —
 // Ink only ever applies one style per call.
-import { ESC } from "./escapes.ts";
+import { ESC } from "#/ansi/escapes.ts";
 import {
   background,
   backgroundColorNames,
@@ -15,11 +15,12 @@ import {
   type BackgroundColorName,
   type ForegroundColorName,
   type ModifierName,
-} from "./sgr.ts";
-import supportsColorDetection, {
+} from "#/ansi/sgr.ts";
+import {
+  supportsColor as supportsColorDetection,
   type ColorInfo,
   type ColorSupportLevel,
-} from "./supports-color.ts";
+} from "#/ansi/supports-color.ts";
 
 export type { BackgroundColorName, ForegroundColorName, ModifierName };
 
@@ -37,50 +38,6 @@ const state = {
 
 // Replace every occurrence of `substring` with `substring + replacer`,
 // re-opening a style after a nested close code would have ended it.
-const stringReplaceAll = (string: string, substring: string, replacer: string): string => {
-  let index = string.indexOf(substring);
-  if (index === -1) {
-    return string;
-  }
-
-  const substringLength = substring.length;
-  let endIndex = 0;
-  let returnValue = "";
-  do {
-    returnValue += string.slice(endIndex, index) + substring + replacer;
-    endIndex = index + substringLength;
-    index = string.indexOf(substring, endIndex);
-  } while (index !== -1);
-
-  returnValue += string.slice(endIndex);
-  return returnValue;
-};
-
-// Close the style before every line break and reopen it after, to prevent
-// background bleed across lines (https://github.com/chalk/chalk/pull/92).
-const stringEncaseCRLFWithFirstIndex = (
-  string: string,
-  prefix: string,
-  postfix: string,
-  index: number,
-): string => {
-  let endIndex = 0;
-  let returnValue = "";
-  do {
-    const gotCR = string[index - 1] === "\r";
-    returnValue +=
-      string.slice(endIndex, gotCR ? index - 1 : index) +
-      prefix +
-      (gotCR ? "\r\n" : "\n") +
-      postfix;
-    endIndex = index + 1;
-    index = string.indexOf("\n", endIndex);
-  } while (index !== -1);
-
-  returnValue += string.slice(endIndex);
-  return returnValue;
-};
-
 const applyStyle = (open: string, close: string, text: string): string => {
   if (state.level <= 0 || !text) {
     return text;
@@ -91,12 +48,13 @@ const applyStyle = (open: string, close: string, text: string): string => {
   if (string.includes(ESC)) {
     // Re-open the style wherever the text already contains its close code,
     // otherwise only the part before that code would stay styled.
-    string = stringReplaceAll(string, close, open);
+    string = string.replaceAll(close, close + open);
   }
 
-  const lfIndex = string.indexOf("\n");
-  if (lfIndex !== -1) {
-    string = stringEncaseCRLFWithFirstIndex(string, close, open, lfIndex);
+  if (string.includes("\n")) {
+    // Close the style before every line break and reopen it after, to prevent
+    // background bleed across lines (https://github.com/chalk/chalk/pull/92).
+    string = string.replaceAll(/\r?\n/g, `${close}$&${open}`);
   }
 
   return open + string + close;
@@ -152,7 +110,7 @@ for (const name of [...modifierNames, ...foregroundColorNames, ...backgroundColo
   named[name] = styleFunction(styles[name].open, styles[name].close);
 }
 
-const chalk: Chalk = {
+export const chalk: Chalk = {
   ...named,
 
   get level(): ColorSupportLevel {
@@ -176,5 +134,3 @@ const chalk: Chalk = {
 };
 
 export const supportsColor: ColorInfo = stdoutColor;
-
-export default chalk;

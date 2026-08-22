@@ -2,7 +2,8 @@ import { setTimeout as delay } from "node:timers/promises";
 
 import { useState, useEffect, useCallback } from "react";
 
-import { Static, Box, render } from "../../src/index.ts";
+import { Static, Box, render } from "#/index.ts";
+
 import Summary from "./summary.tsx";
 import Test from "./test.tsx";
 

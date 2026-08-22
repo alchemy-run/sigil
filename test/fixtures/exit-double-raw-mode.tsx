@@ -1,8 +1,6 @@
-import process from "node:process";
-
 import { useEffect } from "react";
 
-import { Text, render, useStdin } from "../../src/index.ts";
+import { Text, render, useStdin } from "#/index.ts";
 
 function Test() {
   const { setRawMode } = useStdin();

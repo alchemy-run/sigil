@@ -1,8 +1,8 @@
-import colorize from "./colorize.ts";
-import { type DOMNode } from "./dom.ts";
-import type Output from "./output.ts";
+import { colorize } from "#/colorize.ts";
+import { type DOMNode } from "#/dom.ts";
+import type { Output } from "#/output.ts";
 
-const renderBackground = (x: number, y: number, node: DOMNode, output: Output): void => {
+export const renderBackground = (x: number, y: number, node: DOMNode, output: Output): void => {
   if (!node.style.backgroundColor) {
     return;
   }
@@ -36,5 +36,3 @@ const renderBackground = (x: number, y: number, node: DOMNode, output: Output): 
     });
   }
 };
-
-export default renderBackground;

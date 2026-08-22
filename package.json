@@ -30,26 +30,20 @@
   ],
   "type": "module",
   "imports": {
-    "#/": "./src"
+    "#/*": "./src/*"
   },
   "exports": {
     ".": {
-      "typescript": "./src/index.ts",
-      "bun": "./src/index.ts",
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
     "./ansi": {
-      "typescript": "./src/ansi/index.ts",
-      "bun": "./src/ansi/index.ts",
       "import": "./dist/ansi.js",
       "types": "./dist/ansi.d.ts",
       "default": "./dist/ansi.js"
     },
     "./yoga": {
-      "typescript": "./src/yoga/index.ts",
-      "bun": "./src/yoga/index.ts",
       "import": "./dist/yoga.js",
       "types": "./dist/yoga.d.ts",
       "default": "./dist/yoga.js"
@@ -82,7 +76,6 @@
     "@types/react": "^19.2.18",
     "@types/react-reconciler": "^0.33.0",
     "@types/scheduler": "^0.26.0",
-    "@types/ws": "^8.18.1",
     "react": "^19.2.8",
     "react-devtools-core": "^7.0.1",
     "react-router": "^8.3.0",
@@ -90,23 +83,18 @@
     "typescript": "^7.0.2",
     "vite-plus": "^0.2.9",
     "vitest": "4.1.11",
-    "ws": "^8.20.0",
     "zigpty": "^0.2.1"
   },
   "peerDependencies": {
     "@types/react": ">=19.2.0",
     "react": ">=19.2.0",
-    "react-devtools-core": ">=6.1.2",
-    "ws": ">=8.20.0"
+    "react-devtools-core": ">=6.1.2"
   },
   "peerDependenciesMeta": {
     "@types/react": {
       "optional": true
     },
     "react-devtools-core": {
-      "optional": true
-    },
-    "ws": {
       "optional": true
     }
   },

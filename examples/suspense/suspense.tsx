@@ -1,6 +1,6 @@
 import React from "react";
 
-import { render, Text } from "../../src/index.ts";
+import { render, Text } from "#/index.ts";
 
 let promise: Promise<void> | undefined;
 let state: string | undefined;

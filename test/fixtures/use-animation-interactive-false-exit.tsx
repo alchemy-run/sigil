@@ -1,6 +1,6 @@
 import React from "react";
 
-import { Text, render, useAnimation, useApp } from "../../src/index.ts";
+import { Text, render, useAnimation, useApp } from "#/index.ts";
 
 function Spinner() {
   const { frame } = useAnimation({ interval: 8 });

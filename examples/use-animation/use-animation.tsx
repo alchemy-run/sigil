@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 
-import { render, Text, Box, useInput, useAnimation } from "../../src/index.ts";
+import { render, Text, Box, useInput, useAnimation } from "#/index.ts";
 
 const rainbowColors = ["red", "yellow", "green", "cyan", "blue", "magenta"] as const;
 

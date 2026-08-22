@@ -1,11 +1,11 @@
-import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 
 import React from "react";
 import { expect, test, afterAll } from "vite-plus/test";
 
-import stripAnsi from "../src/ansi/strip.ts";
-import { render, Box, Text, useWindowSize } from "../src/index.ts";
+import { stripAnsi } from "#/ansi/strip.ts";
+import { render, Box, Text, useWindowSize } from "#/index.ts";
+
 import createStdout, { type FakeStdout } from "./helpers/create-stdout.ts";
 
 const getWriteContents = (stdout: FakeStdout): string[] =>
@@ -15,7 +15,7 @@ const getWriteContents = (stdout: FakeStdout): string[] =>
 
 test("useWindowSize returns current terminal dimensions and updates on resize", async () => {
   const stdout = createStdout(100);
-  (stdout as any).rows = 40;
+  stdout.rows = 40;
 
   function Test() {
     const { columns, rows } = useWindowSize();
@@ -29,19 +29,19 @@ test("useWindowSize returns current terminal dimensions and updates on resize", 
   const { waitUntilRenderFlush } = render(<Test />, { stdout });
   await waitUntilRenderFlush();
 
-  expect(stripAnsi(getWriteContents(stdout).at(-1)!).includes("100x40")).toBe(true);
+  expect(stripAnsi(getWriteContents(stdout).at(-1)!)).toContain("100x40");
 
-  (stdout as any).columns = 60;
-  (stdout as any).rows = 20;
+  stdout.columns = 60;
+  stdout.rows = 20;
   stdout.emit("resize");
   await delay(100);
 
-  expect(stripAnsi(getWriteContents(stdout).at(-1)!).includes("60x20")).toBe(true);
+  expect(stripAnsi(getWriteContents(stdout).at(-1)!)).toContain("60x20");
 });
 
 test("useWindowSize removes resize listener on unmount", async () => {
   const stdout = createStdout(100);
-  (stdout as any).rows = 24;
+  stdout.rows = 24;
 
   function Test() {
     const { columns, rows } = useWindowSize();
@@ -64,7 +64,7 @@ test("useWindowSize removes resize listener on unmount", async () => {
 
 test("useWindowSize does not crash when resize fires after unmount", async () => {
   const stdout = createStdout(100);
-  (stdout as any).rows = 24;
+  stdout.rows = 24;
 
   function Test() {
     const { columns, rows } = useWindowSize();
@@ -126,7 +126,7 @@ test("useWindowSize falls back to terminal-size rows when stdout.rows is missing
   process.stdout.rows = 0;
   process.stderr.columns = 0;
   process.stderr.rows = 0;
-  delete (stdout as any).rows;
+  delete (stdout as { rows?: number }).rows;
 
   function Test() {
     const { rows } = useWindowSize();
@@ -154,8 +154,8 @@ test("clear screen when terminal width decreases", async () => {
   render(<Test />, { stdout });
 
   const initialOutput = stripAnsi(getWriteContents(stdout)[0]);
-  expect(initialOutput.includes("Hello World")).toBe(true);
-  expect(initialOutput.includes("╭")).toBe(true); // Box border
+  expect(initialOutput).toContain("Hello World");
+  expect(initialOutput).toContain("╭"); // Box border
 
   // Decrease width - should trigger clear and rerender
   stdout.columns = 50;
@@ -164,8 +164,8 @@ test("clear screen when terminal width decreases", async () => {
 
   // Verify the output was updated for smaller width
   const lastOutput = stripAnsi(getWriteContents(stdout).at(-1)!);
-  expect(lastOutput.includes("Hello World")).toBe(true);
-  expect(lastOutput.includes("╭")).toBe(true); // Box border
+  expect(lastOutput).toContain("Hello World");
+  expect(lastOutput).toContain("╭"); // Box border
   expect(initialOutput).not.toBe(lastOutput); // Output should change due to width
 });
 
@@ -195,7 +195,7 @@ test("no screen clear when terminal width increases", async () => {
   // But when decreasing, the clear() is called which also uses eraseLines
   // The key difference: decreasing width triggers an explicit clear before render
   expect(stripAnsi(initialOutput)).not.toBe(stripAnsi(lastOutput));
-  expect(stripAnsi(lastOutput).includes("Test")).toBe(true);
+  expect(stripAnsi(lastOutput)).toContain("Test");
 });
 
 test("consecutive width decreases trigger screen clear each time", async () => {
@@ -220,7 +220,7 @@ test("consecutive width decreases trigger screen clear each time", async () => {
 
   const afterFirstDecrease = stripAnsi(getWriteContents(stdout).at(-1)!);
   expect(initialOutput).not.toBe(afterFirstDecrease);
-  expect(afterFirstDecrease.includes("Content")).toBe(true);
+  expect(afterFirstDecrease).toContain("Content");
 
   // Second decrease
   stdout.columns = 60;
@@ -229,7 +229,7 @@ test("consecutive width decreases trigger screen clear each time", async () => {
 
   const afterSecondDecrease = stripAnsi(getWriteContents(stdout).at(-1)!);
   expect(afterFirstDecrease).not.toBe(afterSecondDecrease);
-  expect(afterSecondDecrease.includes("Content")).toBe(true);
+  expect(afterSecondDecrease).toContain("Content");
 });
 
 test("width decrease clears lastOutput to force rerender", async () => {
@@ -256,7 +256,7 @@ test("width decrease clears lastOutput to force rerender", async () => {
 
   // Outputs should be different because the border width changed
   expect(initialOutput).not.toBe(afterResizeOutput);
-  expect(afterResizeOutput.includes("Test Content")).toBe(true);
+  expect(afterResizeOutput).toContain("Test Content");
 
   // Now try to rerender with a different component
   rerender(
@@ -267,7 +267,7 @@ test("width decrease clears lastOutput to force rerender", async () => {
   await delay(100);
 
   // Verify content was updated
-  expect(stripAnsi(getWriteContents(stdout).at(-1)!).includes("Updated Content")).toBe(true);
+  expect(stripAnsi(getWriteContents(stdout).at(-1)!)).toContain("Updated Content");
 });
 
 // Regression tests for inline rendering breaking on terminal height resize.
@@ -293,7 +293,7 @@ function ResizeRegressionList({ initialCount }: { readonly initialCount: number 
 
 test("height-only resize rewrites the inline frame (stale-screen regression)", async () => {
   const stdout = createStdout(80);
-  (stdout as any).rows = 10;
+  stdout.rows = 10;
 
   // The frame must not depend on the window size: the bug is that Ink wrote
   // nothing at all after a height-only resize because the output string was
@@ -303,25 +303,25 @@ test("height-only resize rewrites the inline frame (stale-screen regression)", a
     interactive: true,
   });
   await waitUntilRenderFlush();
-  expect(stripAnsi(getWriteContents(stdout).join("")).includes("Item 3")).toBe(true);
+  expect(stripAnsi(getWriteContents(stdout).join(""))).toContain("Item 3");
 
   const writesBefore = stdout.getWrites().length;
-  (stdout as any).rows = 20;
+  stdout.rows = 20;
   stdout.emit("resize");
   await delay(100);
 
   const afterResize = stdout.getWrites().slice(writesBefore).join("");
   expect(
-    stripAnsi(afterResize).includes("Item 3"),
+    stripAnsi(afterResize),
     "A height change must force a full rewrite of the inline frame",
-  ).toBe(true);
+  ).toContain("Item 3");
 
   unmount();
 });
 
 test("shrinking from an exactly-fullscreen frame does not erase scrollback", async () => {
   const stdout = createStdout(80);
-  (stdout as any).rows = 4;
+  stdout.rows = 4;
 
   const { waitUntilRenderFlush, unmount } = render(<ResizeRegressionList initialCount={4} />, {
     stdout,
@@ -337,16 +337,16 @@ test("shrinking from an exactly-fullscreen frame does not erase scrollback", asy
   await waitUntilRenderFlush();
 
   expect(
-    stdout.getWrites().join("").includes("\u001B[3J"),
+    stdout.getWrites().join(""),
     "Leaving an exactly-fullscreen frame must not erase the scrollback buffer",
-  ).toBe(false);
+  ).not.toContain("\u001B[3J");
 
   unmount();
 });
 
 test("overflowing frames are clamped to the viewport instead of erasing scrollback", async () => {
   const stdout = createStdout(80);
-  (stdout as any).rows = 4;
+  stdout.rows = 4;
 
   const { waitUntilRenderFlush, unmount } = render(<ResizeRegressionList initialCount={8} />, {
     stdout,
@@ -361,24 +361,23 @@ test("overflowing frames are clamped to the viewport instead of erasing scrollba
   await waitUntilRenderFlush();
 
   const allWrites = stdout.getWrites().join("");
-  expect(
-    allWrites.includes("\u001B[3J"),
-    "Overflowing updates must not erase the scrollback buffer",
-  ).toBe(false);
+  expect(allWrites, "Overflowing updates must not erase the scrollback buffer").not.toContain(
+    "\u001B[3J",
+  );
 
   const lastFrame = stripAnsi(getWriteContents(stdout).at(-1)!);
-  expect(lastFrame.includes("Item 9"), "The bottom rows of the frame must be visible").toBe(true);
+  expect(lastFrame, "The bottom rows of the frame must be visible").toContain("Item 9");
   expect(
-    lastFrame.includes("Item 1\n"),
+    lastFrame,
     "Rows above the viewport must be clamped away rather than pushed into scrollback",
-  ).toBe(false);
+  ).not.toContain("Item 1\n");
 
   unmount();
 });
 
 test("height shrink below the previous frame height does not erase scrollback", async () => {
   const stdout = createStdout(80);
-  (stdout as any).rows = 6;
+  stdout.rows = 6;
 
   const { waitUntilRenderFlush, unmount } = render(<ResizeRegressionList initialCount={6} />, {
     stdout,
@@ -387,15 +386,15 @@ test("height shrink below the previous frame height does not erase scrollback", 
   await waitUntilRenderFlush();
 
   const writesBefore = stdout.getWrites().length;
-  (stdout as any).rows = 4;
+  stdout.rows = 4;
   stdout.emit("resize");
   await delay(100);
 
   const afterResize = stdout.getWrites().slice(writesBefore).join("");
   expect(
-    afterResize.includes("\u001B[3J"),
+    afterResize,
     "A height shrink must not funnel the stale frame height into clearTerminal",
-  ).toBe(false);
+  ).not.toContain("\u001B[3J");
 
   unmount();
 });

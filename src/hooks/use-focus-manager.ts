@@ -1,6 +1,6 @@
 import { useContext } from "react";
 
-import FocusContext, { type Props } from "../components/FocusContext.ts";
+import { FocusContext, type Props } from "#/components/FocusContext.ts";
 
 type Output = {
   /**
@@ -48,7 +48,7 @@ type Output = {
 /**
 A React hook that returns methods to enable or disable focus management for all components or manually switch focus to the next or previous components.
 */
-const useFocusManager = (): Output => {
+export const useFocusManager = (): Output => {
   const focusContext = useContext(FocusContext);
 
   return {
@@ -60,5 +60,3 @@ const useFocusManager = (): Output => {
     activeId: focusContext.activeId,
   };
 };
-
-export default useFocusManager;

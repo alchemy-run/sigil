@@ -1,8 +1,7 @@
 import { type ReactNode, type Key, type Ref } from "react";
 
-import { type DOMElement } from "./dom.ts";
-import { type Styles } from "./styles.ts";
-import { type Except } from "./types.ts";
+import { type DOMElement } from "#/dom.ts";
+import { type Styles } from "#/styles.ts";
 
 declare module "react" {
   namespace JSX {
@@ -20,7 +19,7 @@ declare namespace Ink {
     children?: ReactNode;
     key?: Key;
     ref?: Ref<DOMElement>;
-    style?: Except<Styles, "textWrap">;
+    style?: Omit<Styles, "textWrap">;
     internal_accessibility?: DOMElement["internal_accessibility"];
   };
 

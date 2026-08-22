@@ -1,6 +1,6 @@
-import Yoga, { type Node as YogaNode } from "./yoga/index.ts";
+import { Yoga, type Node as YogaNode } from "#/yoga/index.ts";
 
-const getMaxWidth = (yogaNode: YogaNode) => {
+export const getMaxWidth = (yogaNode: YogaNode) => {
   return (
     yogaNode.getComputedWidth() -
     yogaNode.getComputedPadding(Yoga.EDGE_LEFT) -
@@ -9,5 +9,3 @@ const getMaxWidth = (yogaNode: YogaNode) => {
     yogaNode.getComputedBorder(Yoga.EDGE_RIGHT)
   );
 };
-
-export default getMaxWidth;

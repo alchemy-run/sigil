@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-import type { Node } from "../../../src/yoga/index.ts";
+import type { Node } from "#/yoga/index.ts";
 
 export interface LayoutSnapshot {
   readonly left: number;

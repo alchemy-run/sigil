@@ -30,7 +30,7 @@ type ConsoleMethod = (typeof consoleMethods)[number];
 export type Callback = (stream: "stdout" | "stderr", data: string) => void;
 export type Restore = () => void;
 
-const patchConsole = (callback: Callback): Restore => {
+export const patchConsole = (callback: Callback): Restore => {
   const stdout = new PassThrough();
   const stderr = new PassThrough();
 
@@ -61,4 +61,46 @@ const patchConsole = (callback: Callback): Restore => {
   };
 };
 
-export default patchConsole;
+// Intercept direct `write` calls on a stream. The write is swallowed and the
+// decoded chunk is handed to `onData`; write callbacks still fire so callers
+// awaiting flushes don't hang.
+export const patchStreamWrite = (
+  stream: NodeJS.WritableStream,
+  onData: (data: string) => void,
+): Restore => {
+  // Keep the unbound reference: restore below must reassign the exact
+  // original function object, not a bound copy.
+  // oxlint-disable-next-line typescript/unbound-method
+  const originalWrite = stream.write;
+
+  const patchedWrite = (
+    chunk: unknown,
+    encodingOrCallback?: unknown,
+    callback?: unknown,
+  ): boolean => {
+    const data =
+      typeof chunk === "string"
+        ? chunk
+        : chunk instanceof Uint8Array
+          ? Buffer.from(chunk).toString()
+          : String(chunk);
+
+    onData(data);
+
+    const done =
+      typeof encodingOrCallback === "function"
+        ? encodingOrCallback
+        : typeof callback === "function"
+          ? callback
+          : undefined;
+    done?.();
+
+    return true;
+  };
+
+  stream.write = patchedWrite;
+
+  return () => {
+    stream.write = originalWrite;
+  };
+};

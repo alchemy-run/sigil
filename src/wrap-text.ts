@@ -1,11 +1,11 @@
-import cliTruncate from "./ansi/truncate.ts";
-import wrapAnsi from "./ansi/wrap.ts";
-import QuickLRU from "./quick-lru.ts";
-import { type Styles } from "./styles.ts";
+import { cliTruncate } from "#/ansi/truncate.ts";
+import { wrapAnsi } from "#/ansi/wrap.ts";
+import { QuickLru as QuickLRU } from "#/quick-lru.ts";
+import { type Styles } from "#/styles.ts";
 
 export const wrapTextCache = new QuickLRU<string, string>({ maxSize: 4096 });
 
-const wrapText = (text: string, maxWidth: number, wrapType: Styles["textWrap"]): string => {
+export const wrapText = (text: string, maxWidth: number, wrapType: Styles["textWrap"]): string => {
   const cacheKey = text + String(maxWidth) + String(wrapType);
   const cachedText = wrapTextCache.get(cacheKey);
 
@@ -48,5 +48,3 @@ const wrapText = (text: string, maxWidth: number, wrapType: Styles["textWrap"]):
 
   return wrappedText;
 };
-
-export default wrapText;

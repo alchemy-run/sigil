@@ -1,13 +1,12 @@
-import widestLine from "./ansi/widest-line.ts";
-import { type DOMElement } from "./dom.ts";
-import getMaxWidth from "./get-max-width.ts";
-import indentString from "./indent-string.ts";
-import type Output from "./output.ts";
-import renderBackground from "./render-background.ts";
-import renderBorder from "./render-border.ts";
-import squashTextNodes from "./squash-text-nodes.ts";
-import wrapText from "./wrap-text.ts";
-import Yoga from "./yoga/index.ts";
+import { widestLine } from "#/ansi/string-width.ts";
+import { type DOMElement } from "#/dom.ts";
+import { getMaxWidth } from "#/get-max-width.ts";
+import type { Output } from "#/output.ts";
+import { renderBackground } from "#/render-background.ts";
+import { renderBorder } from "#/render-border.ts";
+import { squashTextNodes } from "#/squash-text-nodes.ts";
+import { wrapText } from "#/wrap-text.ts";
+import { Yoga } from "#/yoga/index.ts";
 
 // If parent container is `<Box>`, text nodes will be treated as separate nodes in
 // the tree and will have their own coordinates in the layout.
@@ -21,7 +20,10 @@ const applyPaddingToText = (node: DOMElement, text: string): string => {
   if (yogaNode) {
     const offsetX = yogaNode.getComputedLeft();
     const offsetY = yogaNode.getComputedTop();
-    text = "\n".repeat(offsetY) + indentString(text, offsetX);
+
+    text =
+      "\n".repeat(offsetY) +
+      (offsetX > 0 ? text.replace(/^(?!\s*$)/gm, " ".repeat(offsetX)) : text);
   }
 
   return text;
@@ -90,7 +92,7 @@ export const renderNodeToScreenReaderOutput = (
 };
 
 // After nodes are laid out, render each to output object, which later gets rendered to terminal
-const renderNodeToOutput = (
+export const renderNodeToOutput = (
   node: DOMElement,
   output: Output,
   options: {
@@ -189,5 +191,3 @@ const renderNodeToOutput = (
     }
   }
 };
-
-export default renderNodeToOutput;
