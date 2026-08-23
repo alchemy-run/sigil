@@ -151,3 +151,12 @@ Copyright (c) React Training LLC 2015-2019, Remix Software Inc. 2020-2021,
 and Shopify Inc. 2022-2023.
 
 Licensed under the MIT License (text above).
+
+## supports-hyperlinks (MIT)
+
+`src/ansi/supports-hyperlinks.ts` is derived from `supports-hyperlinks`.
+
+Copyright (c) James Talmage <james@talmage.io> (https://github.com/jamestalmage)
+and Sindre Sorhus <sindresorhus@gmail.com> (https://sindresorhus.com)
+
+Licensed under the MIT License (text above).

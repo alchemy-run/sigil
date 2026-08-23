@@ -15,6 +15,8 @@ export type { Props as StaticProps } from "#/components/Static.tsx";
 export { Static } from "#/components/Static.tsx";
 export type { Props as TransformProps } from "#/components/Transform.tsx";
 export { Transform } from "#/components/Transform.tsx";
+export type { Props as HyperlinkProps } from "#/components/Hyperlink.tsx";
+export { Hyperlink } from "#/components/Hyperlink.tsx";
 export type { Props as NewlineProps } from "#/components/Newline.tsx";
 export { Newline } from "#/components/Newline.tsx";
 export { Spacer } from "#/components/Spacer.tsx";

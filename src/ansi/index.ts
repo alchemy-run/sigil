@@ -5,6 +5,7 @@
 // Styling
 export { chalk } from "#/ansi/chalk.ts";
 export { supportsColor } from "#/ansi/supports-color.ts";
+export { supportsHyperlinks, createSupportsHyperlinks } from "#/ansi/supports-hyperlinks.ts";
 export * from "#/ansi/sgr.ts";
 
 // Escape sequences (raw building blocks + named sequences)
