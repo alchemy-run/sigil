@@ -181,6 +181,13 @@ describe("detectColorLevel", () => {
     expect(detectColorLevel({ isTTY: true })).toBe(1);
   });
 
+  test("an empty CI variable does not disable colors", () => {
+    stubColorCleanEnv();
+    vi.stubEnv("CI", "");
+    vi.stubEnv("TERM", "xterm-kitty");
+    expect(detectColorLevel({ isTTY: true })).toBe(3);
+  });
+
   test("non-TTY streams get no color without FORCE_COLOR", () => {
     stubColorCleanEnv();
     vi.stubEnv("TERM", "xterm-kitty");

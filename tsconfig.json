@@ -1,6 +1,6 @@
 {
   "include": ["src"],
-  "exclude": ["node_modules", "dist", ".reference", ".vendor"],
+  "exclude": ["node_modules", "dist", ".reference", ".vendor", "src/testing/explorer-app"],
   "compilerOptions": {
     "module": "esnext",
     "moduleResolution": "bundler",

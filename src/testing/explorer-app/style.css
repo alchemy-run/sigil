@@ -1,0 +1,194 @@
+body {
+  margin: 0;
+  background: #101014;
+  color: #c0caf5;
+  font-family: monospace;
+  font-size: 13px;
+}
+a {
+  color: #7aa2f7;
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+h1 {
+  font-size: 16px;
+  margin: 0 0 4px;
+}
+h2 {
+  font-size: 11px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 20px 0 8px;
+}
+p {
+  color: #666;
+  font-size: 11px;
+  margin: 4px 0;
+}
+ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+li {
+  margin: 3px 0;
+}
+button {
+  background: #1f2335;
+  color: #7aa2f7;
+  border: 1px solid #2a2a33;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 1px 8px;
+}
+button:hover {
+  background: #24283b;
+}
+button:disabled {
+  color: #555;
+  cursor: default;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  min-height: 100vh;
+}
+.sidebar {
+  padding: 20px;
+  border-right: 1px solid #2a2a33;
+  overflow-y: auto;
+  max-height: 100vh;
+  box-sizing: border-box;
+}
+.main {
+  padding: 20px;
+  overflow-y: auto;
+  max-height: 100vh;
+  box-sizing: border-box;
+}
+
+.task {
+  margin: 1px 0;
+}
+.task > .row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px 0;
+}
+.task .run {
+  visibility: hidden;
+  padding: 0 6px;
+}
+.task > .row:hover .run {
+  visibility: visible;
+}
+.task .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #444;
+  flex: none;
+}
+.task .dot.pass {
+  background: #9ece6a;
+}
+.task .dot.fail {
+  background: #f7768e;
+}
+.task .dot.run {
+  background: #e0af68;
+  animation: pulse 1s infinite;
+}
+.task .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.task .time {
+  color: #565f89;
+  font-size: 11px;
+  margin-left: auto;
+  flex: none;
+}
+.task .children {
+  margin-left: 14px;
+  border-left: 1px solid #1f2335;
+  padding-left: 8px;
+}
+.task .error {
+  color: #f7768e;
+  font-size: 11px;
+  margin: 2px 0 4px 14px;
+  white-space: pre-wrap;
+}
+#run-state {
+  color: #e0af68;
+  font-size: 11px;
+  margin-left: 8px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.session {
+  margin-bottom: 20px;
+  border: 1px solid #2a2a33;
+  border-radius: 6px;
+  overflow: hidden;
+  width: fit-content;
+}
+.session > .bar {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 10px;
+  background: #16161e;
+  font-size: 12px;
+}
+.session .status {
+  color: #9ece6a;
+}
+.session.done .status {
+  color: #888;
+}
+.session.failed .status {
+  color: #f7768e;
+}
+.session > .body {
+  padding: 8px;
+}
+#empty {
+  color: #565f89;
+}
+
+.terminal-view {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  box-sizing: border-box;
+  padding: 12px;
+  gap: 8px;
+}
+.terminal-view header {
+  color: #888;
+  font-size: 12px;
+  display: flex;
+  justify-content: space-between;
+  flex: none;
+}
+.terminal-view .terminal-host {
+  flex: 1;
+  min-height: 0;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.4;
+  }
+}

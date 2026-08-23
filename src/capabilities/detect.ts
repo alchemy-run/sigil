@@ -339,7 +339,7 @@ export function detectColorLevel(stream?: DetectStream): ColorSupportLevel {
 
   // Azure DevOps pipelines are colorful but not TTYs; check before the
   // stream gate.
-  if ("TF_BUILD" in env && "AGENT_NAME" in env) {
+  if (env["TF_BUILD"] && env["AGENT_NAME"]) {
     return 1;
   }
 
@@ -358,7 +358,9 @@ export function detectColorLevel(stream?: DetectStream): ColorSupportLevel {
     return 3;
   }
 
-  if ("CI" in env) {
+  // An empty CI variable means "not CI" (`CI= cmd` and harness spawns), the
+  // same convention `isInCi` uses — presence alone must not kill colors.
+  if (env["CI"]) {
     if (["GITHUB_ACTIONS", "GITEA_ACTIONS", "CIRCLECI"].some((key) => key in env)) {
       return 3;
     }
@@ -373,8 +375,8 @@ export function detectColorLevel(stream?: DetectStream): ColorSupportLevel {
     return minimum;
   }
 
-  if ("TEAMCITY_VERSION" in env) {
-    return /^(9\.(0*[1-9]\d*)\.|\d{2,}\.)/.test(env["TEAMCITY_VERSION"]!) ? 1 : 0;
+  if (env["TEAMCITY_VERSION"]) {
+    return /^(9\.(0*[1-9]\d*)\.|\d{2,}\.)/.test(env["TEAMCITY_VERSION"]) ? 1 : 0;
   }
 
   if (env["COLORTERM"] === "truecolor") {
@@ -447,7 +449,7 @@ export function detectHyperlinkSupport(stream?: DetectStream): boolean {
   }
 
   // CI log renderers generally show escape codes literally.
-  if ("CI" in env || "TEAMCITY_VERSION" in env) {
+  if (env["CI"] || env["TEAMCITY_VERSION"]) {
     return false;
   }
 
