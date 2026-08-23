@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 
 import { BEL, OSC } from "#/ansi/escapes.ts";
-import { createSupportsHyperlinks } from "#/ansi/supports-hyperlinks.ts";
+import { detectHyperlinkSupport } from "#/capabilities/detect.ts";
 import { Hyperlink, Text } from "#/index.ts";
 
 import { renderToString } from "./helpers/render-to-string.ts";
@@ -76,7 +76,7 @@ describe("Hyperlink", () => {
   });
 });
 
-describe("createSupportsHyperlinks", () => {
+describe("detectHyperlinkSupport", () => {
   const tty = { isTTY: true };
 
   const stubClean = () => {
@@ -100,57 +100,57 @@ describe("createSupportsHyperlinks", () => {
   test("respects FORCE_HYPERLINK overrides", () => {
     stubClean();
     vi.stubEnv("FORCE_HYPERLINK", "1");
-    expect(createSupportsHyperlinks(tty)).toBe(true);
+    expect(detectHyperlinkSupport(tty)).toBe(true);
 
     vi.stubEnv("FORCE_HYPERLINK", "0");
-    expect(createSupportsHyperlinks(tty)).toBe(false);
+    expect(detectHyperlinkSupport(tty)).toBe(false);
   });
 
   test("rejects non-TTY streams and CI", () => {
     stubClean();
     vi.stubEnv("TERM", "xterm-kitty");
-    expect(createSupportsHyperlinks({ isTTY: false })).toBe(false);
+    expect(detectHyperlinkSupport({ isTTY: false })).toBe(false);
 
     vi.stubEnv("CI", "1");
-    expect(createSupportsHyperlinks(tty)).toBe(false);
+    expect(detectHyperlinkSupport(tty)).toBe(false);
   });
 
   test("detects capable terminals", () => {
     stubClean();
     vi.stubEnv("TERM", "xterm-kitty");
-    expect(createSupportsHyperlinks(tty)).toBe(true);
+    expect(detectHyperlinkSupport(tty)).toBe(true);
 
     stubClean();
     vi.stubEnv("WT_SESSION", "some-guid");
-    expect(createSupportsHyperlinks(tty)).toBe(true);
+    expect(detectHyperlinkSupport(tty)).toBe(true);
 
     stubClean();
     vi.stubEnv("TERM_PROGRAM", "iTerm.app");
     vi.stubEnv("TERM_PROGRAM_VERSION", "3.4.0");
-    expect(createSupportsHyperlinks(tty)).toBe(true);
+    expect(detectHyperlinkSupport(tty)).toBe(true);
 
     stubClean();
     vi.stubEnv("TERM_PROGRAM", "iTerm.app");
     vi.stubEnv("TERM_PROGRAM_VERSION", "3.0.0");
-    expect(createSupportsHyperlinks(tty)).toBe(false);
+    expect(detectHyperlinkSupport(tty)).toBe(false);
 
     stubClean();
     vi.stubEnv("TERM_PROGRAM", "vscode");
     vi.stubEnv("TERM_PROGRAM_VERSION", "1.80.0");
-    expect(createSupportsHyperlinks(tty)).toBe(true);
+    expect(detectHyperlinkSupport(tty)).toBe(true);
 
     stubClean();
     vi.stubEnv("VTE_VERSION", "6003");
-    expect(createSupportsHyperlinks(tty)).toBe(true);
+    expect(detectHyperlinkSupport(tty)).toBe(true);
 
     stubClean();
     vi.stubEnv("VTE_VERSION", "0.50.0");
-    expect(createSupportsHyperlinks(tty)).toBe(false);
+    expect(detectHyperlinkSupport(tty)).toBe(false);
   });
 
   test("defaults to false for unknown terminals", () => {
     stubClean();
     vi.stubEnv("TERM", "xterm-256color");
-    expect(createSupportsHyperlinks(tty)).toBe(false);
+    expect(detectHyperlinkSupport(tty)).toBe(false);
   });
 });

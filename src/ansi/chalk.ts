@@ -1,3 +1,5 @@
+import { isatty } from "node:tty";
+
 // Terminal string styling with a chalk-compatible API for the styles Ink uses.
 // Ported from `chalk` (MIT, Sindre Sorhus) without the chaining builder —
 // Ink only ever applies one style per call.
@@ -17,16 +19,16 @@ import {
   type ModifierName,
 } from "#/ansi/sgr.ts";
 import {
-  supportsColor as supportsColorDetection,
+  createSupportsColor,
   type ColorInfo,
   type ColorSupportLevel,
-} from "#/ansi/supports-color.ts";
+} from "#/capabilities/detect.ts";
 
 export type { BackgroundColorName, ForegroundColorName, ModifierName };
 
 export type StyleFunction = (text: string) => string;
 
-const { stdout: stdoutColor } = supportsColorDetection;
+const stdoutColor = createSupportsColor({ isTTY: isatty(1) });
 
 // `level` → color model for hex/rgb downsampling
 const levelMapping = ["ansi", "ansi", "ansi256", "ansi16m"] as const;

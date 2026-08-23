@@ -1,0 +1,1 @@
+import "./capabilities.tsx";

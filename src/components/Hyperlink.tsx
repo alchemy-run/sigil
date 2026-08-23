@@ -2,7 +2,7 @@
 import { type ReactNode } from "react";
 
 import { link } from "#/ansi/escapes.ts";
-import { createSupportsHyperlinks } from "#/ansi/supports-hyperlinks.ts";
+import { detectHyperlinkSupport } from "#/capabilities/detect.ts";
 import { Text, type Props as TextProps } from "#/components/Text.tsx";
 import { Transform } from "#/components/Transform.tsx";
 import { useStdout } from "#/hooks/use-stdout.ts";
@@ -37,7 +37,7 @@ back to `text (url)`.
 export function Hyperlink({ url, fallback = true, children, ...textProps }: Props) {
   const { stdout } = useStdout();
 
-  if (!createSupportsHyperlinks(stdout)) {
+  if (!detectHyperlinkSupport(stdout)) {
     return (
       <Text {...textProps}>
         {children}

@@ -20,6 +20,8 @@ export { Hyperlink } from "#/components/Hyperlink.tsx";
 export type { Props as NewlineProps } from "#/components/Newline.tsx";
 export { Newline } from "#/components/Newline.tsx";
 export { Spacer } from "#/components/Spacer.tsx";
+export * from "#/capabilities/index.ts";
+export { useCapabilities, useCapabilitiesChange } from "#/hooks/use-capabilities.ts";
 export type { Key } from "#/hooks/use-input.ts";
 export { useInput } from "#/hooks/use-input.ts";
 export { usePaste } from "#/hooks/use-paste.ts";

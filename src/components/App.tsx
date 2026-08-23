@@ -13,6 +13,13 @@ import React, {
 
 import { cliCursor } from "#/ansi/cursor.ts";
 import { ansiEscapes, CSI, ESC } from "#/ansi/escapes.ts";
+import {
+  ensureTerminalQuery,
+  getTerminalQueryPromise,
+  refreshTerminalQuery,
+  type TerminalQueryResult,
+} from "#/capabilities/query.ts";
+import { getCapabilities, registerTerminalIntegration } from "#/capabilities/store.ts";
 import { animationContext as AnimationContext } from "#/components/AnimationContext.ts";
 import { AppContext, type SuspendTerminal } from "#/components/AppContext.ts";
 import { CursorContext } from "#/components/CursorContext.ts";
@@ -202,6 +209,10 @@ export function App({
   }, [clearAnimationTimer]);
 
   const rawModeStdin = getRawModeStream(stdin);
+  // Stable per stream pair — the capabilities store consumes unsolicited
+  // terminal reports (focus, color scheme, in-band resize) from the input
+  // pipeline below.
+  const capabilitiesStore = getCapabilities(stdin, stdout);
   const isRawModeSupported = rawModeStdin !== undefined;
 
   const detachReadableListener = useCallback((): void => {
@@ -291,6 +302,12 @@ export function App({
       const inputEvents = inputParserRef.current.push(chunk);
       for (const event of inputEvents) {
         if (typeof event === "string") {
+          // Unsolicited terminal reports belong to the capabilities store,
+          // never to key handlers.
+          if (capabilitiesStore.ingest(event)) {
+            continue;
+          }
+
           emitInput(event);
         } else {
           // Keep paste on a separate channel from `useInput` so key handlers
@@ -308,7 +325,7 @@ export function App({
     if (inputParserRef.current.hasPendingEscape()) {
       schedulePendingInputFlush();
     }
-  }, [stdin, emitInput, clearPendingInputFlush, schedulePendingInputFlush]);
+  }, [stdin, emitInput, clearPendingInputFlush, schedulePendingInputFlush, capabilitiesStore]);
 
   const attachReadableListener = useCallback((): void => {
     if (readableListenerRef.current) {
@@ -378,6 +395,86 @@ export function App({
     },
     [rawModeStdin, stdin, attachReadableListener, clearInputState, disableRawMode],
   );
+
+  const handleQueryTerminal = useCallback(
+    async ({ refresh = false } = {}): Promise<TerminalQueryResult | undefined> => {
+      if (!interactive || !isRawModeSupported || !stdout.isTTY) {
+        return undefined;
+      }
+
+      // Without a refresh, an existing (or in-flight) query answers directly.
+      if (!refresh) {
+        const existing = getTerminalQueryPromise(stdout);
+        if (existing) {
+          return existing;
+        }
+      }
+
+      // Own the input stream for the duration of the query: raw mode on so
+      // responses arrive unbuffered, and the readable listener detached so they
+      // flow to the query's own data listener instead of being parsed as key
+      // presses. queryTerminal buffers real user input typed during the query
+      // and unshifts it back; reattaching the readable listener delivers it.
+      //
+      // Note: if kitty keyboard auto-detection is in flight at the same time,
+      // both data listeners see the same bytes; that detector answers the same
+      // CSI ? u probe this query sends, so it converges to the same result.
+      handleSetRawMode(true);
+      detachReadableListener();
+      try {
+        return await (refresh
+          ? refreshTerminalQuery(stdin, stdout)
+          : ensureTerminalQuery(stdin, stdout));
+      } finally {
+        attachReadableListener();
+        handleSetRawMode(false);
+      }
+    },
+    [
+      interactive,
+      isRawModeSupported,
+      stdin,
+      stdout,
+      handleSetRawMode,
+      detachReadableListener,
+      attachReadableListener,
+    ],
+  );
+
+  // While the store has push reporting enabled, someone must actually read
+  // stdin so the reports reach `ingest` — even in apps without a single
+  // `useInput`. Holding raw mode (ref-counted, like `useInput` does) keeps
+  // the readable pipeline attached for the duration.
+  const reportFeedActiveRef = useRef(false);
+  const handleSetReportFeed = useCallback(
+    (active: boolean): void => {
+      if (active === reportFeedActiveRef.current || !isRawModeSupported) {
+        return;
+      }
+
+      reportFeedActiveRef.current = active;
+      handleSetRawMode(active);
+    },
+    [isRawModeSupported, handleSetRawMode],
+  );
+
+  // Hand the capabilities store this instance's integration: queries go
+  // through the input pipeline above instead of competing with it, and the
+  // report feed keeps that pipeline running while reports are enabled. An
+  // insertion effect runs before every passive effect — parent and child —
+  // so a child calling store.query() from its own mount effect always finds
+  // the integration already registered.
+  useInsertionEffect(() => {
+    const unregister = registerTerminalIntegration(stdout, {
+      runQuery: handleQueryTerminal,
+      setReportFeed: handleSetReportFeed,
+    });
+
+    return () => {
+      unregister();
+      handleSetReportFeed(false);
+    };
+  }, [stdout, handleQueryTerminal, handleSetReportFeed]);
 
   const handleSetBracketedPasteMode = useCallback(
     (isEnabled: boolean): void => {

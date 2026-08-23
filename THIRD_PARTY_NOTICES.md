@@ -53,7 +53,7 @@ Licensed under the MIT License (text above).
 
 ## supports-color (MIT)
 
-`src/ansi/supports-color.ts` is derived from `supports-color`.
+The color-level detection in `src/capabilities.ts` is derived from `supports-color`.
 
 Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (https://sindresorhus.com)
 and Josh Junon.
@@ -154,9 +154,19 @@ Licensed under the MIT License (text above).
 
 ## supports-hyperlinks (MIT)
 
-`src/ansi/supports-hyperlinks.ts` is derived from `supports-hyperlinks`.
+The hyperlink detection in `src/capabilities.ts` is derived from
+`supports-hyperlinks`.
 
 Copyright (c) James Talmage <james@talmage.io> (https://github.com/jamestalmage)
 and Sindre Sorhus <sindresorhus@gmail.com> (https://sindresorhus.com)
+
+Licensed under the MIT License (text above).
+
+## is-unicode-supported (MIT)
+
+`detectUnicodeSupport` in `src/capabilities.ts` is derived from
+`is-unicode-supported`.
+
+Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (https://sindresorhus.com)
 
 Licensed under the MIT License (text above).

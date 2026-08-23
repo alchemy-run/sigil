@@ -54,6 +54,13 @@
       "import": "./dist/router.js",
       "types": "./dist/router.d.ts",
       "default": "./dist/router.js"
+    },
+    "./capabilities": {
+      "typescript": "./src/capabilities/index.ts",
+      "bun": "./src/capabilities/index.ts",
+      "import": "./dist/capabilities.js",
+      "types": "./dist/capabilities.d.ts",
+      "default": "./dist/capabilities.js"
     }
   },
   "publishConfig": {
