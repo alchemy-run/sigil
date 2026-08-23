@@ -6,6 +6,7 @@ export default defineConfig({
       index: "src/index.ts",
       ansi: "src/ansi/index.ts",
       yoga: "src/yoga/index.ts",
+      router: "src/router/index.ts",
     },
     format: "esm",
     outExtensions: () => ({ js: ".js", dts: ".d.ts" }),

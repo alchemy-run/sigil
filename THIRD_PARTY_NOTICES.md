@@ -141,3 +141,13 @@ INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
 LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
 OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 PERFORMANCE OF THIS SOFTWARE.
+
+## react-router (MIT)
+
+The route matching engine and component model of `src/router/` are ported from
+[react-router](https://github.com/remix-run/react-router)'s declarative mode.
+
+Copyright (c) React Training LLC 2015-2019, Remix Software Inc. 2020-2021,
+and Shopify Inc. 2022-2023.
+
+Licensed under the MIT License (text above).
