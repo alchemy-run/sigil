@@ -195,54 +195,49 @@ test("strip ANSI cursor position and erase sequences from text", () => {
   expect(stripAnsi(output)).toBe("HelloWorld!");
 });
 
-test("preserve SGR color sequences in text", () => {
+test("strip SGR color sequences from ordinary text", () => {
   const output = renderToString(
     <Box>
       <Text>{"\u001B[32mgreen\u001B[0m normal"}</Text>
     </Box>,
   );
 
-  expect(output).toContain("\u001B[");
-  expect(stripAnsi(output)).toBe("green normal");
+  expect(output).toBe("green normal");
 });
 
-test("preserve OSC hyperlink sequences in text", () => {
+test("strip OSC hyperlink sequences from ordinary text", () => {
   const output = renderText("\u001B]8;;https://example.com\u0007link\u001B]8;;\u0007");
 
-  expect(output).toContain("\u001B]8;;");
-  expect(stripAnsi(output)).toBe("link");
+  expect(output).toBe("link");
 });
 
-test("preserve OSC hyperlink sequences with ST terminator in text", () => {
+test("strip ST-terminated OSC hyperlinks from ordinary text", () => {
   const output = renderText("\u001B]8;;https://example.com\u001B\\link\u001B]8;;\u001B\\");
 
-  expect(output).toContain("\u001B]8;;");
-  expect(output).toContain("\u001B\\");
-  expect(stripAnsi(output)).toBe("link");
+  expect(output).toBe("link");
 });
 
-test("preserve C1 OSC hyperlinks in text, normalized to 7-bit", () => {
+test("strip C1 OSC hyperlinks from ordinary text", () => {
   // C1 introducers are normalized to their 7-bit form: C1 bytes are not
   // interpreted as control characters by many terminals in UTF-8 mode, so the
   // ESC form is the robust way to preserve the link.
   const input = "\u009D8;;https://example.com\u0007link\u009D8;;\u0007";
   const output = renderText(input);
 
-  expect(output).toBe("\u001B]8;;https://example.com\u0007link\u001B]8;;\u0007");
+  expect(output).toBe("link");
 });
 
-test("preserve C1 OSC hyperlinks with ST terminator in text, normalized to 7-bit", () => {
+test("strip ST-terminated C1 OSC hyperlinks from ordinary text", () => {
   const input = "\u009D8;;https://example.com\u001B\\link\u009D8;;\u001B\\";
   const output = renderText(input);
 
-  expect(output).toBe("\u001B]8;;https://example.com\u001B\\link\u001B]8;;\u001B\\");
+  expect(output).toBe("link");
 });
 
-test("preserve SGR sequences with colon parameters", () => {
+test("strip colon-form SGR sequences from ordinary text", () => {
   const output = renderText("A\u001B[38:2::255:100:0mcolor\u001B[0mB");
 
-  expect(output).toContain("\u001B[38:2::255:100:0m");
-  expect(stripAnsi(output)).toBe("AcolorB");
+  expect(output).toBe("AcolorB");
 });
 
 test("strip complete non-SGR CSI sequences without leaking parameters", () => {
@@ -336,12 +331,11 @@ test("strip malformed SOS control strings to avoid payload leaks", () => {
   expect(stripAnsi(output)).toBe("A");
 });
 
-test("preserve SGR sequences around stripped SOS control strings", () => {
+test("strip SGR sequences around stripped SOS control strings", () => {
   const output = renderText("A\u001B[32mgreen\u001B[0m\u001BXpayload\u001B\\B");
 
-  expect(output).toContain("\u001B[");
   expect(output).not.toContain("payload");
-  expect(stripAnsi(output)).toBe("AgreenB");
+  expect(output).toBe("AgreenB");
 });
 
 test("strip tmux DCS passthrough containing BEL until the final ST terminator", () => {

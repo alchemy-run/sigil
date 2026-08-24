@@ -49,18 +49,29 @@
       "default": "./dist/yoga.js"
     },
     "./router": {
-      "typescript": "./src/router/index.ts",
-      "bun": "./src/router/index.ts",
       "import": "./dist/router.js",
       "types": "./dist/router.d.ts",
       "default": "./dist/router.js"
     },
     "./capabilities": {
-      "typescript": "./src/capabilities/index.ts",
-      "bun": "./src/capabilities/index.ts",
       "import": "./dist/capabilities.js",
       "types": "./dist/capabilities.d.ts",
       "default": "./dist/capabilities.js"
+    },
+    "./color": {
+      "import": "./dist/color.js",
+      "types": "./dist/color.d.ts",
+      "default": "./dist/color.js"
+    },
+    "./screen": {
+      "import": "./dist/screen.js",
+      "types": "./dist/screen.d.ts",
+      "default": "./dist/screen.js"
+    },
+    "./terminal": {
+      "import": "./dist/terminal.js",
+      "types": "./dist/terminal.d.ts",
+      "default": "./dist/terminal.js"
     }
   },
   "publishConfig": {
@@ -76,9 +87,10 @@
     "lint": "vp lint",
     "format": "vp fmt .",
     "check": "vp check",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p test/contracts/tsconfig.json",
     "inspect": "vpx react-devtools",
     "build:reference": "tsx scripts/build-reference.ts",
+    "bench:terminal": "tsx benchmark/terminal-core.tsx --check",
     "fuzz": "tsx test/yoga/fuzz/typescript.ts",
     "fuzz:differential": "vpr build:reference && tsx test/yoga/fuzz/differential.ts",
     "fuzz:loop": "vpr build:reference && tsx test/yoga/fuzz/loop.ts"

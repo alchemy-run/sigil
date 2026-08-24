@@ -200,7 +200,7 @@ export const launchTerminal = async (
     ...env,
   };
   delete childEnv["CI"];
-  const child = zigpty.spawn(argv[0]!, argv.slice(1), {
+  const child = zigpty.spawn(argv[0], argv.slice(1), {
     name: "xterm-256color",
     cols: columns,
     rows,

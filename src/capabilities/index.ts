@@ -33,3 +33,5 @@ export {
 } from "#/capabilities/query.ts";
 export type { CapabilitiesStore } from "#/capabilities/store.ts";
 export { capabilities, getCapabilities } from "#/capabilities/store.ts";
+export type { ColorPolicy, ColorState } from "#/capabilities/color-policy.ts";
+export { colorState, resolveColorProfile } from "#/capabilities/color-policy.ts";

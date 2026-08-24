@@ -117,7 +117,7 @@ describe("ghostty engine specifics", () => {
       await expect(app.getByText("Docs")).toBeVisible();
 
       const row = app.lines().findIndex((line) => line.includes("Docs"));
-      const column = app.lines()[row]!.indexOf("Docs");
+      const column = app.lines()[row].indexOf("Docs");
       expect(app.cellAt(column, row)?.hyperlink).toBe("https://example.com");
       // The plain line has no hyperlink.
       const plainRow = app.lines().findIndex((line) => line.includes("Plain"));

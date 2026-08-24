@@ -20,7 +20,36 @@ export { Hyperlink } from "#/components/Hyperlink.tsx";
 export type { Props as NewlineProps } from "#/components/Newline.tsx";
 export { Newline } from "#/components/Newline.tsx";
 export { Spacer } from "#/components/Spacer.tsx";
-export * from "#/capabilities/index.ts";
+// Keep the Ink-compatible root surface fixed. New terminal-core APIs live on
+// their focused subpaths rather than leaking through this entry point.
+export type {
+  Capabilities,
+  ColorInfo,
+  ColorSupport,
+  ColorSupportLevel,
+  Multiplexer,
+  PixelGeometry,
+  RgbColor,
+  TerminalAppearance,
+  TerminalIdentity,
+} from "#/capabilities/detect.ts";
+export {
+  createSupportsColor,
+  detectCapabilities,
+  detectColorLevel,
+  detectHyperlinkSupport,
+  detectTerminal,
+  detectUnicodeSupport,
+} from "#/capabilities/detect.ts";
+export type { PixelSize, TerminalQueryOptions, TerminalQueryResult } from "#/capabilities/query.ts";
+export {
+  applyTerminalQuery,
+  getTerminalQuery,
+  queryTerminal,
+  refreshTerminalQuery,
+} from "#/capabilities/query.ts";
+export type { CapabilitiesStore } from "#/capabilities/store.ts";
+export { capabilities, getCapabilities } from "#/capabilities/store.ts";
 export { useCapabilities, useCapabilitiesChange } from "#/hooks/use-capabilities.ts";
 export type { Key } from "#/hooks/use-input.ts";
 export { useInput } from "#/hooks/use-input.ts";
@@ -40,7 +69,7 @@ export type { WindowSize } from "#/hooks/use-window-size.ts";
 export { useWindowSize } from "#/hooks/use-window-size.ts";
 export type { BoxMetrics, UseBoxMetricsResult } from "#/hooks/use-box-metrics.ts";
 export { useBoxMetrics } from "#/hooks/use-box-metrics.ts";
-export type { CursorPosition } from "#/log-update.ts";
+export type { CursorPosition } from "#/cursor-position.ts";
 export { measureElement } from "#/measure-element.ts";
 export type { ElementMetrics } from "#/measure-element.ts";
 export type { DOMElement } from "#/dom.ts";

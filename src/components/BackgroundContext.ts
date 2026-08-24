@@ -1,8 +1,7 @@
 import { createContext } from "react";
 
-import { type ForegroundColorName } from "#/ansi/sgr.ts";
-import { type LiteralUnion } from "#/types.ts";
+import type { Paint } from "#/color/paint.ts";
 
-export type BackgroundColor = LiteralUnion<ForegroundColorName, string>;
+export type BackgroundColor = Paint;
 
 export const backgroundContext = createContext<BackgroundColor | undefined>(undefined);

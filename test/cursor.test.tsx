@@ -573,96 +573,82 @@ function FullscreenCursorApp({
   );
 }
 
-// Both renderers need covering here. The trailing newline is omitted for
-// fullscreen in either mode, but only the incremental renderer skips the final
-// cursorNextLine to keep the cursor on the last line, so it is the one where
-// the row basis is easiest to get wrong.
-const inkRenderingModes = [
-  { name: "standard rendering", incremental: false },
-  { name: "incremental rendering", incremental: true },
-] as const;
+test("fullscreen: cursor lands on the requested row across rerender and cursor-only update", async () => {
+  const stdout = createStdout();
+  // Output that exactly fills the viewport is fullscreen, so Ink omits
+  // the trailing newline and the renderer stops on the last visible line.
+  stdout.rows = 5;
 
-for (const { name, incremental } of inkRenderingModes) {
-  test(`${name} - fullscreen: cursor lands on the requested row across rerender and cursor-only update`, async () => {
-    const stdout = createStdout();
-    // Output that exactly fills the viewport is fullscreen, so Ink omits
-    // the trailing newline and the renderer stops on the last visible line.
-    stdout.rows = 5;
+  const { rerender, unmount, waitUntilRenderFlush } = render(
+    <FullscreenCursorApp lineCount={5} cursorY={2} marker="" />,
+    { stdout },
+  );
+  await waitUntilRenderFlush();
 
-    const { rerender, unmount, waitUntilRenderFlush } = render(
-      <FullscreenCursorApp lineCount={5} cursorY={2} marker="" />,
-      { stdout, incrementalRendering: incremental },
-    );
-    await waitUntilRenderFlush();
+  // 5 lines with no trailing newline: the cursor is left on row 4, so
+  // reaching y=2 is cursorUp(2). Measuring from the visible-line count
+  // instead would emit cursorUp(3) and land a row too high.
+  const expected = ansiEscapes.cursorUp(2) + ansiEscapes.cursorTo(3) + showCursorEscape;
+  const overshoot = ansiEscapes.cursorUp(3) + ansiEscapes.cursorTo(3) + showCursorEscape;
 
-    // 5 lines with no trailing newline: the cursor is left on row 4, so
-    // reaching y=2 is cursorUp(2). Measuring from the visible-line count
-    // instead would emit cursorUp(3) and land a row too high.
-    const expected = ansiEscapes.cursorUp(2) + ansiEscapes.cursorTo(3) + showCursorEscape;
-    const overshoot = ansiEscapes.cursorUp(3) + ansiEscapes.cursorTo(3) + showCursorEscape;
+  const firstRender = stdout.getWrites().join("");
+  expect(firstRender, "first frame").toContain(expected);
+  expect(firstRender, "first frame does not overshoot").not.toContain(overshoot);
 
-    const firstRender = stdout.getWrites().join("");
-    expect(firstRender, "first frame").toContain(expected);
-    expect(firstRender, "first frame does not overshoot").not.toContain(overshoot);
+  const writesBeforeRerender = stdout.write.mock.calls.length;
+  rerender(<FullscreenCursorApp lineCount={5} cursorY={2} marker="!" />);
+  await waitUntilRenderFlush();
 
-    const writesBeforeRerender = stdout.write.mock.calls.length;
-    rerender(<FullscreenCursorApp lineCount={5} cursorY={2} marker="!" />);
-    await waitUntilRenderFlush();
+  const changedRerender = stdout.getWrites().slice(writesBeforeRerender).join("");
+  expect(changedRerender, "content actually changed").toContain("Line 1!");
+  expect(changedRerender, "changed rerender").toContain(expected);
+  expect(changedRerender, "changed rerender does not overshoot").not.toContain(overshoot);
 
-    const changedRerender = stdout.getWrites().slice(writesBeforeRerender).join("");
-    expect(changedRerender, "content actually changed").toContain("Line 1!");
-    expect(changedRerender, "changed rerender").toContain(expected);
-    expect(changedRerender, "changed rerender does not overshoot").not.toContain(overshoot);
+  const writesBeforeCursorMove = stdout.write.mock.calls.length;
+  rerender(<FullscreenCursorApp lineCount={5} cursorY={0} marker="!" />);
+  await waitUntilRenderFlush();
 
-    const writesBeforeCursorMove = stdout.write.mock.calls.length;
-    rerender(<FullscreenCursorApp lineCount={5} cursorY={0} marker="!" />);
-    await waitUntilRenderFlush();
+  // Output is unchanged, so this takes the cursor-only path, which derives
+  // the bottom row from previousLineCount (5) rather than from the output.
+  // Not on Windows: fullscreen frames there always take the clearing
+  // path instead, so the expected sequence comes from sync(). It works
+  // out to the same bytes, because both measure from lines.length - 1.
+  const cursorOnly = stdout.getWrites().slice(writesBeforeCursorMove).join("");
+  expect(cursorOnly, "cursor-only update").toContain(
+    ansiEscapes.cursorUp(4) + ansiEscapes.cursorTo(3) + showCursorEscape,
+  );
+  expect(cursorOnly, "cursor-only update does not overshoot").not.toContain(
+    ansiEscapes.cursorUp(5) + ansiEscapes.cursorTo(3) + showCursorEscape,
+  );
 
-    // Output is unchanged, so this takes the cursor-only path, which derives
-    // the bottom row from previousLineCount (5) rather than from the output.
-    // Not on Windows: fullscreen frames there always take the clearing
-    // path instead, so the expected sequence comes from sync(). It works
-    // out to the same bytes, because both measure from lines.length - 1.
-    const cursorOnly = stdout.getWrites().slice(writesBeforeCursorMove).join("");
-    expect(cursorOnly, "cursor-only update").toContain(
-      ansiEscapes.cursorUp(4) + ansiEscapes.cursorTo(3) + showCursorEscape,
-    );
-    expect(cursorOnly, "cursor-only update does not overshoot").not.toContain(
-      ansiEscapes.cursorUp(5) + ansiEscapes.cursorTo(3) + showCursorEscape,
-    );
+  unmount();
+});
 
-    unmount();
-  });
-}
+// Overflowing frames are clamped to the viewport's bottom rows instead of
+// erasing the user's scrollback on every update.
+test("fullscreen: overflowing frame is clamped and keeps cursor positioning", async () => {
+  const stdout = createStdout();
+  stdout.rows = 5;
 
-// Both renderers again: overflowing frames are clamped to the viewport's
-// bottom rows instead of taking the historical clearTerminal + sync() path,
-// which erased the user's scrollback on every overflowing update.
-for (const { name, incremental } of inkRenderingModes) {
-  test(`${name} - fullscreen: overflowing frame is clamped and keeps cursor positioning`, async () => {
-    const stdout = createStdout();
-    stdout.rows = 5;
+  const { rerender, unmount, waitUntilRenderFlush } = render(
+    <FullscreenCursorApp lineCount={6} cursorY={2} marker="" />,
+    { stdout },
+  );
+  await waitUntilRenderFlush();
 
-    const { rerender, unmount, waitUntilRenderFlush } = render(
-      <FullscreenCursorApp lineCount={6} cursorY={2} marker="" />,
-      { stdout, incrementalRendering: incremental },
-    );
-    await waitUntilRenderFlush();
+  const writesBeforeRerender = stdout.write.mock.calls.length;
+  rerender(<FullscreenCursorApp lineCount={6} cursorY={2} marker="!" />);
+  await waitUntilRenderFlush();
 
-    const writesBeforeRerender = stdout.write.mock.calls.length;
-    rerender(<FullscreenCursorApp lineCount={6} cursorY={2} marker="!" />);
-    await waitUntilRenderFlush();
+  const synced = stdout.getWrites().slice(writesBeforeRerender).join("");
+  expect(synced.includes(ansiEscapes.clearTerminal), "must not erase the scrollback buffer").toBe(
+    false,
+  );
+  expect(synced, "the changed row survives the clamp").toContain("Line 1!");
+  expect(synced, "rows above the viewport are clamped away").not.toContain("Line 0");
+  // The clamped frame is 5 lines with no trailing newline: the cursor is
+  // left on row 4, so y=2 is cursorUp(2).
+  expect(synced).toContain(ansiEscapes.cursorUp(2) + ansiEscapes.cursorTo(3) + showCursorEscape);
 
-    const synced = stdout.getWrites().slice(writesBeforeRerender).join("");
-    expect(synced.includes(ansiEscapes.clearTerminal), "must not erase the scrollback buffer").toBe(
-      false,
-    );
-    expect(synced, "the changed row survives the clamp").toContain("Line 1!");
-    expect(synced, "rows above the viewport are clamped away").not.toContain("Line 0");
-    // The clamped frame is 5 lines with no trailing newline: the cursor is
-    // left on row 4, so y=2 is cursorUp(2).
-    expect(synced).toContain(ansiEscapes.cursorUp(2) + ansiEscapes.cursorTo(3) + showCursorEscape);
-
-    unmount();
-  });
-}
+  unmount();
+});

@@ -1,0 +1,7 @@
+{
+  "extends": "../tsconfig.json",
+  "include": ["root-public-api.tsx", "../../src"],
+  "compilerOptions": {
+    "noEmit": true
+  }
+}

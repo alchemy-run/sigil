@@ -11,6 +11,9 @@
 - **Self-contained**: the only runtime dependencies are `react-reconciler` and `scheduler`. Everything else — the ANSI/terminal subsystem (`src/ansi/`), styling, width measurement, wrapping — is first-class TypeScript in this repository.
 - **Integrated layout engine**: layout is computed by a TypeScript port of [Yoga](https://github.com/facebook/yoga) (`src/yoga/`) instead of the Yoga WASM binary, continuously verified against an f64-patched reference Yoga build via differential fuzzing.
 - **Modern toolchain**: built with [Vite+](https://viteplus.dev) (Vitest, Oxlint, Oxfmt, tsdown) and TypeScript 7.
+- **Structured terminal core**: cells retain semantic colors, gradients, links, and graphemes through layout and composition, then serialize for the target terminal profile.
+
+Low-level integrations are available through focused `ansi`, `capabilities`, `color`, `screen`, `style`, `terminal`, and `testing` subpaths. See the [architecture guide](docs/architecture.md), [API stability policy](docs/api-stability.md), and [color semantics](docs/color-semantics.md).
 
 Upstream Ink and Yoga are tracked as submodules in `.vendor/` — upstream's test suites run against this codebase as part of the regular test run. See `THIRD_PARTY_NOTICES.md` for attribution.
 
@@ -1363,6 +1366,8 @@ Accepts the same values as [`color`](#color) in the `<Text>` component.
 
 The background color fills the entire `<Box>` area and is inherited by child `<Text>` components unless they specify their own `backgroundColor`.
 
+Use `backgroundColor=""` to paint the box with explicit blank cells on the terminal's default background. This is useful for opaque compositor layers: lower-layer glyphs are erased without assuming what color the user's terminal background is. Omitting `backgroundColor` keeps the box transparent.
+
 ```jsx
 <Box backgroundColor="blue" alignSelf="flex-start">
   <Text>Blue inherited </Text>
@@ -2661,14 +2666,6 @@ This controls how frequently the UI can update to prevent excessive re-rendering
 Higher values allow more frequent updates but may impact performance.
 Setting it to a lower value may be useful for components that update very frequently, to reduce CPU usage.
 
-###### incrementalRendering
-
-Type: `boolean`\
-Default: `false`
-
-Enable incremental rendering mode which only updates changed lines instead of redrawing the entire output.
-This can reduce flickering and improve performance for frequently updating UIs.
-
 ###### concurrent
 
 Type: `boolean`\
@@ -3166,6 +3163,10 @@ npm run example examples/[example name]
 - [Static](examples/static/static.tsx) - Use the `<Static>` component to render permanent output.
 - [Child process](examples/subprocess-output) - Renders output from a child process.
 - [Router](examples/router/router.tsx) - Navigate between routes using React Router's `MemoryRouter`.
+- [Charm brightness](examples/charm-brightness/brightness.tsx) - A native port of Lip Gloss's progressive lightening and darkening demo.
+- [Charm canvas](examples/charm-canvas/canvas.tsx) - Layered fields and gradient-bordered cards inspired by Lip Gloss's compositor demo.
+- [Charm layout](examples/charm-layout/layout.tsx) - The Lip Gloss layout showcase rebuilt with React, Yoga, gradients, and compositing.
+- [Charm profile](examples/charm-profile/profile.tsx) - The Lip Gloss SSH profile showcase adapted to Sigil's stream-scoped terminal capabilities.
 
 ## Continuous Integration
 

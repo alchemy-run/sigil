@@ -9,6 +9,15 @@ specific origin of each file.
 The core of this project is a fork of [Ink](https://github.com/vadimdemedes/ink).
 Copyright (c) Vadym Demedes. See the root `LICENSE` file.
 
+## Lip Gloss examples
+
+The examples under `examples/charm-*` are ports or adaptations of visual demos
+from [Charmbracelet Lip Gloss](https://github.com/charmbracelet/lipgloss).
+
+Copyright (c) 2020-2026 Charmbracelet, Inc.
+
+Licensed under the MIT License (text below).
+
 ## Yoga
 
 The layout engine (`src/yoga/`) is a TypeScript port of
@@ -53,7 +62,7 @@ Licensed under the MIT License (text above).
 
 ## supports-color (MIT)
 
-The color-level detection in `src/capabilities.ts` is derived from `supports-color`.
+The color-level detection in `src/capabilities/detect.ts` is derived from `supports-color`.
 
 Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (https://sindresorhus.com)
 and Josh Junon.
@@ -154,7 +163,7 @@ Licensed under the MIT License (text above).
 
 ## supports-hyperlinks (MIT)
 
-The hyperlink detection in `src/capabilities.ts` is derived from
+The hyperlink detection in `src/capabilities/detect.ts` is derived from
 `supports-hyperlinks`.
 
 Copyright (c) James Talmage <james@talmage.io> (https://github.com/jamestalmage)
@@ -164,7 +173,7 @@ Licensed under the MIT License (text above).
 
 ## is-unicode-supported (MIT)
 
-`detectUnicodeSupport` in `src/capabilities.ts` is derived from
+`detectUnicodeSupport` in `src/capabilities/detect.ts` is derived from
 `is-unicode-supported`.
 
 Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (https://sindresorhus.com)

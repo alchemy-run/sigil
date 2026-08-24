@@ -106,7 +106,10 @@ export type CapabilitiesStore = {
 	the store enables the supported report modes on the terminal and disables
 	them again on the last unsubscribe. Returns an unsubscribe function.
 	*/
-  subscribe: (listener: (capabilities: Capabilities) => void) => () => void;
+  subscribe: (
+    listener: (capabilities: Capabilities) => void,
+    options?: { resizes?: boolean },
+  ) => () => void;
 
   /**
 	Feeds one parsed escape sequence from an input pipeline into the store.
@@ -122,6 +125,7 @@ const stores = new WeakMap<object, CapabilitiesStore>();
 
 const createStore = (stdin: StoreStdin, stdout: StoreStdout): CapabilitiesStore => {
   const listeners = new Set<(capabilities: Capabilities) => void>();
+  let resizeSubscribers = 0;
 
   let focused: boolean | undefined;
   let snapshot: Capabilities | undefined;
@@ -308,18 +312,26 @@ const createStore = (stdin: StoreStdin, stdout: StoreStdout): CapabilitiesStore 
     notify();
   };
 
-  const subscribe = (listener: (capabilities: Capabilities) => void): (() => void) => {
-    if (listeners.size === 0) {
+  const subscribe = (
+    listener: (capabilities: Capabilities) => void,
+    options: { resizes?: boolean } = {},
+  ): (() => void) => {
+    const resizes = options.resizes ?? true;
+    if (resizes && resizeSubscribers++ === 0) {
       stdout.on("resize", onResize);
     }
 
     listeners.add(listener);
     updateReporting();
+    let subscribed = true;
     return () => {
-      if (listeners.delete(listener) && listeners.size === 0) {
+      if (!subscribed) return;
+      subscribed = false;
+      listeners.delete(listener);
+      if (resizes && --resizeSubscribers === 0) {
         stdout.removeListener("resize", onResize);
-        updateReporting();
       }
+      updateReporting();
     };
   };
 

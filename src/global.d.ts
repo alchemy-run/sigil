@@ -1,6 +1,7 @@
 import { type ReactNode, type Key, type Ref } from "react";
 
 import { type DOMElement } from "#/dom.ts";
+import type { SemanticTextStyle } from "#/semantic-text-style.ts";
 import { type Styles } from "#/styles.ts";
 
 declare module "react" {
@@ -30,6 +31,7 @@ declare namespace Ink {
 
     // eslint-disable-next-line @typescript-eslint/naming-convention
     internal_transform?: (children: string, index: number) => string;
+    internal_textStyle?: SemanticTextStyle;
     internal_accessibility?: DOMElement["internal_accessibility"];
   };
 }

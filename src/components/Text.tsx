@@ -1,12 +1,11 @@
 /** @jsxImportSource react */
 import { useContext, type ReactNode } from "react";
 
-import { chalk, type ForegroundColorName } from "#/ansi/chalk.ts";
-import { colorize } from "#/colorize.ts";
+import type { Paint } from "#/color/paint.ts";
 import { accessibilityContext } from "#/components/AccessibilityContext.ts";
-import { backgroundContext } from "#/components/BackgroundContext.ts";
+import { cellAttributes } from "#/screen/cell.ts";
+import { parseSemanticColor } from "#/semantic-text-style.ts";
 import { type Styles } from "#/styles.ts";
-import { type LiteralUnion } from "#/types.ts";
 
 export type Props = {
   /**
@@ -22,12 +21,12 @@ export type Props = {
   /**
 	Change text color. Ink uses Chalk under the hood, so all its functionality is supported.
 	*/
-  readonly color?: LiteralUnion<ForegroundColorName, string>;
+  readonly color?: Paint;
 
   /**
 	Same as `color`, but for the background.
 	*/
-  readonly backgroundColor?: LiteralUnion<ForegroundColorName, string>;
+  readonly backgroundColor?: Paint;
 
   /**
 	Dim the color (make it less bright).
@@ -85,49 +84,27 @@ export function Text({
   "aria-hidden": ariaHidden = false,
 }: Props) {
   const { isScreenReaderEnabled } = useContext(accessibilityContext);
-  const inheritedBackgroundColor = useContext(backgroundContext);
   const childrenOrAriaLabel = isScreenReaderEnabled && ariaLabel ? ariaLabel : children;
 
   if (childrenOrAriaLabel === undefined || childrenOrAriaLabel === null) {
     return null;
   }
 
-  const transform = (text: string): string => {
-    if (dimColor) {
-      text = chalk.dim(text);
-    }
-
-    if (color) {
-      text = colorize(text, color, "foreground");
-    }
-
-    // Use explicit backgroundColor if provided, otherwise use inherited from parent Box
-    const effectiveBackgroundColor = backgroundColor ?? inheritedBackgroundColor;
-    if (effectiveBackgroundColor) {
-      text = colorize(text, effectiveBackgroundColor, "background");
-    }
-
-    if (bold) {
-      text = chalk.bold(text);
-    }
-
-    if (italic) {
-      text = chalk.italic(text);
-    }
-
-    if (underline) {
-      text = chalk.underline(text);
-    }
-
-    if (strikethrough) {
-      text = chalk.strikethrough(text);
-    }
-
-    if (inverse) {
-      text = chalk.inverse(text);
-    }
-
-    return text;
+  const foreground = typeof color === "object" ? color : parseSemanticColor(color);
+  const background =
+    typeof backgroundColor === "object" ? backgroundColor : parseSemanticColor(backgroundColor);
+  const semanticStyle = {
+    ...(foreground ? { foreground } : {}),
+    ...(background ? { background } : {}),
+    ...(color === "" ? { resetForeground: true } : {}),
+    ...(backgroundColor === "" ? { resetBackground: true } : {}),
+    ...(underline ? { underline: "single" as const } : {}),
+    attributes:
+      (dimColor ? cellAttributes.faint : 0) +
+      (bold ? cellAttributes.bold : 0) +
+      (italic ? cellAttributes.italic : 0) +
+      (strikethrough ? cellAttributes.strikethrough : 0) +
+      (inverse ? cellAttributes.inverse : 0),
   };
 
   if (isScreenReaderEnabled && ariaHidden) {
@@ -137,7 +114,7 @@ export function Text({
   return (
     <ink-text
       style={{ flexGrow: 0, flexShrink: 1, flexDirection: "row", textWrap: wrap }}
-      internal_transform={transform}
+      internal_textStyle={semanticStyle}
     >
       {childrenOrAriaLabel}
     </ink-text>

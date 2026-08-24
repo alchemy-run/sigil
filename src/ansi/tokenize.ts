@@ -8,6 +8,7 @@ import { isFullwidthGrapheme } from "#/ansi/east-asian-width.ts";
 // `src/ansi-tokenizer.ts` (also behind sanitize-ansi), and grapheme widths
 // come from `east-asian-width.ts` — one grammar, one width table.
 import { BEL, C1_ST, ESC } from "#/ansi/escapes.ts";
+import { graphemes } from "#/ansi/graphemes.ts";
 import { codes as sgrCodes, foreground, background, styles } from "#/ansi/sgr.ts";
 
 // Single-character introducer suffixes (`ESC [` = CSI, `ESC ]` = OSC).
@@ -119,8 +120,6 @@ export function isIntensityCode(code: AnsiCode): boolean {
   return code.code === styles.bold.open || code.code === styles.dim.open;
 }
 
-const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
-
 /**
 Splits compound SGR sequences like `\u001B[1;3;31m` into individual components.
 */
@@ -139,7 +138,7 @@ function splitCompoundSgrSequences(code: string): string[] {
   for (let index = 0; index < codeParts.length; index++) {
     const rawCode = codeParts[index]!;
     // Keep 8-bit and 24-bit color codes (containing multiple ";") together
-    if (rawCode === "38" || rawCode === "48") {
+    if (rawCode === "38" || rawCode === "48" || rawCode === "58") {
       if (index + 2 < codeParts.length && codeParts[index + 1] === "5") {
         // 8-bit color, followed by another number
         result.push(codeParts.slice(index, index + 3).join(";"));
@@ -171,7 +170,7 @@ export function tokenize(string: string, endChar = Number.POSITIVE_INFINITY): To
 
   outer: for (const ansiToken of tokenizeAnsi(string)) {
     if (ansiToken.type === "text") {
-      for (const { segment } of segmenter.segment(ansiToken.value)) {
+      for (const segment of graphemes(ansiToken.value)) {
         const fullWidth = isFullwidthGrapheme(segment, segment.codePointAt(0)!);
         result.push({
           type: "char",

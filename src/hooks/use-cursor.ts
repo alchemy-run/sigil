@@ -1,7 +1,7 @@
 import { useContext, useRef, useCallback, useInsertionEffect } from "react";
 
 import { CursorContext } from "#/components/CursorContext.ts";
-import { type CursorPosition } from "#/log-update.ts";
+import { type CursorPosition } from "#/cursor-position.ts";
 
 /**
 A React hook that returns methods to control the terminal cursor position.
@@ -18,7 +18,7 @@ export const useCursor = () => {
     positionRef.current = position;
   }, []);
 
-  // Propagate cursor position to log-update only during commit phase.
+  // Propagate cursor position to the terminal presenter only during commit.
   // useInsertionEffect runs before resetAfterCommit (which triggers onRender),
   // and does NOT run for abandoned concurrent renders (e.g. suspended components).
   // This prevents cursor state from leaking across render boundaries.

@@ -89,7 +89,7 @@ const terminalView = (config: Config, appId: string): void => {
   document.title = title;
 
   root.innerHTML = `<div class="terminal-view">
-    <header><span>${""}</span><a href="/">↩ index</a></header>
+    <header><span></span><a href="/">↩ index</a></header>
     <div class="terminal-host"></div>
   </div>`;
   root.querySelector("header span")!.textContent = title;

@@ -2,7 +2,6 @@
 import { useContext, type PropsWithChildren, type Ref } from "react";
 
 import { accessibilityContext } from "#/components/AccessibilityContext.ts";
-import { backgroundContext } from "#/components/BackgroundContext.ts";
 import { type DOMElement } from "#/dom.ts";
 import { type Styles } from "#/styles.ts";
 
@@ -96,13 +95,6 @@ export function Box({
       {isScreenReaderEnabled && label ? label : children}
     </ink-box>
   );
-
-  // If this Box has a background color, provide it to children via context
-  if (backgroundColor) {
-    return (
-      <backgroundContext.Provider value={backgroundColor}>{boxElement}</backgroundContext.Provider>
-    );
-  }
 
   return boxElement;
 }

@@ -143,6 +143,19 @@ test("Box background with standard color", () => {
   expect(output).toBe(chalk.bgRed("Hello"));
 });
 
+test("empty Box background paints terminal-default blank cells", () => {
+  const output = renderToString(
+    <Box width={3} backgroundColor="red">
+      <Text>///</Text>
+      <Box position="absolute" width={3} backgroundColor="">
+        <Text>x</Text>
+      </Box>
+    </Box>,
+  );
+
+  expect(output).toBe("x");
+});
+
 test("Box background with hex color", () => {
   const output = renderToString(
     <Box backgroundColor="#FF0000" alignSelf="flex-start">

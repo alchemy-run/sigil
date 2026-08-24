@@ -1,7 +1,8 @@
 import { measureText } from "#/measure-text.ts";
-import { type OutputTransformer } from "#/render-node-to-output.ts";
+import type { SemanticTextStyle } from "#/semantic-text-style.ts";
 import { squashTextNodes } from "#/squash-text-nodes.ts";
 import { type Styles } from "#/styles.ts";
+import { type AnsiTransformer } from "#/transform-adapter.ts";
 import { wrapText } from "#/wrap-text.ts";
 import { Yoga, type Node as YogaNode } from "#/yoga/index.ts";
 
@@ -24,7 +25,8 @@ export type DOMElement = {
   nodeName: ElementNames;
   attributes: Record<string, DOMNodeAttribute>;
   childNodes: DOMNode[];
-  internal_transform?: OutputTransformer;
+  internal_transform?: AnsiTransformer;
+  internal_textStyle?: SemanticTextStyle;
 
   internal_accessibility?: {
     role?:

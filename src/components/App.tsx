@@ -19,7 +19,7 @@ import {
   refreshTerminalQuery,
   type TerminalQueryResult,
 } from "#/capabilities/query.ts";
-import { getCapabilities, registerTerminalIntegration } from "#/capabilities/store.ts";
+import { registerTerminalIntegration } from "#/capabilities/store.ts";
 import { animationContext as AnimationContext } from "#/components/AnimationContext.ts";
 import { AppContext, type SuspendTerminal } from "#/components/AppContext.ts";
 import { CursorContext } from "#/components/CursorContext.ts";
@@ -28,9 +28,9 @@ import { FocusContext } from "#/components/FocusContext.ts";
 import { StderrContext } from "#/components/StderrContext.ts";
 import { StdinContext } from "#/components/StdinContext.ts";
 import { StdoutContext } from "#/components/StdoutContext.ts";
-import { createInputParser } from "#/input-parser.ts";
-import { type CursorPosition } from "#/log-update.ts";
+import { type CursorPosition } from "#/cursor-position.ts";
 import { getRawModeStream, type OutputStream } from "#/stream.ts";
+import type { TerminalInput } from "#/terminal/input.ts";
 
 const tab = "\t";
 const shiftTab = `${CSI}Z`;
@@ -58,6 +58,7 @@ type Props = {
   readonly setCursorPosition: (position: CursorPosition | undefined) => void;
   readonly interactive: boolean;
   readonly renderThrottleMs: number;
+  readonly terminalInput: TerminalInput;
 };
 
 type Focusable = {
@@ -83,6 +84,7 @@ export function App({
   setCursorPosition,
   interactive,
   renderThrottleMs,
+  terminalInput,
 }: Props): React.ReactNode {
   const [isFocusEnabled, setIsFocusEnabled] = useState(true);
   const [activeFocusId, setActiveFocusId] = useState<string | undefined>(undefined);
@@ -107,7 +109,6 @@ export function App({
   internal_eventEmitter.current.setMaxListeners(Infinity);
   // Store the currently attached readable listener to avoid stale closure issues
   const readableListenerRef = useRef<(() => void) | undefined>(undefined);
-  const inputParserRef = useRef(createInputParser());
   const pendingInputFlushRef = useRef<NodeJS.Timeout | undefined>(undefined);
   // Small delay to let chunked escape sequences complete before flushing as literal input.
   const pendingInputFlushDelayMilliseconds = 20;
@@ -209,10 +210,6 @@ export function App({
   }, [clearAnimationTimer]);
 
   const rawModeStdin = getRawModeStream(stdin);
-  // Stable per stream pair — the capabilities store consumes unsolicited
-  // terminal reports (focus, color scheme, in-band resize) from the input
-  // pipeline below.
-  const capabilitiesStore = getCapabilities(stdin, stdout);
   const isRawModeSupported = rawModeStdin !== undefined;
 
   const detachReadableListener = useCallback((): void => {
@@ -225,10 +222,10 @@ export function App({
   }, [stdin]);
 
   const clearInputState = useCallback((): void => {
-    inputParserRef.current.reset();
+    terminalInput.reset();
     clearPendingInputFlush();
     detachReadableListener();
-  }, [clearPendingInputFlush, detachReadableListener]);
+  }, [clearPendingInputFlush, detachReadableListener, terminalInput]);
 
   const disableRawMode = useCallback((): void => {
     if (!rawModeStdin) {
@@ -285,29 +282,23 @@ export function App({
     clearPendingInputFlush();
     pendingInputFlushRef.current = setTimeout(() => {
       pendingInputFlushRef.current = undefined;
-      const pendingEscape = inputParserRef.current.flushPendingEscape();
+      const pendingEscape = terminalInput.flushPendingEscape();
       if (!pendingEscape) {
         return;
       }
 
       emitInput(pendingEscape);
     }, pendingInputFlushDelayMilliseconds);
-  }, [clearPendingInputFlush, emitInput]);
+  }, [clearPendingInputFlush, emitInput, terminalInput]);
 
   const handleReadable = useCallback((): void => {
     clearPendingInputFlush();
     let chunk;
     // eslint-disable-next-line @typescript-eslint/no-restricted-types
     while ((chunk = stdin.read() as string | null) !== null) {
-      const inputEvents = inputParserRef.current.push(chunk);
+      const inputEvents = terminalInput.push(chunk);
       for (const event of inputEvents) {
         if (typeof event === "string") {
-          // Unsolicited terminal reports belong to the capabilities store,
-          // never to key handlers.
-          if (capabilitiesStore.ingest(event)) {
-            continue;
-          }
-
           emitInput(event);
         } else {
           // Keep paste on a separate channel from `useInput` so key handlers
@@ -322,10 +313,10 @@ export function App({
       }
     }
 
-    if (inputParserRef.current.hasPendingEscape()) {
+    if (terminalInput.hasPendingEscape()) {
       schedulePendingInputFlush();
     }
-  }, [stdin, emitInput, clearPendingInputFlush, schedulePendingInputFlush, capabilitiesStore]);
+  }, [stdin, emitInput, clearPendingInputFlush, schedulePendingInputFlush, terminalInput]);
 
   const attachReadableListener = useCallback((): void => {
     if (readableListenerRef.current) {

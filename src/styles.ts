@@ -1,6 +1,5 @@
-import { type ForegroundColorName } from "#/ansi/sgr.ts";
+import type { Paint } from "#/color/paint.ts";
 import { type BoxGlyphs, type BoxStyle } from "#/glyphs.ts";
-import { type LiteralUnion } from "#/types.ts";
 import { Yoga, type Node as YogaNode, type PositionType } from "#/yoga/index.ts";
 
 export type Styles = {
@@ -274,27 +273,27 @@ export type Styles = {
   /**
 	Change border color. A shorthand for setting `borderTopColor`, `borderRightColor`, `borderBottomColor`, and `borderLeftColor`.
 	*/
-  readonly borderColor?: LiteralUnion<ForegroundColorName, string>;
+  readonly borderColor?: Paint;
 
   /**
 	Change the top border color. Accepts the same values as `color` in `Text` component.
 	*/
-  readonly borderTopColor?: LiteralUnion<ForegroundColorName, string>;
+  readonly borderTopColor?: Paint;
 
   /**
 	Change the bottom border color. Accepts the same values as `color` in `Text` component.
 	*/
-  readonly borderBottomColor?: LiteralUnion<ForegroundColorName, string>;
+  readonly borderBottomColor?: Paint;
 
   /**
 	Change the left border color. Accepts the same values as `color` in `Text` component.
 	*/
-  readonly borderLeftColor?: LiteralUnion<ForegroundColorName, string>;
+  readonly borderLeftColor?: Paint;
 
   /**
 	Change the right border color. Accepts the same values as `color` in `Text` component.
 	*/
-  readonly borderRightColor?: LiteralUnion<ForegroundColorName, string>;
+  readonly borderRightColor?: Paint;
 
   /**
 	Dim the border color. A shorthand for setting `borderTopDimColor`, `borderBottomDimColor`, `borderLeftDimColor`, and `borderRightDimColor`.
@@ -334,27 +333,27 @@ export type Styles = {
   /**
 	Change border background color. A shorthand for setting `borderTopBackgroundColor`, `borderRightBackgroundColor`, `borderBottomBackgroundColor`, and `borderLeftBackgroundColor`.
 	*/
-  readonly borderBackgroundColor?: LiteralUnion<ForegroundColorName, string>;
+  readonly borderBackgroundColor?: Paint;
 
   /**
 	Change top border background color. Accepts the same values as `backgroundColor` in `Text` component.
 	*/
-  readonly borderTopBackgroundColor?: LiteralUnion<ForegroundColorName, string>;
+  readonly borderTopBackgroundColor?: Paint;
 
   /**
 	Change bottom border background color. Accepts the same values as `backgroundColor` in `Text` component.
 	*/
-  readonly borderBottomBackgroundColor?: LiteralUnion<ForegroundColorName, string>;
+  readonly borderBottomBackgroundColor?: Paint;
 
   /**
 	Change left border background color. Accepts the same values as `backgroundColor` in `Text` component.
 	*/
-  readonly borderLeftBackgroundColor?: LiteralUnion<ForegroundColorName, string>;
+  readonly borderLeftBackgroundColor?: Paint;
 
   /**
 	Change right border background color. Accepts the same values as `backgroundColor` in `Text` component.
 	*/
-  readonly borderRightBackgroundColor?: LiteralUnion<ForegroundColorName, string>;
+  readonly borderRightBackgroundColor?: Paint;
 
   /**
 	Behavior for an element's overflow in both directions.
@@ -382,7 +381,7 @@ export type Styles = {
 
 	Accepts the same values as `color` in the `<Text>` component.
 	*/
-  readonly backgroundColor?: LiteralUnion<ForegroundColorName, string>;
+  readonly backgroundColor?: Paint;
 };
 
 const positionEdges = [

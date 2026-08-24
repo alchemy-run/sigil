@@ -1,9 +1,10 @@
-import { colorize } from "#/colorize.ts";
+import { samplePaint } from "#/color/sample.ts";
 import { type DOMNode } from "#/dom.ts";
-import type { Output } from "#/output.ts";
+import type { Canvas } from "#/screen/canvas.ts";
+import { cellAttributes, createCell } from "#/screen/index.ts";
 
-export const renderBackground = (x: number, y: number, node: DOMNode, output: Output): void => {
-  if (!node.style.backgroundColor) {
+export const renderBackground = (x: number, y: number, node: DOMNode, output: Canvas): void => {
+  if (node.style.backgroundColor === undefined) {
     return;
   }
 
@@ -23,16 +24,36 @@ export const renderBackground = (x: number, y: number, node: DOMNode, output: Ou
     return;
   }
 
-  // Create background fill for each row
-  const backgroundLine = colorize(
-    " ".repeat(contentWidth),
-    node.style.backgroundColor,
-    "background",
+  const bounds = {
+    x: x + leftBorderWidth,
+    y: y + topBorderHeight,
+    width: contentWidth,
+    height: contentHeight,
+  };
+  const lines = Array.from({ length: contentHeight }, (_unused, row) =>
+    Array.from({ length: contentWidth }, (_empty, column) => {
+      const resetBackground = node.style.backgroundColor === "";
+      const background = resetBackground
+        ? undefined
+        : samplePaint(
+            node.style.backgroundColor!,
+            bounds.x + column,
+            bounds.y + row,
+            bounds,
+            output.paintContext,
+          );
+      return createCell(
+        " ",
+        1,
+        {
+          ...(background ? { background } : {}),
+          underline: "none",
+          attributes: cellAttributes.none,
+        },
+        undefined,
+        resetBackground ? { background: true } : undefined,
+      );
+    }),
   );
-
-  for (let row = 0; row < contentHeight; row++) {
-    output.write(x + leftBorderWidth, y + topBorderHeight + row, backgroundLine, {
-      transformers: [],
-    });
-  }
+  output.writeCells(bounds.x, bounds.y, lines);
 };

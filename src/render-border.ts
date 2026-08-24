@@ -1,23 +1,43 @@
-import { chalk } from "#/ansi/chalk.ts";
-import { colorize } from "#/colorize.ts";
+import { graphemes } from "#/ansi/graphemes.ts";
+import { stringWidth } from "#/ansi/string-width.ts";
+import type { Paint, PaintContext } from "#/color/paint.ts";
+import { samplePaint } from "#/color/sample.ts";
 import { type DOMNode } from "#/dom.ts";
 import { BOXES } from "#/glyphs.ts";
-import type { Output } from "#/output.ts";
+import type { Canvas } from "#/screen/canvas.ts";
+import type { Rect } from "#/screen/geometry.ts";
+import { cellAttributes, createCell, type Cell } from "#/screen/index.ts";
 
-const stylePiece = (segment: string, fg?: string, bg?: string, dim?: boolean): string => {
-  let styled = colorize(segment, fg, "foreground");
-  styled = colorize(styled, bg, "background");
-  if (dim) {
-    styled = chalk.dim(styled);
-  }
-
-  return styled;
+const stylePiece = (
+  segment: string,
+  x: number,
+  y: number,
+  bounds: Rect,
+  context: PaintContext,
+  fg?: Paint,
+  bg?: Paint,
+  dim?: boolean,
+): Cell[] => {
+  let column = x;
+  return [...graphemes(segment)].map((grapheme) => {
+    const foreground = fg ? samplePaint(fg, column, y, bounds, context) : undefined;
+    const background = bg ? samplePaint(bg, column, y, bounds, context) : undefined;
+    const width = Math.max(1, stringWidth(grapheme));
+    column += width;
+    return createCell(grapheme, width, {
+      ...(foreground ? { foreground } : {}),
+      ...(background ? { background } : {}),
+      underline: "none",
+      attributes: dim ? cellAttributes.faint : cellAttributes.none,
+    });
+  });
 };
 
-export const renderBorder = (x: number, y: number, node: DOMNode, output: Output): void => {
+export const renderBorder = (x: number, y: number, node: DOMNode, output: Canvas): void => {
   if (node.style.borderStyle) {
     const width = node.yogaNode!.getComputedWidth();
     const height = node.yogaNode!.getComputedHeight();
+    const bounds = { x, y, width, height };
     const box =
       typeof node.style.borderStyle === "string"
         ? BOXES[node.style.borderStyle]
@@ -52,18 +72,11 @@ export const renderBorder = (x: number, y: number, node: DOMNode, output: Output
 
     const contentWidth = width - (showLeftBorder ? 1 : 0) - (showRightBorder ? 1 : 0);
 
-    let topBorder = showTopBorder
+    const topBorder = showTopBorder
       ? (showLeftBorder ? box.topLeft : "") +
         box.top.repeat(contentWidth) +
         (showRightBorder ? box.topRight : "")
       : undefined;
-
-    topBorder &&= stylePiece(
-      topBorder,
-      topBorderColor,
-      topBorderBackgroundColor,
-      dimTopBorderColor,
-    );
 
     let verticalBorderHeight = height;
 
@@ -75,60 +88,80 @@ export const renderBorder = (x: number, y: number, node: DOMNode, output: Output
       verticalBorderHeight -= 1;
     }
 
-    let leftBorder = "";
+    const offsetY = showTopBorder ? 1 : 0;
 
-    if (showLeftBorder) {
-      const one = stylePiece(
-        box.left,
-        leftBorderColor,
-        leftBorderBackgroundColor,
-        dimLeftBorderColor,
-      );
-      leftBorder = (one + "\n").repeat(verticalBorderHeight);
-    }
-
-    let rightBorder = "";
-
-    if (showRightBorder) {
-      const one = stylePiece(
-        box.right,
-        rightBorderColor,
-        rightBorderBackgroundColor,
-        dimRightBorderColor,
-      );
-      rightBorder = (one + "\n").repeat(verticalBorderHeight);
-    }
-
-    let bottomBorder = showBottomBorder
+    const bottomBorder = showBottomBorder
       ? (showLeftBorder ? box.bottomLeft : "") +
         box.bottom.repeat(contentWidth) +
         (showRightBorder ? box.bottomRight : "")
       : undefined;
-    bottomBorder &&= stylePiece(
-      bottomBorder,
-      bottomBorderColor,
-      bottomBorderBackgroundColor,
-      dimBottomBorderColor,
-    );
-
-    const offsetY = showTopBorder ? 1 : 0;
 
     if (topBorder) {
-      output.write(x, y, topBorder, { transformers: [] });
+      output.writeCells(x, y, [
+        stylePiece(
+          topBorder,
+          x,
+          y,
+          bounds,
+          output.paintContext,
+          topBorderColor,
+          topBorderBackgroundColor,
+          dimTopBorderColor,
+        ),
+      ]);
     }
 
-    if (leftBorder) {
-      output.write(x, y + offsetY, leftBorder, { transformers: [] });
+    if (showLeftBorder) {
+      output.writeCells(
+        x,
+        y + offsetY,
+        Array.from({ length: verticalBorderHeight }, (_, row) =>
+          stylePiece(
+            box.left,
+            x,
+            y + offsetY + row,
+            bounds,
+            output.paintContext,
+            leftBorderColor,
+            leftBorderBackgroundColor,
+            dimLeftBorderColor,
+          ),
+        ),
+      );
     }
 
-    if (rightBorder) {
-      output.write(x + width - 1, y + offsetY, rightBorder, {
-        transformers: [],
-      });
+    if (showRightBorder) {
+      output.writeCells(
+        x + width - 1,
+        y + offsetY,
+        Array.from({ length: verticalBorderHeight }, (_, row) =>
+          stylePiece(
+            box.right,
+            x + width - 1,
+            y + offsetY + row,
+            bounds,
+            output.paintContext,
+            rightBorderColor,
+            rightBorderBackgroundColor,
+            dimRightBorderColor,
+          ),
+        ),
+      );
     }
 
     if (bottomBorder) {
-      output.write(x, y + height - 1, bottomBorder, { transformers: [] });
+      output.writeCells(x, y + height - 1, [
+        stylePiece(
+          bottomBorder,
+          x,
+          y + height - 1,
+          bounds,
+          output.paintContext,
+          bottomBorderColor,
+          bottomBorderBackgroundColor,
+          dimBottomBorderColor,
+        ),
+      ]);
     }
   }
 };

@@ -3,8 +3,7 @@
 // xterm.js — and drive it with Playwright-style locators, key presses, and
 // Vitest matchers. The engines and the PTY are loaded on demand.
 //
-// Repo-internal for now (used by test/e2e.test.ts and scripts/explorer.ts);
-// deliberately NOT exported as a package subpath until the API settles.
+// Published as `@alchemy.run/sigil/testing`; emulator engines remain lazy.
 export type { Emulator, EmulatorCell, EmulatorName } from "#/testing/emulators.ts";
 export { createEmulator } from "#/testing/emulators.ts";
 export { keyToSequence } from "#/testing/keys.ts";

@@ -1,6 +1,6 @@
 import { createContext } from "react";
 
-import { type CursorPosition } from "#/log-update.ts";
+import { type CursorPosition } from "#/cursor-position.ts";
 
 export type Props = {
   /**

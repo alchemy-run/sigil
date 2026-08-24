@@ -20,8 +20,9 @@ import {
   type DOMElement,
 } from "#/dom.ts";
 import { isSigilDev } from "#/env.ts";
-import { type OutputTransformer } from "#/render-node-to-output.ts";
+import type { SemanticTextStyle } from "#/semantic-text-style.ts";
 import { styles as applyStyles, type Styles } from "#/styles.ts";
+import { type AnsiTransformer } from "#/transform-adapter.ts";
 import { Yoga } from "#/yoga/index.ts";
 
 import pkg from "../package.json" with { type: "json" };
@@ -226,7 +227,12 @@ export const reconciler = createReconciler<
 
       if (key === "internal_transform") {
         // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-        node.internal_transform = value as OutputTransformer;
+        node.internal_transform = value as AnsiTransformer;
+        continue;
+      }
+
+      if (key === "internal_textStyle") {
+        node.internal_textStyle = value as SemanticTextStyle;
         continue;
       }
 
@@ -331,7 +337,12 @@ export const reconciler = createReconciler<
 
         if (key === "internal_transform") {
           // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-          node.internal_transform = value as OutputTransformer;
+          node.internal_transform = value as AnsiTransformer;
+          continue;
+        }
+
+        if (key === "internal_textStyle") {
+          node.internal_textStyle = value as SemanticTextStyle | undefined;
           continue;
         }
 

@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { createInk, type Ink, type Options as InkOptions, type RenderMetrics } from "#/ink.tsx";
 import { instances } from "#/instances.ts";
 import { type KittyKeyboardOptions } from "#/kitty-keyboard.ts";
+import { type ColorProfile } from "#/screen/color-profile.ts";
 
 export type RenderOptions = {
   /**
@@ -88,12 +89,12 @@ export type RenderOptions = {
   maxFps?: number;
 
   /**
-	Enable incremental rendering mode which only updates changed lines instead of redrawing the entire output.
-	This can reduce flickering and improve performance for frequently updating UIs.
-
-	@default false
+	Override the output color profile for this render instance. When omitted,
+	the profile follows the capabilities of `stdout` and capability upgrades
+	redraw the live frame. Static content already written to scrollback is not
+	replayed or recolored.
 	*/
-  incrementalRendering?: boolean;
+  colorProfile?: ColorProfile;
 
   /**
 	Enable React Concurrent Rendering mode.
@@ -219,7 +220,6 @@ export const render = (node: ReactNode, options?: Writable | RenderOptions): Ins
     exitOnCtrlC: true,
     patchConsole: true,
     maxFps: 30,
-    incrementalRendering: false,
     concurrent: false,
     alternateScreen: false,
     ...getOptions(options),

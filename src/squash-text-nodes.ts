@@ -1,9 +1,7 @@
 import { type DOMElement } from "#/dom.ts";
 import { sanitizeAnsi } from "#/sanitize-ansi.ts";
 
-// Squashing text nodes allows to combine multiple text nodes into one and write
-// to `Output` instance only once. For example, <Text>hello{' '}world</Text>
-// is actually 3 text nodes, which would result 3 writes to `Output`.
+// Squashing text nodes combines the host text nodes into one compatibility run.
 //
 // Also, this is necessary for libraries like ink-link (https://github.com/sindresorhus/ink-link),
 // which need to wrap all children at once, instead of wrapping 3 text nodes separately.
@@ -26,8 +24,7 @@ export const squashTextNodes = (node: DOMElement): string => {
         nodeText = squashTextNodes(childNode);
       }
 
-      // Since these text nodes are being concatenated, `Output` instance won't be able to
-      // apply children transform, so we have to do it manually here for each text node
+      // Nested compatibility transforms must run before the enclosing transform.
       if (nodeText.length > 0 && typeof childNode.internal_transform === "function") {
         nodeText = childNode.internal_transform(nodeText, index);
       }

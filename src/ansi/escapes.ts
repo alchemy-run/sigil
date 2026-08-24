@@ -58,6 +58,17 @@ export const exitAlternativeScreen = CSI + "?1049l";
 
 export const cursorShow = CSI + "?25h";
 export const cursorHide = CSI + "?25l";
+export type CursorShape = "block" | "underline" | "bar";
+export const cursorShape = (shape: CursorShape, blinking = true): string => {
+  const value = {
+    block: blinking ? 1 : 2,
+    underline: blinking ? 3 : 4,
+    bar: blinking ? 5 : 6,
+  }[shape];
+  return `${CSI}${value} q`;
+};
+export const cursorColor = (color: string): string => `${OSC}12;${color}${BEL}`;
+export const resetCursorColor = `${OSC}112${BEL}`;
 
 export const enableBracketedPaste = CSI + "?2004h";
 export const disableBracketedPaste = CSI + "?2004l";
@@ -93,6 +104,9 @@ export const ansiEscapes = {
   exitAlternativeScreen,
   cursorShow,
   cursorHide,
+  cursorShape,
+  cursorColor,
+  resetCursorColor,
   enableBracketedPaste,
   disableBracketedPaste,
   pasteStart,

@@ -8,6 +8,9 @@ export default defineConfig({
       yoga: "src/yoga/index.ts",
       router: "src/router/index.ts",
       capabilities: "src/capabilities/index.ts",
+      color: "src/color/index.ts",
+      screen: "src/screen/index.ts",
+      terminal: "src/terminal/index.ts",
     },
     format: "esm",
     outExtensions: () => ({ js: ".js", dts: ".d.ts" }),
@@ -19,6 +22,7 @@ export default defineConfig({
       {
         test: {
           alias: {
+            ink: "src/index.ts",
             "yoga-layout": "test/yoga/yoga-layout-compat.ts",
           },
           globalSetup: ["test/yoga/reference/setup.ts"],
@@ -29,6 +33,7 @@ export default defineConfig({
       },
       {
         test: {
+          alias: { ink: "src/index.ts" },
           include: ["test/**/*.test.{ts,tsx}"],
           // PTY-based integration tests regularly exceed the default 5s.
           testTimeout: 60_000,

@@ -11,7 +11,7 @@ import { wrapAnsi } from "#/ansi/wrap.ts";
 import { accessibilityContext as AccessibilityContext } from "#/components/AccessibilityContext.ts";
 import { App } from "#/components/App.tsx";
 import { type TerminalSuspension } from "#/components/AppContext.ts";
-import { hideCursorEscape, showCursorEscape } from "#/cursor-position.ts";
+import type { CursorPosition } from "#/cursor-position.ts";
 import * as dom from "#/dom.ts";
 import { isSigilDev, isInCi, isScreenReader, isTty, isWindows } from "#/env.ts";
 import { instances } from "#/instances.ts";
@@ -21,17 +21,46 @@ import {
   resolveFlags,
   detectKittySupport,
 } from "#/kitty-keyboard.ts";
-import { logUpdate, type LogUpdate, type CursorPosition } from "#/log-update.ts";
 import { patchConsole, patchStreamWrite } from "#/patch-console.ts";
 import { reconciler } from "#/reconciler.ts";
-import { renderer } from "#/renderer.ts";
+import { renderFrame } from "#/render-frame.ts";
+import { Screen } from "#/screen/screen.ts";
 import { signalExit } from "#/signal-exit.ts";
 import { type OutputStream } from "#/stream.ts";
-import { throttle, type Throttled } from "#/throttle.ts";
+import { createInlinePresenter } from "#/terminal/inline-presenter.ts";
+import { createRenderScheduler } from "#/terminal/render-scheduler.ts";
+import { TerminalSession } from "#/terminal/session.ts";
+import { type Throttled } from "#/throttle.ts";
 import { getWindowSize } from "#/utils.ts";
 import { Yoga } from "#/yoga/index.ts";
 
 const noop = () => {};
+const beforeExitCallbacks = new Set<() => void>();
+const runBeforeExitCallbacks = (): void => {
+  for (const callback of beforeExitCallbacks) callback();
+};
+
+function registerBeforeExit(callback: () => void): () => void {
+  if (beforeExitCallbacks.size === 0) process.on("beforeExit", runBeforeExitCallbacks);
+  beforeExitCallbacks.add(callback);
+  return () => {
+    beforeExitCallbacks.delete(callback);
+    if (beforeExitCallbacks.size === 0) process.off("beforeExit", runBeforeExitCallbacks);
+  };
+}
+
+function bottomRows(screen: Screen, height: number): Screen {
+  if (screen.height <= height) return screen;
+  const cropped = new Screen(screen.width, height);
+  const offset = screen.height - height;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < screen.width; x++) {
+      const cell = screen.cellAt(x, y + offset);
+      if (cell && cell.width > 0) cropped.setCell(x, y, cell);
+    }
+  }
+  return cropped;
+}
 
 const shouldClearTerminalForFrame = ({
   isTTY,
@@ -187,7 +216,7 @@ export type Options = {
   onRender?: (metrics: RenderMetrics) => void;
   isScreenReaderEnabled?: boolean;
   maxFps?: number;
-  incrementalRendering?: boolean;
+  colorProfile?: import("#/screen/color-profile.ts").ColorProfile;
 
   /**
 	Enable React Concurrent Rendering mode.
@@ -241,7 +270,7 @@ export type Options = {
 };
 
 /**
-A live Ink renderer for one stdout stream, created by `createInk`.
+A live React terminal runtime for one stdout stream, created by `createInk`.
 */
 export type Ink = {
   /**
@@ -297,54 +326,26 @@ export const createInk = (options: Options): Ink => {
   // where the property is absent (e.g. `node app.js | cat`).
   const interactive = options.interactive ?? (!isInCi && Boolean(options.stdout.isTTY));
 
-  let alternateScreen = false;
+  const terminal = new TerminalSession({
+    stdin: options.stdin,
+    stdout: options.stdout,
+    stderr: options.stderr,
+    colorPolicy: options.colorProfile ?? "auto",
+    onCapabilitiesChange: () => rootNode.onRender?.(),
+  });
+  const capabilitiesStore = terminal.capabilities;
 
   const unthrottled = options.debug || isScreenReaderEnabled;
-  const maxFps = options.maxFps ?? 30;
-  // Treat non-positive maxFps as an internal fallback case, not a supported
-  // "disable throttling" mode. Keep animation scheduling on a normal cadence
-  // so future changes don't accidentally reintroduce zero-delay loops.
-  const frameIntervalMs = maxFps > 0 ? Math.max(1, Math.ceil(1000 / maxFps)) : 0;
-  const renderThrottleMs = unthrottled ? 0 : frameIntervalMs;
-
-  let hasPendingThrottledRender = false;
-  let throttledOnRender: Throttled<never[]> | undefined;
-
-  if (unthrottled) {
-    rootNode.onRender = onRender;
-  } else {
-    const throttled = throttle(onRender, frameIntervalMs);
-    rootNode.onRender = () => {
-      hasPendingThrottledRender = true;
-      throttled();
-    };
-
-    throttledOnRender = throttled;
-  }
-
-  rootNode.onImmediateRender = onRender;
-  rootNode.onStaticChange = handleStaticChange;
-  const log = logUpdate.create(options.stdout, {
-    incremental: options.incrementalRendering,
+  const renderScheduler = createRenderScheduler(onRender, {
+    unthrottled,
+    maxFps: options.maxFps ?? 30,
   });
-  let cursorPosition: CursorPosition | undefined;
-  const logThrottle = unthrottled
-    ? undefined
-    : throttle((output: string) => {
-        const shouldWrite = log.willRender(output);
-        const sync = shouldSync();
-        if (sync && shouldWrite) {
-          options.stdout.write(bsu);
-        }
-
-        log(output);
-
-        if (sync && shouldWrite) {
-          options.stdout.write(esu);
-        }
-      });
-  const throttledLog: LogUpdate | Throttled<[output: string]> = logThrottle ?? log;
-
+  rootNode.onRender = renderScheduler.schedule;
+  rootNode.onImmediateRender = renderScheduler.immediate;
+  rootNode.onStaticChange = handleStaticChange;
+  const accessiblePresenter = isScreenReaderEnabled
+    ? createInlinePresenter(options.stdout, { showCursor: true })
+    : undefined;
   // Ignore last render after unmounting a tree to prevent empty output before exit
   let isUnmounted = false;
   let isUnmounting = false;
@@ -355,6 +356,7 @@ export const createInk = (options: Options): Ink => {
   let lastOutput = "";
   let lastOutputToRender = "";
   let lastOutputHeight = 0;
+  let lastScreen: Screen | undefined;
   let lastTerminalWidth = getWindowSize(options.stdout).columns;
   let lastTerminalHeight = getWindowSize(options.stdout).rows;
 
@@ -363,7 +365,7 @@ export const createInk = (options: Options): Ink => {
   let fullStaticOutput = "";
 
   let exitResult: unknown;
-  let beforeExitHandler: (() => void) | undefined;
+  let unsubscribeBeforeExit: (() => void) | undefined;
   let restoreConsole: (() => void) | undefined;
   // Partial trailing lines from captured direct writes, held until a newline.
   const capturedStdioTails = { stdout: "", stderr: "" };
@@ -372,8 +374,6 @@ export const createInk = (options: Options): Ink => {
   let kittyFlags: KittyFlagName[] | undefined;
   let cancelKittyDetection: (() => void) | undefined;
   let nextRenderCommit: { promise: Promise<void>; resolve: () => void } | undefined;
-  // Set while suspendTerminal() has handed the terminal to a child process.
-  let isSuspended = false;
   // Input pause/resume hooks registered by the App component, which owns raw
   // mode and bracketed paste state.
   let pauseInput: (() => void) | undefined;
@@ -436,11 +436,12 @@ export const createInk = (options: Options): Ink => {
     // render to be a full rewrite instead of an incremental diff that
     // would skip "unchanged" lines over stale screen content.
     if (currentWidth < lastTerminalWidth || currentHeight !== lastTerminalHeight) {
-      // `log.clear()` erases the full previous frame line count from
+      // Clearing erases the full previous frame line count from
       // the cursor upward — after a height grow that also covers frame
       // lines the emulator pulled back from scrollback, so no extra
       // erase is needed for them.
-      log.clear();
+      clearLiveOutput();
+      resetLiveOutput();
       lastOutput = "";
       lastOutputToRender = "";
       // Also forget the previous frame height: it described a frame
@@ -473,8 +474,8 @@ export const createInk = (options: Options): Ink => {
   }
 
   function setCursorPosition(position: CursorPosition | undefined): void {
-    cursorPosition = position;
-    log.setCursorPosition(position);
+    terminal.setCursor(position);
+    accessiblePresenter?.setCursorPosition(position);
   }
 
   function restoreLastOutput(): void {
@@ -482,10 +483,31 @@ export const createInk = (options: Options): Ink => {
       return;
     }
 
-    // Clear() resets log-update's cursor state, so replay the latest cursor intent
-    // before restoring output after external stdout/stderr writes.
-    log.setCursorPosition(cursorPosition);
-    log(lastOutputToRender || lastOutput + "\n");
+    // Replay the latest cursor intent when restoring after external output.
+    if (isScreenReaderEnabled) {
+      accessiblePresenter!.setCursorPosition(terminal.cursor.position);
+      accessiblePresenter!(lastOutputToRender || lastOutput + "\n");
+    } else if (lastScreen) {
+      terminal.present(lastScreen, {
+        fullscreen: lastOutputToRender === lastOutput,
+        forceRewrite: true,
+      });
+    }
+  }
+
+  function clearLiveOutput(): void {
+    if (isScreenReaderEnabled) accessiblePresenter!.clear();
+    else terminal.clearFrame();
+  }
+
+  function finishLiveOutput(): void {
+    if (isScreenReaderEnabled) accessiblePresenter!.done();
+    else terminal.finishFrame();
+  }
+
+  function resetLiveOutput(): void {
+    if (isScreenReaderEnabled) accessiblePresenter!.reset();
+    else terminal.resetFrame();
   }
 
   function calculateLayout(): void {
@@ -502,7 +524,7 @@ export const createInk = (options: Options): Ink => {
   }
 
   function onRender(): void {
-    hasPendingThrottledRender = false;
+    renderScheduler.markRendered();
 
     if (isUnmounted) {
       return;
@@ -511,7 +533,7 @@ export const createInk = (options: Options): Ink => {
     // While suspended, the terminal belongs to a child process. Discard queued
     // renders; resume() forces a full redraw once Ink reclaims the terminal.
     // Resolve any awaited render commit so callers don't hang during suspension.
-    if (isSuspended) {
+    if (terminal.suspended) {
       if (nextRenderCommit) {
         nextRenderCommit.resolve();
         nextRenderCommit = undefined;
@@ -526,7 +548,25 @@ export const createInk = (options: Options): Ink => {
     }
 
     const startTime = performance.now();
-    const { output, outputHeight, staticOutput } = renderer(rootNode, isScreenReaderEnabled);
+    const rendered = renderFrame(rootNode, isScreenReaderEnabled, {
+      colorProfile: terminal.colorProfile,
+      paintContext: {
+        appearance: capabilitiesStore.current.theme.appearance,
+        palette: capabilitiesStore.current.theme.palette,
+      },
+    });
+    const screen = rendered.screen;
+    const output = rendered.accessibleText ?? (screen ? terminal.encode(screen) : "");
+    const outputHeight =
+      rendered.accessibleText === undefined
+        ? (screen?.height ?? 0)
+        : rendered.accessibleText === ""
+          ? 0
+          : rendered.accessibleText.split("\n").length;
+    const staticBody =
+      rendered.staticAccessibleText ??
+      (rendered.staticScreen ? terminal.encode(rendered.staticScreen) : "");
+    const staticOutput = staticBody ? `${staticBody}\n` : "";
 
     options.onRender?.({ renderTime: performance.now() - startTime });
 
@@ -608,7 +648,13 @@ export const createInk = (options: Options): Ink => {
       fullStaticOutput += staticOutput;
     }
 
-    renderInteractiveFrame(output, outputHeight, hasStaticOutput ? staticOutput : "");
+    renderInteractiveFrame(
+      output,
+      outputHeight,
+      hasStaticOutput ? staticOutput : "",
+      screen,
+      false,
+    );
   }
 
   function render(node: ReactNode): void {
@@ -620,7 +666,8 @@ export const createInk = (options: Options): Ink => {
           stderr={options.stderr}
           exitOnCtrlC={options.exitOnCtrlC}
           interactive={interactive}
-          renderThrottleMs={renderThrottleMs}
+          renderThrottleMs={renderScheduler.intervalMs}
+          terminalInput={terminal.input}
           writeToStdout={writeToStdout}
           writeToStderr={writeToStderr}
           setCursorPosition={setCursorPosition}
@@ -652,7 +699,7 @@ export const createInk = (options: Options): Ink => {
     // While suspended, the terminal belongs to a child process. Don't erase or
     // repaint Ink's frame around console output; the forced redraw on resume
     // restores the screen.
-    if (isSuspended) {
+    if (terminal.suspended) {
       return;
     }
 
@@ -671,7 +718,7 @@ export const createInk = (options: Options): Ink => {
       options.stdout.write(bsu);
     }
 
-    log.clear();
+    clearLiveOutput();
     options.stdout.write(data);
     restoreLastOutput();
 
@@ -686,7 +733,7 @@ export const createInk = (options: Options): Ink => {
     }
 
     // See writeToStdout: stay off the terminal while suspended.
-    if (isSuspended) {
+    if (terminal.suspended) {
       return;
     }
 
@@ -706,7 +753,7 @@ export const createInk = (options: Options): Ink => {
       options.stdout.write(bsu);
     }
 
-    log.clear();
+    clearLiveOutput();
     options.stderr.write(data);
     restoreLastOutput();
 
@@ -723,10 +770,8 @@ export const createInk = (options: Options): Ink => {
 
     isUnmounting = true;
 
-    if (beforeExitHandler) {
-      process.off("beforeExit", beforeExitHandler);
-      beforeExitHandler = undefined;
-    }
+    unsubscribeBeforeExit?.();
+    unsubscribeBeforeExit = undefined;
 
     const { canWriteToStdout } = getWritableStreamState(options.stdout);
 
@@ -737,14 +782,14 @@ export const createInk = (options: Options): Ink => {
 
     // Clear any pending throttled render timer on unmount. When stdout is writable,
     // flush so the final frame is emitted; otherwise cancel to avoid delayed callbacks.
-    settleThrottle(throttledOnRender, canWriteToStdout);
+    settleThrottle(renderScheduler.throttled, canWriteToStdout);
 
     if (canWriteToStdout) {
       // If throttling is enabled and there is already a pending render, flushing above
       // is sufficient. Also avoid calling onRender() again when static output already
       // exists, as that can duplicate <Static> children output on exit (see issue #397).
       const shouldRenderFinalFrame =
-        !throttledOnRender || (!hasPendingThrottledRender && fullStaticOutput === "");
+        !renderScheduler.throttled || (!renderScheduler.pending && fullStaticOutput === "");
 
       if (shouldRenderFinalFrame) {
         calculateLayout();
@@ -757,10 +802,8 @@ export const createInk = (options: Options): Ink => {
     isUnmounted = true;
 
     unsubscribeExit();
+    terminal.cleanup();
 
-    // Flush any pending throttled log writes if possible, otherwise cancel to
-    // prevent delayed callbacks from writing to a closed stream.
-    settleThrottle(logThrottle, canWriteToStdout);
     if (typeof restoreConsole === "function") {
       // Once unmount starts, Ink stops trying to manage teardown-time
       // console output. Restoring the native console before React cleanup keeps
@@ -790,10 +833,9 @@ export const createInk = (options: Options): Ink => {
         // diagnostics onto it. Trying to preserve teardown output across the
         // buffer switch adds fragile lifecycle-specific behavior, so Ink keeps
         // alternate-screen teardown intentionally simple and best-effort.
-        if (alternateScreen) {
-          writeBestEffort(options.stdout, ansiEscapes.exitAlternativeScreen);
-          writeBestEffort(options.stdout, showCursorEscape);
-          alternateScreen = false;
+        if (terminal.alternateScreen) {
+          terminal.setAlternateScreen(false);
+          terminal.setCursorAppearance({ visible: true });
         }
 
         if (!interactive) {
@@ -803,7 +845,7 @@ export const createInk = (options: Options): Ink => {
           // deferred during rendering).
           options.stdout.write(options.debug ? "\n" : lastOutput + "\n");
         } else if (!options.debug) {
-          log.done();
+          finishLiveOutput();
         }
       }
 
@@ -857,12 +899,10 @@ export const createInk = (options: Options): Ink => {
   }
 
   async function waitUntilExit(): Promise<unknown> {
-    if (!beforeExitHandler) {
-      beforeExitHandler = () => {
+    if (!unsubscribeBeforeExit) {
+      unsubscribeBeforeExit = registerBeforeExit(() => {
         unmount();
-      };
-
-      process.once("beforeExit", beforeExitHandler);
+      });
     }
 
     return exitPromise;
@@ -899,9 +939,8 @@ export const createInk = (options: Options): Ink => {
 
     const { canWriteToStdout } = getWritableStreamState(options.stdout);
 
-    // Flush pending throttled render/log timers so their output is included in this wait.
-    settleThrottle(throttledOnRender, canWriteToStdout);
-    settleThrottle(logThrottle, canWriteToStdout);
+    // Flush pending scheduled rendering so its output is included in this wait.
+    settleThrottle(renderScheduler.throttled, canWriteToStdout);
 
     if (canWriteToStdout) {
       await new Promise<void>((resolve) => {
@@ -917,10 +956,10 @@ export const createInk = (options: Options): Ink => {
 
   function clear(): void {
     if (interactive && !options.debug) {
-      log.clear();
+      clearLiveOutput();
       // Sync lastOutput so that unmount's final onRender
-      // sees it as unchanged and log-update skips it
-      log.sync(lastOutputToRender || lastOutput + "\n");
+      // sees it as unchanged and the presenter skips it
+      if (isScreenReaderEnabled) accessiblePresenter!.sync(lastOutputToRender || lastOutput + "\n");
     }
   }
 
@@ -1049,12 +1088,9 @@ export const createInk = (options: Options): Ink => {
   }
 
   function setAlternateScreen(enabled: boolean): void {
-    alternateScreen = enabled && interactive && Boolean(options.stdout.isTTY);
-
-    if (alternateScreen) {
-      writeBestEffort(options.stdout, ansiEscapes.enterAlternativeScreen);
-      writeBestEffort(options.stdout, hideCursorEscape);
-    }
+    terminal.setAlternateScreen(enabled && interactive && Boolean(options.stdout.isTTY), {
+      hideCursor: true,
+    });
   }
 
   function shouldSync(): boolean {
@@ -1092,7 +1128,10 @@ export const createInk = (options: Options): Ink => {
     output: string,
     outputHeight: number,
     staticOutput: string,
+    screen: Screen | undefined,
+    hasOverflow: boolean,
   ): void {
+    if (!screen) return;
     const hasStaticOutput = staticOutput !== "";
     const isTTY = Boolean(options.stdout.isTTY);
 
@@ -1110,6 +1149,7 @@ export const createInk = (options: Options): Ink => {
       const lines = output.split("\n");
       output = lines.slice(lines.length - viewportRows).join("\n");
       outputHeight = viewportRows;
+      screen = bottomRows(screen, viewportRows);
     }
 
     const isFullscreen = isTTY && outputHeight >= viewportRows;
@@ -1133,7 +1173,8 @@ export const createInk = (options: Options): Ink => {
       lastOutput = output;
       lastOutputToRender = outputToRender;
       lastOutputHeight = outputHeight;
-      log.sync(outputToRender);
+      lastScreen = screen;
+      terminal.resetFrame();
 
       if (sync) {
         options.stdout.write(esu);
@@ -1142,28 +1183,26 @@ export const createInk = (options: Options): Ink => {
       return;
     }
 
-    // To ensure static output is cleanly rendered before main output, clear main output first
+    const willPresent = terminal.willPresent(screen, {
+      fullscreen: isFullscreen,
+      forceRewrite: hasStaticOutput || hasOverflow,
+    });
+    const sync = shouldSync() && willPresent;
+    if (sync) terminal.write(bsu);
     if (hasStaticOutput) {
-      const sync = shouldSync();
-      if (sync) {
-        options.stdout.write(bsu);
-      }
-
-      log.clear();
-      options.stdout.write(staticOutput);
-      log(outputToRender);
-
-      if (sync) {
-        options.stdout.write(esu);
-      }
-    } else if (output !== lastOutput || log.isCursorDirty()) {
-      // ThrottledLog manages its own bsu/esu at actual write time
-      throttledLog(outputToRender);
+      terminal.clearFrame();
+      terminal.write(staticOutput);
     }
+    terminal.present(screen, {
+      fullscreen: isFullscreen,
+      forceRewrite: hasStaticOutput || hasOverflow,
+    });
+    if (sync) terminal.write(esu);
 
     lastOutput = output;
     lastOutputToRender = outputToRender;
     lastOutputHeight = outputHeight;
+    lastScreen = screen;
   }
 
   function initKittyKeyboard(): void {
@@ -1215,13 +1254,7 @@ export const createInk = (options: Options): Ink => {
   }
 
   function beginSuspend(): void {
-    if (isSuspended) {
-      throw new Error(
-        "The terminal is already suspended. Resume the current suspension before suspending again.",
-      );
-    }
-
-    isSuspended = true;
+    terminal.beginSuspension();
 
     if (!interactive || isUnmounted || isUnmounting) {
       return;
@@ -1230,9 +1263,8 @@ export const createInk = (options: Options): Ink => {
     try {
       const { canWriteToStdout } = getWritableStreamState(options.stdout);
 
-      // Flush any pending render/log so the child starts from a settled screen.
-      settleThrottle(throttledOnRender, canWriteToStdout);
-      settleThrottle(logThrottle, canWriteToStdout);
+      // Flush any pending render so the child starts from a settled screen.
+      settleThrottle(renderScheduler.throttled, canWriteToStdout);
 
       if (canWriteToStdout) {
         flushCapturedStdio();
@@ -1241,14 +1273,14 @@ export const createInk = (options: Options): Ink => {
       if (canWriteToStdout) {
         // Erase Ink's current frame, then show the cursor and re-arm the hide.
         // The forced redraw on resume hides the cursor again.
-        log.clear();
-        log.done();
+        clearLiveOutput();
+        finishLiveOutput();
 
         if (kittyProtocolEnabled) {
           writeBestEffort(options.stdout, ansiEscapes.popKittyKeyboard);
         }
 
-        if (alternateScreen) {
+        if (terminal.alternateScreen) {
           writeBestEffort(options.stdout, ansiEscapes.exitAlternativeScreen);
         }
       }
@@ -1259,7 +1291,7 @@ export const createInk = (options: Options): Ink => {
       // If handing over the terminal fails partway, don't strand the app in a
       // suspended state with no way back. Best-effort reclaim input, clear the
       // flag, and rethrow so the caller sees the failure.
-      isSuspended = false;
+      terminal.resume();
 
       try {
         resumeInput?.();
@@ -1270,11 +1302,11 @@ export const createInk = (options: Options): Ink => {
   }
 
   async function endSuspend(): Promise<void> {
-    if (!isSuspended) {
+    if (!terminal.suspended) {
       return;
     }
 
-    isSuspended = false;
+    terminal.resume();
 
     // Reclaim input even mid-unmount: pauseInput already ran in beginSuspend, so
     // restoring it is symmetric regardless of any state change during suspension.
@@ -1287,7 +1319,7 @@ export const createInk = (options: Options): Ink => {
     const { canWriteToStdout } = getWritableStreamState(options.stdout);
 
     if (canWriteToStdout) {
-      if (alternateScreen) {
+      if (terminal.alternateScreen) {
         writeBestEffort(options.stdout, ansiEscapes.enterAlternativeScreen);
       }
 
@@ -1303,7 +1335,7 @@ export const createInk = (options: Options): Ink => {
     lastOutput = "";
     lastOutputToRender = "";
     lastOutputHeight = 0;
-    log.reset();
+    resetLiveOutput();
 
     try {
       calculateLayout();

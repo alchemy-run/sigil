@@ -1,37 +1,21 @@
-import { widestLine } from "#/ansi/string-width.ts";
 import { type DOMElement } from "#/dom.ts";
 import { getMaxWidth } from "#/get-max-width.ts";
-import type { Output } from "#/output.ts";
 import { renderBackground } from "#/render-background.ts";
 import { renderBorder } from "#/render-border.ts";
+import type { Canvas } from "#/screen/canvas.ts";
+import { serializeLine } from "#/screen/serialize.ts";
 import { squashTextNodes } from "#/squash-text-nodes.ts";
-import { wrapText } from "#/wrap-text.ts";
+import {
+  hasCompatibilityText,
+  structuredTextBaseStyle,
+  structuredTextLines,
+  wrapStructuredText,
+  sampleStructuredText,
+} from "#/structured-text.ts";
+import type { AnsiTransformer } from "#/transform-adapter.ts";
 import { Yoga } from "#/yoga/index.ts";
 
-// If parent container is `<Box>`, text nodes will be treated as separate nodes in
-// the tree and will have their own coordinates in the layout.
-// To ensure text nodes are aligned correctly, take X and Y of the first text node
-// and use it as offset for the rest of the nodes
-// Only first node is taken into account, because other text nodes can't have margin or padding,
-// so their coordinates will be relative to the first node anyway
-const applyPaddingToText = (node: DOMElement, text: string): string => {
-  const yogaNode = node.childNodes[0]?.yogaNode;
-
-  if (yogaNode) {
-    const offsetX = yogaNode.getComputedLeft();
-    const offsetY = yogaNode.getComputedTop();
-
-    text =
-      "\n".repeat(offsetY) +
-      (offsetX > 0 ? text.replace(/^(?!\s*$)/gm, " ".repeat(offsetX)) : text);
-  }
-
-  return text;
-};
-
-export type OutputTransformer = (s: string, index: number) => string;
-
-export const renderNodeToScreenReaderOutput = (
+export const renderAccessibleText = (
   node: DOMElement,
   options: {
     parentRole?: string;
@@ -61,7 +45,7 @@ export const renderNodeToScreenReaderOutput = (
 
     output = childNodes
       .map((childNode) => {
-        const screenReaderOutput = renderNodeToScreenReaderOutput(childNode as DOMElement, {
+        const screenReaderOutput = renderAccessibleText(childNode as DOMElement, {
           parentRole: node.internal_accessibility?.role,
           skipStaticElements: options.skipStaticElements,
         });
@@ -92,13 +76,13 @@ export const renderNodeToScreenReaderOutput = (
 };
 
 // After nodes are laid out, render each to output object, which later gets rendered to terminal
-export const renderNodeToOutput = (
+export const paintTree = (
   node: DOMElement,
-  output: Output,
+  output: Canvas,
   options: {
     offsetX?: number;
     offsetY?: number;
-    transformers?: OutputTransformer[];
+    transformers?: AnsiTransformer[];
     skipStaticElements: boolean;
   },
 ) => {
@@ -120,28 +104,54 @@ export const renderNodeToOutput = (
     const y = offsetY + yogaNode.getComputedTop();
 
     // Transformers are functions that transform final text output of each component
-    // See Output class for logic that applies transformers
-    let newTransformers = transformers;
-
-    if (typeof node.internal_transform === "function") {
-      newTransformers = [node.internal_transform, ...transformers];
-    }
+    // The canvas applies explicit compatibility transformers at this boundary.
+    const newTransformers = node.internal_transform
+      ? [node.internal_transform, ...transformers]
+      : transformers;
 
     if (node.nodeName === "ink-text") {
-      let text = squashTextNodes(node);
+      const text = squashTextNodes(node);
 
       if (text.length > 0) {
-        const currentWidth = widestLine(text);
         const maxWidth = getMaxWidth(yogaNode);
+        const firstChildYoga = node.childNodes[0]?.yogaNode;
+        const paddingX = firstChildYoga?.getComputedLeft() ?? 0;
+        const paddingY = firstChildYoga?.getComputedTop() ?? 0;
+        const lines = wrapStructuredText(
+          structuredTextLines(node),
+          maxWidth,
+          node.style.textWrap ?? "wrap",
+          structuredTextBaseStyle(node),
+        );
+        const paintBounds = {
+          x: x + paddingX,
+          y: y + paddingY,
+          width: Math.max(
+            1,
+            ...lines.map((line) => line.reduce((width, cell) => width + cell.width, 0)),
+          ),
+          height: lines.length,
+        };
+        const sampled = sampleStructuredText(lines, paintBounds, output.paintContext);
 
-        if (currentWidth > maxWidth) {
-          const textWrap = node.style.textWrap ?? "wrap";
-          text = wrapText(text, maxWidth, textWrap);
+        if (hasCompatibilityText(node)) {
+          const textTransformers = collectTransformers(node, transformers);
+          output.writeAnsi(
+            paintBounds.x,
+            paintBounds.y,
+            sampled
+              .map((line) =>
+                serializeLine(line, {
+                  colorProfile: output.paintContext.profile ?? "truecolor",
+                  trimEnd: false,
+                }),
+              )
+              .join("\n"),
+            { transformers: textTransformers },
+          );
+        } else {
+          output.writeCells(paintBounds.x, paintBounds.y, sampled);
         }
-
-        text = applyPaddingToText(node, text);
-
-        output.write(x, y, text, { transformers: newTransformers });
       }
 
       return;
@@ -177,7 +187,7 @@ export const renderNodeToOutput = (
 
     if (node.nodeName === "ink-root" || node.nodeName === "ink-box") {
       for (const childNode of node.childNodes) {
-        renderNodeToOutput(childNode as DOMElement, output, {
+        paintTree(childNode as DOMElement, output, {
           offsetX: x,
           offsetY: y,
           transformers: newTransformers,
@@ -191,3 +201,16 @@ export const renderNodeToOutput = (
     }
   }
 };
+
+function collectTransformers(
+  node: DOMElement,
+  inherited: readonly AnsiTransformer[],
+): AnsiTransformer[] {
+  return [
+    ...node.childNodes.flatMap((child) =>
+      child.nodeName === "#text" ? [] : collectTransformers(child, []),
+    ),
+    ...(node.internal_transform ? [node.internal_transform] : []),
+    ...inherited,
+  ];
+}

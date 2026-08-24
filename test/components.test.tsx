@@ -2027,10 +2027,10 @@ test("vertical spacer", () => {
   expect(output).toBe("Top\n\n\n\n\nBottom");
 });
 
-test("link ansi escapes are closed properly", () => {
+test("raw link escapes are stripped from ordinary Text", () => {
   const output = renderToString(<Text>{ansiEscapes.link("Example", "https://example.com")}</Text>);
 
-  expect(output).toBe("]8;;https://example.comExample]8;;");
+  expect(output).toBe("Example");
 });
 
 // Concurrent mode tests

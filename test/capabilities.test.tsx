@@ -752,13 +752,13 @@ describe("useCapabilities", () => {
     expect(written).toContain(`${CSI}?2048h`);
 
     // A focus-out report arrives through the normal input pipeline.
-    emitReadable(stdin as unknown as FakeStdin, `${CSI}O`);
+    emitReadable(stdin, `${CSI}O`);
     await delay(50);
     expect(lastFrame(stdout)).toBe("dark focused:false");
 
     // An OS color scheme report alone doesn't flip the theme — the known
     // dark background wins until the triggered refresh reads new colors.
-    emitReadable(stdin as unknown as FakeStdin, `${ESC}[?997;2n`);
+    emitReadable(stdin, `${ESC}[?997;2n`);
     await delay(50);
     expect(lastFrame(stdout)).toBe("dark focused:false");
 
@@ -794,9 +794,9 @@ describe("useCapabilities", () => {
     stdin.emit("data", `${CSI}?1004;2$y${CSI}?62c`);
     await delay(50);
 
-    emitReadable(stdin as unknown as FakeStdin, `${CSI}O`);
+    emitReadable(stdin, `${CSI}O`);
     await delay(50);
-    emitReadable(stdin as unknown as FakeStdin, `${CSI}I`);
+    emitReadable(stdin, `${CSI}I`);
     await delay(50);
 
     expect(changes).toEqual([

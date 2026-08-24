@@ -1,4 +1,6 @@
+import { chalk } from "#/ansi/chalk.ts";
 import { render } from "#/index.ts";
+import { colorProfileFromLevel } from "#/screen/color-profile.ts";
 
 import { act } from "./act.ts";
 import createStdout from "./create-stdout.ts";
@@ -20,6 +22,7 @@ export const renderToString: (
   render(node, {
     stdout,
     debug: true,
+    colorProfile: colorProfileFromLevel(chalk.level),
     isScreenReaderEnabled: options?.isScreenReaderEnabled,
   });
 
@@ -42,6 +45,7 @@ export const renderToStringAsync: (
     render(node, {
       stdout,
       debug: true,
+      colorProfile: colorProfileFromLevel(chalk.level),
       isScreenReaderEnabled: options?.isScreenReaderEnabled,
       concurrent: true,
     });

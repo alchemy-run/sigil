@@ -10,7 +10,7 @@ export type Props = {
   readonly accessibilityLabel?: string;
 
   /**
-	Function that transforms children output. It accepts children and must return transformed children as well. Note that when children use `<Text>` styling props (e.g. `color`, `bold`), the string will contain ANSI escape codes.
+	Compatibility function that transforms the ANSI serialization of this subtree.
 	*/
   readonly transform: (children: string, index: number) => string;
 

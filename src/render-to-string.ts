@@ -1,9 +1,12 @@
 import type { ReactNode } from "react";
 import { LegacyRoot } from "react-reconciler/constants.js";
 
+import { detectColorLevel } from "#/capabilities/detect.ts";
 import { createNode, type DOMElement } from "#/dom.ts";
 import { reconciler } from "#/reconciler.ts";
-import { renderer } from "#/renderer.ts";
+import { renderFrame } from "#/render-frame.ts";
+import { colorProfileFromLevel, type ColorProfile } from "#/screen/index.ts";
+import { serializeScreen } from "#/screen/serialize.ts";
 import { Yoga } from "#/yoga/index.ts";
 
 export type RenderToStringOptions = {
@@ -13,6 +16,12 @@ export type RenderToStringOptions = {
 	@default 80
 	*/
   columns?: number;
+
+  /**
+	Color profile used for deterministic serialization. By default this retains
+	the process color level for Ink compatibility.
+	*/
+  colorProfile?: ColorProfile;
 };
 
 /**
@@ -44,6 +53,7 @@ console.log(output);
 */
 export const renderToString = (node: ReactNode, options?: RenderToStringOptions): string => {
   const columns = options?.columns ?? 80;
+  const colorProfile = options?.colorProfile ?? colorProfileFromLevel(detectColorLevel());
 
   // Create a standalone root node — no stdout, stdin, or terminal bindings
   const rootNode: DOMElement = createNode("ink-root");
@@ -62,7 +72,10 @@ export const renderToString = (node: ReactNode, options?: RenderToStringOptions)
   };
 
   rootNode.onImmediateRender = () => {
-    const { staticOutput } = renderer(rootNode, false);
+    const { staticScreen } = renderFrame(rootNode, false, { colorProfile });
+    const staticOutput = staticScreen
+      ? `${serializeScreen(staticScreen, { colorProfile, styles: colorProfile !== "none" })}\n`
+      : "";
     if (staticOutput && staticOutput !== "\n") {
       capturedStaticOutput += staticOutput;
     }
@@ -99,7 +112,10 @@ export const renderToString = (node: ReactNode, options?: RenderToStringOptions)
 
   // Yoga layout has already been calculated by onComputeLayout during commit.
   // Render the DOM tree to a string — this captures the dynamic (non-static) output.
-  const { output } = renderer(rootNode, false);
+  const { screen } = renderFrame(rootNode, false, { colorProfile });
+  const output = screen
+    ? serializeScreen(screen, { colorProfile, styles: colorProfile !== "none" })
+    : "";
 
   // Tear down: unmount the tree so the reconciler cleans up child nodes
   // and runs effect cleanup functions. The reconciler detaches removed
@@ -116,9 +132,8 @@ export const renderToString = (node: ReactNode, options?: RenderToStringOptions)
         new Error(String(uncaughtError));
   }
 
-  // The renderer appends a trailing newline to static output for terminal
-  // rendering (so dynamic output starts on a fresh line). Strip it here
-  // so renderToString returns clean output.
+  // Static terminal output ends with a newline so dynamic output starts on a
+  // fresh line. Strip it here so renderToString returns clean output.
   const normalizedStaticOutput = capturedStaticOutput.endsWith("\n")
     ? capturedStaticOutput.slice(0, -1)
     : capturedStaticOutput;

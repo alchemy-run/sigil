@@ -489,24 +489,7 @@ test("out of bounds writes do not crash", () => {
     columns: 10,
   });
 
-  const expected = [
-    "╭──────────╮",
-    "│          │",
-    "│          │",
-    "│          │",
-    "│          │",
-    "│          │",
-    "│          │",
-    "│          │",
-    "│          │",
-    "╰──────────╯",
-  ]
-    .join("\n")
-    .split("\n")
-    .map((line, index) => {
-      return index === 0 || index === 9 ? line : `${line.slice(0, 10)}${line[11] ?? ""}`;
-    })
-    .join("\n");
+  const expected = ["╭─────────", ...Array(8).fill("│"), "╰─────────"].join("\n");
 
   expect(output).toBe(expected);
 });
