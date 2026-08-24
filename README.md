@@ -13,11 +13,22 @@
 - **Modern toolchain**: built with [Vite+](https://viteplus.dev) (Vitest, Oxlint, Oxfmt, tsdown) and TypeScript 7.
 - **Structured terminal core**: cells retain semantic colors, gradients, links, and graphemes through layout and composition, then serialize for the target terminal profile.
 
-Low-level integrations are available through focused `ansi`, `capabilities`, `color`, `screen`, `style`, `terminal`, and `testing` subpaths. See the [architecture guide](docs/architecture.md), [API stability policy](docs/api-stability.md), and [color semantics](docs/color-semantics.md).
+Low-level integrations are available through focused `ansi`, `capabilities`, `color`, `router`, `screen`, `terminal`, and `yoga` subpaths. See the [architecture guide](docs/architecture.md), [API stability policy](docs/api-stability.md), [color semantics](docs/color-semantics.md), and [performance notes](docs/performance.md).
 
 Upstream Ink and Yoga are tracked as submodules in `.vendor/` — upstream's test suites run against this codebase as part of the regular test run. See `THIRD_PARTY_NOTICES.md` for attribution.
 
-The documentation below is inherited from Ink; the API is unchanged apart from imports
+The familiar Ink component and hook surface remains available from the package root. Sigil also adds terminal-aware APIs described below. The longer API reference is inherited from Ink and uses Sigil imports where applicable.
+
+## Sigil extensions
+
+- **Structured rendering** — layout produces a semantic `Screen` of grapheme-aware cells before terminal-specific ANSI serialization. Import low-level primitives from `@alchemy.run/sigil/screen`, `@alchemy.run/sigil/color`, and `@alchemy.run/sigil/terminal`.
+- **Terminal capabilities** — `getCapabilities()` returns the current snapshot, while `capabilities.subscribe()` and `useCapabilitiesChange()` observe live terminal reports. The framework-free API is available from `@alchemy.run/sigil/capabilities`.
+- **Terminal integrations** — `<Hyperlink>` provides OSC 8 links with a fallback. `useTitle`, `useWorkingDirectory`, `useProgress`, `useNotification`, `useClipboard`, and `usePointerShape` manage session-scoped OSC state.
+- **ANSI-aware text** — `<AnsiText>` interprets ANSI-styled input without flattening its semantic colors before rendering.
+- **Routing** — `@alchemy.run/sigil/router` provides an in-memory router designed for terminal applications. See the [routing recipe](recipes/routing.md).
+- **Testing** — the repository includes an internal emulator-backed E2E harness and interactive explorer. These utilities are not part of the public API while their design is evolving.
+
+Sigil requires Node.js 22 or newer and React 19.2 or newer.
 
 ---
 
