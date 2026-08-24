@@ -4,6 +4,7 @@ import { PassThrough } from "node:stream";
 import type { ReactNode } from "react";
 
 import {
+  AnsiText,
   Box,
   Hyperlink,
   Newline,
@@ -14,6 +15,7 @@ import {
   render,
   renderToString,
   type AnimationResult,
+  type AnsiTextProps,
   type AppProps,
   type BoxMetrics,
   type BoxProps,
@@ -35,6 +37,7 @@ import {
   type NewlineProps,
   type PixelGeometry,
   type PixelSize,
+  type ProgressOptions,
   type RenderOptions,
   type RenderToStringOptions,
   type RgbColor,
@@ -59,6 +62,7 @@ The exact value exports of the root entry point. Adding or removing a root
 export is a compatibility decision and must update this manifest deliberately.
 */
 export const rootRuntimeExports = [
+  "AnsiText",
   "Box",
   "Hyperlink",
   "Newline",
@@ -88,16 +92,22 @@ export const rootRuntimeExports = [
   "useBoxMetrics",
   "useCapabilities",
   "useCapabilitiesChange",
+  "useClipboard",
   "useCursor",
   "useFocus",
   "useFocusManager",
   "useInput",
   "useIsScreenReaderEnabled",
+  "useNotification",
   "usePaste",
+  "usePointerShape",
+  "useProgress",
   "useStderr",
   "useStdin",
   "useStdout",
+  "useTitle",
   "useWindowSize",
+  "useWorkingDirectory",
 ] as const;
 
 /**
@@ -106,6 +116,7 @@ during the dedicated public-contract typecheck.
 */
 export type RootPublicTypes = {
   AnimationResult: AnimationResult;
+  AnsiTextProps: AnsiTextProps;
   AppProps: AppProps;
   BoxMetrics: BoxMetrics;
   BoxProps: BoxProps;
@@ -127,6 +138,7 @@ export type RootPublicTypes = {
   NewlineProps: NewlineProps;
   PixelGeometry: PixelGeometry;
   PixelSize: PixelSize;
+  ProgressOptions: ProgressOptions;
   RenderOptions: RenderOptions;
   RenderToStringOptions: RenderToStringOptions;
   RgbColor: RgbColor;
@@ -153,7 +165,14 @@ type Assert<Value extends true> = Value;
 export type InstanceContract = Assert<
   Equal<
     keyof Instance,
-    "rerender" | "unmount" | "waitUntilExit" | "waitUntilRenderFlush" | "cleanup" | "clear"
+    | "rerender"
+    | "unmount"
+    | "waitUntilExit"
+    | "waitUntilRenderFlush"
+    | "cleanup"
+    | "clear"
+    | "copyToClipboard"
+    | "setProgress"
   >
 >;
 
@@ -201,6 +220,7 @@ export const compileInkCompatibleUsage = (children: ReactNode): Instance => {
       <Transform transform={(line) => line.toUpperCase()}>
         <Text>transformed</Text>
       </Transform>
+      <AnsiText>{"\u001B[32mexternal\u001B[0m"}</AnsiText>
       <Spacer />
       <Static items={["complete"]}>{(item) => <Text key={item}>{item}</Text>}</Static>
     </Box>

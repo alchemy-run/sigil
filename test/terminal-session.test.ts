@@ -2,7 +2,22 @@ import { EventEmitter } from "node:events";
 
 import { expect, test, vi } from "vite-plus/test";
 
+import { ansiEscapes } from "#/ansi/escapes.ts";
+import { setClipboard, setTerminalProgress } from "#/ansi/osc.ts";
+import { createCell } from "#/screen/cell.ts";
+import { Screen } from "#/screen/screen.ts";
 import { TerminalSession } from "#/terminal/index.ts";
+
+const frame = (...lines: string[]): Screen => {
+  const width = Math.max(0, ...lines.map((line) => line.length));
+  const screen = new Screen(width, lines.length);
+  for (const [y, line] of lines.entries()) {
+    for (let x = 0; x < line.length; x++) {
+      screen.setCell(x, y, createCell(line.charAt(x), 1));
+    }
+  }
+  return screen;
+};
 
 const streams = () => {
   const stdin = new EventEmitter() as NodeJS.ReadableStream;
@@ -30,6 +45,44 @@ test("owns profile, writes, modes, and idempotent cleanup per stream", async () 
   expect(write.mock.calls.map(([value]) => value)).toEqual(["on", "frame", "off"]);
 });
 
+test("owns clipboard writes and terminal progress cleanup", () => {
+  const { stdin, stdout, stderr, write } = streams();
+  const session = new TerminalSession({ stdin, stdout, stderr });
+  session.copyToClipboard("secret");
+  session.setProgress("normal", 25);
+  session.cleanup();
+
+  expect(write.mock.calls.map(([value]) => value)).toEqual([
+    setClipboard("secret"),
+    setTerminalProgress("normal", 25),
+    setTerminalProgress("inactive"),
+  ]);
+});
+
+test("refreshes active terminal progress until stopped", () => {
+  vi.useFakeTimers();
+  try {
+    const { stdin, stdout, stderr, write } = streams();
+    const session = new TerminalSession({ stdin, stdout, stderr });
+    session.setProgress("indeterminate");
+
+    vi.advanceTimersByTime(3000);
+    expect(write.mock.calls.map(([value]) => value)).toEqual([
+      setTerminalProgress("indeterminate"),
+      setTerminalProgress("indeterminate"),
+      setTerminalProgress("indeterminate"),
+      setTerminalProgress("indeterminate"),
+    ]);
+
+    session.setProgress("inactive");
+    vi.advanceTimersByTime(3000);
+    expect(write).toHaveBeenCalledTimes(5);
+    session.cleanup();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
 test("reference-counts modes and owns screen and suspension state", () => {
   const { stdin, stdout, stderr, write } = streams();
   const session = new TerminalSession({ stdin, stdout, stderr });
@@ -51,6 +104,28 @@ test("reference-counts modes and owns screen and suspension state", () => {
     "\u001B[?1049h",
     "\u001B[?1049l",
   ]);
+});
+
+test("owns sparse presentation and invalidates frames across terminal transitions", () => {
+  const { stdin, stdout, stderr, write } = streams();
+  const session = new TerminalSession({ stdin, stdout, stderr, colorPolicy: "none" });
+  session.present(frame("one", "old"));
+  write.mockClear();
+
+  session.present(frame("one", "new"));
+  expect(write.mock.calls.map(([value]) => value)).toEqual([ansiEscapes.eraseLines(2) + "new\n"]);
+
+  session.setAlternateScreen(true);
+  write.mockClear();
+  session.present(frame("one", "new"), { fullscreen: true });
+  expect(write.mock.calls.map(([value]) => value)).toEqual(["one\nnew"]);
+
+  session.beginSuspension();
+  session.resume();
+  write.mockClear();
+  session.present(frame("one", "new"), { fullscreen: true });
+  expect(write.mock.calls.map(([value]) => value)).toEqual(["one\nnew"]);
+  session.cleanup();
 });
 
 test("tracks cursor position, appearance, and color", () => {

@@ -2,7 +2,7 @@ import { afterAll, expect, test } from "vite-plus/test";
 
 import { chalk } from "#/ansi/chalk.ts";
 import { stripAnsi } from "#/ansi/strip.ts";
-import { render, Box, Text } from "#/index.ts";
+import { AnsiText, render, Box, Text } from "#/index.ts";
 
 import createStdout from "./helpers/create-stdout.ts";
 import { renderToString, renderToStringAsync } from "./helpers/render-to-string.ts";
@@ -203,6 +203,23 @@ test("strip SGR color sequences from ordinary text", () => {
   );
 
   expect(output).toBe("green normal");
+});
+
+test("AnsiText preserves explicitly external SGR styling", () => {
+  const output = renderToString(<AnsiText>{"\u001B[32mgreen\u001B[0m normal"}</AnsiText>);
+
+  expect(output).toBe(chalk.green("green") + " normal");
+});
+
+test("AnsiText wraps styled cells without counting ANSI sequences", () => {
+  const output = renderToString(
+    <Box width={5}>
+      <AnsiText>{"\u001B[32mgreen blue\u001B[0m"}</AnsiText>
+    </Box>,
+  );
+
+  expect(stripAnsi(output)).toBe("green\n blue");
+  expect(output).toContain("\u001B[32m");
 });
 
 test("strip OSC hyperlink sequences from ordinary text", () => {

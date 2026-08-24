@@ -2,6 +2,7 @@ import { Stream, type Writable } from "node:stream";
 
 import type { ReactNode } from "react";
 
+import type { ClipboardSelection, TerminalProgressState } from "#/ansi/osc.ts";
 import { createInk, type Ink, type Options as InkOptions, type RenderMetrics } from "#/ink.tsx";
 import { instances } from "#/instances.ts";
 import { type KittyKeyboardOptions } from "#/kitty-keyboard.ts";
@@ -206,6 +207,12 @@ export type Instance = {
 	Clear output.
 	*/
   clear: () => void;
+
+  /** Copy text through the renderer-owned terminal session. */
+  copyToClipboard: (text: string, selection?: ClipboardSelection) => boolean;
+
+  /** Update terminal-native progress through the renderer-owned session. */
+  setProgress: (state: TerminalProgressState, value?: number) => boolean;
 };
 
 /**
@@ -239,6 +246,8 @@ export const render = (node: ReactNode, options?: Writable | RenderOptions): Ins
       instance.unmount();
     },
     clear: instance.clear,
+    copyToClipboard: instance.copyToClipboard,
+    setProgress: instance.setProgress,
   };
 };
 

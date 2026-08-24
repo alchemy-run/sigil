@@ -33,6 +33,13 @@ needs them.
 - [x] Strip ANSI from ordinary text and keep ANSI generation at an explicit
       `Transform` boundary rather than detecting it inside native text.
 - [x] Preserve `<Transform>` through one serialize/callback/parse adapter.
+- [x] Provide `AnsiText` as the direct structured boundary for trusted external
+      ANSI logs and tool output.
+- [x] Expose typed OSC helpers for clipboard, terminal progress, notifications,
+      titles, working directories, and pointer shapes; integrate clipboard and
+      progress with `TerminalSession` lifecycle and tmux passthrough.
+- [x] Add React OSC hooks backed by the renderer-owned terminal session and a
+      centralized progress publisher registry.
 
 ### 3. Give the terminal session presentation ownership
 
@@ -64,10 +71,10 @@ needs them.
       focus, lifecycle, and accessibility behavior.
 - [x] Replace obsolete raw-ANSI-in-`Text` expectations with the structured-text
       contract.
-- [ ] Test full redraw, sparse diff, resize, wide grapheme, static output,
+- [x] Test full redraw, sparse diff, resize, wide grapheme, static output,
       alternate screen, suspend/resume, and cleanup through the single pipeline.
 - [x] Fix process listener leaks and make typecheck and the full test suite clean.
-- [ ] Commit the convergence in reviewable checkpoints before adding more
+- [x] Commit the convergence in reviewable checkpoints before adding more
       terminal-core features.
 
 Sigil should provide an Ink-familiar React API backed by a cohesive, cell-based terminal runtime. Compatibility is preserved where it does not compromise the architecture; Sigil's own consumers may migrate across deliberate API improvements.

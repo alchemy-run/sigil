@@ -231,6 +231,11 @@ export const reconciler = createReconciler<
         continue;
       }
 
+      if (key === "internal_ansi") {
+        node.internal_ansi = value === true;
+        continue;
+      }
+
       if (key === "internal_textStyle") {
         node.internal_textStyle = value as SemanticTextStyle;
         continue;
@@ -338,6 +343,11 @@ export const reconciler = createReconciler<
         if (key === "internal_transform") {
           // oxlint-disable-next-line typescript/no-unsafe-type-assertion
           node.internal_transform = value as AnsiTransformer;
+          continue;
+        }
+
+        if (key === "internal_ansi") {
+          node.internal_ansi = value === true;
           continue;
         }
 

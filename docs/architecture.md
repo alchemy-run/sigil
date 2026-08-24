@@ -12,12 +12,16 @@ Sigil keeps Ink's React component model while replacing its terminal internals w
 
 Inline presentation retains the previous structured screen. Stable leading rows are left untouched; updates erase and rewrite only the suffix beginning at the first changed row. Width changes, presentation-mode transitions, external output, suspension, and invalidated terminal state use a safe full rewrite. Interactive writes are enclosed in synchronized-output sequences so capable terminals display each update atomically.
 
-ANSI is an edge format. Ordinary `Text` strips embedded terminal controls. `Transform` explicitly serializes its semantic subtree, invokes the compatibility callback, and parses the result back into cells.
+ANSI is an edge format. Ordinary `Text` strips embedded terminal controls.
+`AnsiText` parses explicitly trusted external output directly into structured
+cells before wrapping. `Transform` remains the more general compatibility path:
+it serializes its semantic subtree, invokes the callback, and parses the result
+back into cells.
 
 ## Package boundaries
 
 - `@alchemy.run/sigil` is the Ink-compatible React surface.
-- `@alchemy.run/sigil/ansi` contains the canonical ANSI grammar, escapes, measurement, slicing, wrapping, and compatibility styling.
+- `@alchemy.run/sigil/ansi` contains the canonical ANSI grammar, escapes, measurement, slicing, wrapping, compatibility styling, and typed OSC integrations for clipboard, progress, notifications, titles, working directories, and pointer shapes.
 - `@alchemy.run/sigil/capabilities` separates detected terminal facts, application policy, and effective output profiles.
 - `@alchemy.run/sigil/color` contains semantic colors, gradients, interpolation, blending, and palettes.
 - `@alchemy.run/sigil/screen` contains cells, geometry, canvases, serialization, and diff encoding.
@@ -28,3 +32,16 @@ The emulator-backed test harness, virtual streams, and screen/frame assertions u
 ## Extension rules
 
 React component libraries should stay on the root component API. Terminal integrations should create one `TerminalSession` per stream pair and must call `cleanup()`; cleanup is idempotent. New composition features belong in the React host renderer instead of a parallel scene graph.
+
+Prefer `TerminalSession.copyToClipboard()` and `TerminalSession.setProgress()`
+inside applications. They apply tmux passthrough automatically, and session
+progress is refreshed once per second so terminal timeout behavior cannot hide
+long-running work. Cleanup clears active progress. The lower-level OSC builders
+remain available from `@alchemy.run/sigil/ansi` for integrations that own their
+writes.
+
+React renderers should prefer `useProgress`, `useClipboard`, `useTitle`,
+`useWorkingDirectory`, `useNotification`, and `usePointerShape`. These hooks
+publish through the renderer-owned session. Progress publishers share one
+registry: the most recently updated mounted publisher is active, and unmounting
+it restores the previous publisher or clears terminal progress.

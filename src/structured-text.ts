@@ -5,6 +5,7 @@ import { stripAnsi } from "#/ansi/strip.ts";
 import { samplePaint, type PaintContext } from "#/color/index.ts";
 import type { Paint } from "#/color/paint.ts";
 import type { DOMElement, DOMNode } from "#/dom.ts";
+import { cellsFromAnsi } from "#/screen/ansi.ts";
 import { createCell, type Cell, type CellStyle } from "#/screen/cell.ts";
 import type { Rect } from "#/screen/geometry.ts";
 import {
@@ -32,7 +33,7 @@ export function hasCompatibilityText(node: DOMElement): boolean {
 /** Rasterizes an unwrapped native Text subtree into semantic cell lines. */
 export function structuredTextLines(node: DOMElement): readonly (readonly SemanticCell[])[] {
   const lines: SemanticCell[][] = [[]];
-  appendNode(node, emptySemanticTextStyle, lines);
+  appendNode(node, emptySemanticTextStyle, lines, false);
   return lines;
 }
 
@@ -242,15 +243,51 @@ function lineWidth(line: readonly Cell[]): number {
   return line.reduce((width, cell) => width + cell.width, 0);
 }
 
-function appendNode(node: DOMNode, inherited: SemanticTextStyle, lines: SemanticCell[][]): void {
+function appendNode(
+  node: DOMNode,
+  inherited: SemanticTextStyle,
+  lines: SemanticCell[][],
+  ansi: boolean,
+): void {
   if (node.nodeName === "#text") {
-    appendText(node.nodeValue, inherited, lines);
+    if (ansi) appendAnsiText(node.nodeValue, inherited, lines);
+    else appendText(node.nodeValue, inherited, lines);
     return;
   }
 
   const style = mergeSemanticTextStyles(inherited, node.internal_textStyle);
   for (const child of node.childNodes) {
-    appendNode(child, style, lines);
+    appendNode(child, style, lines, ansi || node.internal_ansi === true);
+  }
+}
+
+function appendAnsiText(text: string, semantic: SemanticTextStyle, lines: SemanticCell[][]): void {
+  const base = semanticTextStyleToCellStyle(semantic);
+  for (const cell of cellsFromAnsi(text)) {
+    if (cell.grapheme === "\n" || cell.grapheme === "\r\n") {
+      lines.push([]);
+      continue;
+    }
+
+    const hasForeground = cell.style.foreground !== undefined;
+    const hasBackground = cell.style.background !== undefined;
+    lines.at(-1)!.push({
+      ...cell,
+      style: {
+        ...((cell.style.foreground ?? base.foreground)
+          ? { foreground: cell.style.foreground ?? base.foreground }
+          : {}),
+        ...((cell.style.background ?? base.background)
+          ? { background: cell.style.background ?? base.background }
+          : {}),
+        ...(cell.style.underlineColor ? { underlineColor: cell.style.underlineColor } : {}),
+        underline: cell.style.underline === "none" ? base.underline : cell.style.underline,
+        // eslint-disable-next-line no-bitwise
+        attributes: base.attributes | cell.style.attributes,
+      },
+      ...(!hasForeground && semantic.foreground ? { foregroundPaint: semantic.foreground } : {}),
+      ...(!hasBackground && semantic.background ? { backgroundPaint: semantic.background } : {}),
+    });
   }
 }
 

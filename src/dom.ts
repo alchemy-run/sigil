@@ -25,6 +25,7 @@ export type DOMElement = {
   nodeName: ElementNames;
   attributes: Record<string, DOMNodeAttribute>;
   childNodes: DOMNode[];
+  internal_ansi?: boolean;
   internal_transform?: AnsiTransformer;
   internal_textStyle?: SemanticTextStyle;
 

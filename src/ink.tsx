@@ -7,10 +7,12 @@ import { type FiberRoot } from "react-reconciler";
 import { LegacyRoot, ConcurrentRoot } from "react-reconciler/constants.js";
 
 import { ansiEscapes, bsu, esu } from "#/ansi/escapes.ts";
+import type { ClipboardSelection, TerminalProgressState } from "#/ansi/osc.ts";
 import { wrapAnsi } from "#/ansi/wrap.ts";
 import { accessibilityContext as AccessibilityContext } from "#/components/AccessibilityContext.ts";
 import { App } from "#/components/App.tsx";
 import { type TerminalSuspension } from "#/components/AppContext.ts";
+import { TerminalOscContext } from "#/components/TerminalOscContext.ts";
 import type { CursorPosition } from "#/cursor-position.ts";
 import * as dom from "#/dom.ts";
 import { isSigilDev, isInCi, isScreenReader, isTty, isWindows } from "#/env.ts";
@@ -298,6 +300,12 @@ export type Ink = {
 	Clear output.
 	*/
   clear: () => void;
+
+  /** Copy text through the renderer-owned terminal session. */
+  copyToClipboard: (text: string, selection?: ClipboardSelection) => boolean;
+
+  /** Update terminal-native progress through the renderer-owned session. */
+  setProgress: (state: TerminalProgressState, value?: number) => boolean;
 };
 
 export const createInk = (options: Options): Ink => {
@@ -333,6 +341,22 @@ export const createInk = (options: Options): Ink => {
     colorPolicy: options.colorProfile ?? "auto",
     onCapabilitiesChange: () => rootNode.onRender?.(),
   });
+  const terminalOsc = {
+    publishProgress: (
+      owner: symbol,
+      state: import("#/ansi/osc.ts").TerminalProgressState,
+      value?: number,
+    ) => {
+      terminal.publishProgress(owner, state, value);
+    },
+    copyToClipboard: (text: string, selection?: import("#/ansi/osc.ts").ClipboardSelection) => {
+      terminal.copyToClipboard(text, selection);
+    },
+    publishTitle: (owner: symbol, title?: string) => terminal.publishTitle(owner, title),
+    setWorkingDirectory: (directory: URL | string) => terminal.setWorkingDirectory(directory),
+    notify: (title: string) => terminal.notify(title),
+    setPointerShape: (shape: string) => terminal.setPointerShape(shape),
+  };
   const capabilitiesStore = terminal.capabilities;
 
   const unthrottled = options.debug || isScreenReaderEnabled;
@@ -660,24 +684,26 @@ export const createInk = (options: Options): Ink => {
   function render(node: ReactNode): void {
     const tree = (
       <AccessibilityContext.Provider value={{ isScreenReaderEnabled }}>
-        <App
-          stdin={options.stdin}
-          stdout={options.stdout}
-          stderr={options.stderr}
-          exitOnCtrlC={options.exitOnCtrlC}
-          interactive={interactive}
-          renderThrottleMs={renderScheduler.intervalMs}
-          terminalInput={terminal.input}
-          writeToStdout={writeToStdout}
-          writeToStderr={writeToStderr}
-          setCursorPosition={setCursorPosition}
-          onExit={handleAppExit}
-          onWaitUntilRenderFlush={waitUntilRenderFlush}
-          onSuspendTerminal={suspendTerminal}
-          onRegisterInputControl={registerInputControl}
-        >
-          {node}
-        </App>
+        <TerminalOscContext.Provider value={terminalOsc}>
+          <App
+            stdin={options.stdin}
+            stdout={options.stdout}
+            stderr={options.stderr}
+            exitOnCtrlC={options.exitOnCtrlC}
+            interactive={interactive}
+            renderThrottleMs={renderScheduler.intervalMs}
+            terminalInput={terminal.input}
+            writeToStdout={writeToStdout}
+            writeToStderr={writeToStderr}
+            setCursorPosition={setCursorPosition}
+            onExit={handleAppExit}
+            onWaitUntilRenderFlush={waitUntilRenderFlush}
+            onSuspendTerminal={suspendTerminal}
+            onRegisterInputControl={registerInputControl}
+          >
+            {node}
+          </App>
+        </TerminalOscContext.Provider>
       </AccessibilityContext.Provider>
     );
 
@@ -1350,5 +1376,7 @@ export const createInk = (options: Options): Ink => {
     waitUntilExit,
     waitUntilRenderFlush,
     clear,
+    copyToClipboard: (text, selection) => terminal.copyToClipboard(text, selection),
+    setProgress: (state, value) => terminal.setProgress(state, value),
   };
 };

@@ -10,6 +10,7 @@ export * from "#/ansi/sgr.ts";
 
 // Escape sequences (raw building blocks + named sequences)
 export * from "#/ansi/escapes.ts";
+export * from "#/ansi/osc.ts";
 export { cliCursor } from "#/ansi/cursor.ts";
 
 // Measurement
