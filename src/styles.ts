@@ -5,6 +5,11 @@ import { Yoga, type Node as YogaNode, type PositionType } from "#/yoga/index.ts"
 export type Styles = {
   /*
 	We keep this as a single enum so overflow is one complete choice and invalid combinations like wrap + truncate-middle are unrepresentable. In hindsight, `normal` would have been a clearer default value than `wrap`, since it describes the standard behavior instead of repeating the prop name.
+
+	`none` neither wraps nor truncates: the text overflows the container (and
+	the screen's nominal width). Meant for scrollback content (`<Static>`),
+	not live regions, where a physically soft-wrapped line breaks the
+	presenter's line accounting.
 	*/
   readonly textWrap?:
     | "wrap"
@@ -12,7 +17,8 @@ export type Styles = {
     | "truncate-end"
     | "truncate"
     | "truncate-middle"
-    | "truncate-start";
+    | "truncate-start"
+    | "none";
 
   /**
 	Controls how the element is positioned.

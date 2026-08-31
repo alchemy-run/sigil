@@ -243,6 +243,12 @@ const measureTextNode = function (node: DOMNode, width: number): { width: number
   }
 
   const textWrap = node.style?.textWrap ?? "wrap";
+
+  // `none` keeps the intrinsic dimensions and overflows the container.
+  if (textWrap === "none") {
+    return dimensions;
+  }
+
   const wrappedText = wrapText(text, width, textWrap);
 
   return measureText(wrappedText);

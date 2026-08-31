@@ -6,6 +6,10 @@ import { type Styles } from "#/styles.ts";
 export const wrapTextCache = new QuickLRU<string, string>({ maxSize: 4096 });
 
 export const wrapText = (text: string, maxWidth: number, wrapType: Styles["textWrap"]): string => {
+  if (wrapType === "none") {
+    return text;
+  }
+
   const cacheKey = text + String(maxWidth) + String(wrapType);
   const cachedText = wrapTextCache.get(cacheKey);
 

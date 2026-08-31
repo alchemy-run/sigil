@@ -34,8 +34,14 @@ export class Canvas {
     this.#screen = new Screen(this.width, this.height);
   }
 
-  writeCells(x: number, y: number, lines: readonly (readonly Cell[])[]): void {
+  writeCells(
+    x: number,
+    y: number,
+    lines: readonly (readonly Cell[])[],
+    options?: { overflow?: boolean },
+  ): void {
     const clip = this.#clips.at(-1);
+    const overflow = options?.overflow === true;
     for (const [rowOffset, line] of lines.entries()) {
       const currentY = y + rowOffset;
       if (!this.#insideY(currentY, clip)) continue;
@@ -45,7 +51,7 @@ export class Canvas {
         const clipped =
           (clip?.x1 !== undefined && currentX < clip.x1) ||
           (clip?.x2 !== undefined && endX > clip.x2);
-        if (!clipped) this.#composeNativeCell(currentX, currentY, cell);
+        if (!clipped) this.#composeNativeCell(currentX, currentY, cell, overflow);
         currentX = endX;
       }
     }
@@ -55,11 +61,12 @@ export class Canvas {
     x: number,
     y: number,
     text: string,
-    options: { transformers: AnsiTransformer[] },
+    options: { transformers: AnsiTransformer[]; overflow?: boolean },
   ): void {
     if (!text) return;
     let lines = text.split("\n");
     const clip = this.#clips.at(-1);
+    const overflow = options.overflow === true;
     if (clip?.y1 !== undefined && y < clip.y1) {
       lines = lines.slice(clip.y1 - y);
       y = clip.y1;
@@ -78,7 +85,7 @@ export class Canvas {
       for (const character of transformAnsiLine(line, lineIndex, options.transformers)) {
         const width = Math.max(1, stringWidth(character.value));
         if (clip?.x2 !== undefined && currentX + width > clip.x2) break;
-        this.#writeCompatibilityCell(currentX, currentY, character, width);
+        this.#writeCompatibilityCell(currentX, currentY, character, width, overflow);
         currentX += width;
       }
     }
@@ -104,34 +111,50 @@ export class Canvas {
     );
   }
 
-  #composeNativeCell(x: number, y: number, cell: Cell): void {
-    if (x >= this.#screen.width) {
+  #composeNativeCell(x: number, y: number, cell: Cell, overflow = false): void {
+    if (!overflow && x >= this.#screen.width) {
       return;
     }
-    this.#screen.composeCell(x, y, {
-      content: { grapheme: cell.grapheme, width: cell.width },
-      foreground: cell.reset?.foreground ? null : (cell.style.foreground ?? null),
-      background: cell.reset?.background ? null : cell.style.background,
-      underlineColor: cell.style.underlineColor ?? null,
-      underline: cell.style.underline,
-      attributes: cell.style.attributes,
-      hyperlink: cell.hyperlink ?? null,
-    });
+    this.#screen.composeCell(
+      x,
+      y,
+      {
+        content: { grapheme: cell.grapheme, width: cell.width },
+        foreground: cell.reset?.foreground ? null : (cell.style.foreground ?? null),
+        background: cell.reset?.background ? null : cell.style.background,
+        underlineColor: cell.style.underlineColor ?? null,
+        underline: cell.style.underline,
+        attributes: cell.style.attributes,
+        hyperlink: cell.hyperlink ?? null,
+      },
+      { overflow },
+    );
   }
 
-  #writeCompatibilityCell(x: number, y: number, character: StyledChar, width: number): void {
-    if (x >= this.#screen.width) {
+  #writeCompatibilityCell(
+    x: number,
+    y: number,
+    character: StyledChar,
+    width: number,
+    overflow = false,
+  ): void {
+    if (!overflow && x >= this.#screen.width) {
       return;
     }
     const cell = cellFromStyledChar(character, width);
-    this.#screen.composeCell(x, y, {
-      content: { grapheme: cell.grapheme, width: cell.width },
-      foreground: cell.style.foreground ?? null,
-      background: cell.style.background,
-      underlineColor: cell.style.underlineColor ?? null,
-      underline: cell.style.underline,
-      attributes: cell.style.attributes,
-      hyperlink: cell.hyperlink ?? null,
-    });
+    this.#screen.composeCell(
+      x,
+      y,
+      {
+        content: { grapheme: cell.grapheme, width: cell.width },
+        foreground: cell.style.foreground ?? null,
+        background: cell.style.background,
+        underlineColor: cell.style.underlineColor ?? null,
+        underline: cell.style.underline,
+        attributes: cell.style.attributes,
+        hyperlink: cell.hyperlink ?? null,
+      },
+      { overflow },
+    );
   }
 }

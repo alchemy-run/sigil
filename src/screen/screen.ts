@@ -39,6 +39,14 @@ export class Screen {
     return this.#width;
   }
 
+  /**
+  The populated length of one row: the nominal width, or more when overflow
+  writes (`textWrap: "none"` content) extended it past the screen's width.
+  */
+  rowLength(y: number): number {
+    return Math.max(this.#width, this.#rows[y]?.length ?? 0);
+  }
+
   get height(): number {
     return this.#height;
   }
@@ -56,9 +64,10 @@ export class Screen {
     return this.#painted[y]?.[x] ?? false;
   }
 
-  setCell(x: number, y: number, cell: Cell): void {
+  setCell(x: number, y: number, cell: Cell, options?: { overflow?: boolean }): void {
     const row = this.#rows[y];
-    if (!row || x < 0 || x >= this.width) {
+    const overflow = options?.overflow === true;
+    if (!row || x < 0 || (!overflow && x >= this.width)) {
       return;
     }
 
@@ -67,18 +76,23 @@ export class Screen {
     }
 
     const finalColumn = x + cell.width;
-    const clipped = finalColumn > this.width;
-    const overwriteEnd = Math.min(finalColumn, this.width);
+    if (overflow && finalColumn > row.length) {
+      this.#growRow(row, y, finalColumn);
+    }
+
+    const capacity = overflow ? row.length : this.width;
+    const clipped = finalColumn > capacity;
+    const overwriteEnd = Math.min(finalColumn, capacity);
 
     for (let column = x; column < overwriteEnd; column++) {
       this.#clearGraphemeAt(row, y, column);
     }
 
     if (clipped) {
-      for (let column = x; column < this.width; column++) {
+      for (let column = x; column < capacity; column++) {
         row[column] = emptyCell;
       }
-      this.#markDirty(y, x, this.width);
+      this.#markDirty(y, x, capacity);
 
       return;
     }
@@ -102,13 +116,18 @@ export class Screen {
   Composes independent cell channels over the existing cell. An undefined
   patch is transparent; an explicit space in `content` paints a blank.
   */
-  composeCell(x: number, y: number, patch: CellPatch | undefined): void {
+  composeCell(
+    x: number,
+    y: number,
+    patch: CellPatch | undefined,
+    options?: { overflow?: boolean },
+  ): void {
     if (!patch) {
       return;
     }
 
     const row = this.#rows[y];
-    if (!row || x < 0 || x >= this.width) {
+    if (!row || x < 0 || (options?.overflow !== true && x >= this.width)) {
       return;
     }
 
@@ -130,7 +149,12 @@ export class Screen {
     const hyperlink =
       patch.hyperlink === undefined ? destination.hyperlink : (patch.hyperlink ?? undefined);
 
-    this.setCell(writeColumn, y, createCell(content.grapheme, content.width, style, hyperlink));
+    this.setCell(
+      writeColumn,
+      y,
+      createCell(content.grapheme, content.width, style, hyperlink),
+      options,
+    );
   }
 
   /** Composes a patch throughout a rectangle, clipped to this screen. */
@@ -191,7 +215,7 @@ export class Screen {
     for (const [y, row] of this.#rows.entries()) {
       row.fill(emptyCell);
       this.#painted[y]!.fill(true);
-      this.#markDirty(y, 0, this.width);
+      this.#markDirty(y, 0, this.rowLength(y));
     }
   }
 
@@ -209,6 +233,15 @@ export class Screen {
     return spans;
   }
 
+  /** Extends a row (and its paint mask) so overflow writes land past `width`. */
+  #growRow(row: Cell[], y: number, length: number): void {
+    const painted = this.#painted[y]!;
+    while (row.length < length) {
+      row.push(emptyCell);
+      painted.push(false);
+    }
+  }
+
   #clearGraphemeAt(row: Cell[], y: number, x: number): void {
     const existing = row[x];
     if (!existing || existing === emptyCell) {
@@ -224,7 +257,7 @@ export class Screen {
     const width = Math.max(1, leadingCell?.width ?? 1);
     for (
       let column = leadingColumn;
-      column < Math.min(leadingColumn + width, this.width);
+      column < Math.min(leadingColumn + width, row.length);
       column++
     ) {
       row[column] = emptyCell;
@@ -257,7 +290,7 @@ export class Screen {
     }
 
     const clippedStart = Math.max(0, start);
-    const clippedEnd = Math.min(this.width, end);
+    const clippedEnd = Math.min(this.rowLength(y), end);
     const current = this.#dirty[y];
     this.#dirty[y] = current
       ? { start: Math.min(current.start, clippedStart), end: Math.max(current.end, clippedEnd) }

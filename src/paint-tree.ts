@@ -117,10 +117,14 @@ export const paintTree = (
         const firstChildYoga = node.childNodes[0]?.yogaNode;
         const paddingX = firstChildYoga?.getComputedLeft() ?? 0;
         const paddingY = firstChildYoga?.getComputedTop() ?? 0;
+        const textWrap = node.style.textWrap ?? "wrap";
+        // `none` text may paint past the screen's nominal width; the screen
+        // grows the touched rows on demand. Clip rects still apply.
+        const overflow = textWrap === "none";
         const lines = wrapStructuredText(
           structuredTextLines(node),
           maxWidth,
-          node.style.textWrap ?? "wrap",
+          textWrap,
           structuredTextBaseStyle(node),
         );
         const paintBounds = {
@@ -147,10 +151,10 @@ export const paintTree = (
                 }),
               )
               .join("\n"),
-            { transformers: textTransformers },
+            { transformers: textTransformers, overflow },
           );
         } else {
-          output.writeCells(paintBounds.x, paintBounds.y, sampled);
+          output.writeCells(paintBounds.x, paintBounds.y, sampled, { overflow });
         }
       }
 

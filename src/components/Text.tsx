@@ -59,7 +59,7 @@ export type Props = {
   readonly inverse?: boolean;
 
   /**
-	This property tells Ink to wrap or truncate text if its width is larger than the container. If `wrap` is passed (the default), Ink will wrap text and split it into multiple lines. If `hard` is passed, Ink will fill each line to the full column width, breaking words as necessary. If `truncate-*` is passed, Ink will truncate text instead, resulting in one line of text with the rest cut off.
+	This property tells Ink to wrap or truncate text if its width is larger than the container. If `wrap` is passed (the default), Ink will wrap text and split it into multiple lines. If `hard` is passed, Ink will fill each line to the full column width, breaking words as necessary. If `truncate-*` is passed, Ink will truncate text instead, resulting in one line of text with the rest cut off. If `none` is passed, the text is neither wrapped nor truncated — it overflows the container (and the screen's nominal width), which is intended for log lines committed to scrollback (e.g. inside `<Static>`), not for live regions.
 	*/
   readonly wrap?: Styles["textWrap"];
 

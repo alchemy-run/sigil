@@ -171,7 +171,9 @@ function findFirstChangedRow(previous: Screen, next: Screen): number | undefined
 }
 
 function rowsEqual(left: Screen, right: Screen, y: number): boolean {
-  for (let x = 0; x < left.width; x++) {
+  // Rows can extend past the nominal width when overflow content painted.
+  const length = Math.max(left.rowLength(y), right.rowLength(y));
+  for (let x = 0; x < length; x++) {
     if (!cellsEqual(left.cellAt(x, y), right.cellAt(x, y))) return false;
   }
   return true;
@@ -180,9 +182,7 @@ function rowsEqual(left: Screen, right: Screen, y: number): boolean {
 function screensEqual(left: Screen, right: Screen): boolean {
   if (left.width !== right.width || left.height !== right.height) return false;
   for (let y = 0; y < left.height; y++) {
-    for (let x = 0; x < left.width; x++) {
-      if (!cellsEqual(left.cellAt(x, y), right.cellAt(x, y))) return false;
-    }
+    if (!rowsEqual(left, right, y)) return false;
   }
   return true;
 }

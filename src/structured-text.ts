@@ -81,6 +81,10 @@ export function wrapStructuredText(
   wrap: Styles["textWrap"],
   baseStyle?: CellStyle,
 ): readonly (readonly Cell[])[] {
+  if (wrap === "none") {
+    return input.map((line) => [...line]);
+  }
+
   if (maxWidth < 1) {
     return [[]];
   }
