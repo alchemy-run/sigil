@@ -140,8 +140,9 @@ export class TerminalSession {
     );
   }
 
-  clearFrame(): void {
-    this.#presenter.clear();
+  /** Erases the presented frame; pass the current `columns` after a resize so the erase covers rows the emulator rewrapped. */
+  clearFrame(options: { readonly columns?: number } = {}): void {
+    this.#presenter.clear(options);
   }
 
   resetFrame(): void {

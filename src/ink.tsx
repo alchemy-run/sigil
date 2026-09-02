@@ -33,7 +33,6 @@ import { createInlinePresenter } from "#/terminal/inline-presenter.ts";
 import { createRenderScheduler } from "#/terminal/render-scheduler.ts";
 import { TerminalSession } from "#/terminal/session.ts";
 import { type Throttled } from "#/throttle.ts";
-import { getWindowSize } from "#/utils.ts";
 import { Yoga } from "#/yoga/index.ts";
 
 const noop = () => {};
@@ -63,6 +62,11 @@ function bottomRows(screen: Screen, height: number): Screen {
   }
   return cropped;
 }
+
+// How long the reported terminal size must hold still before a resize is
+// acted on. Window drags deliver an event per frame (~16 ms), and the
+// emulator needs a frame or so to agree with the PTY size either way.
+const RESIZE_SETTLE_MS = 50;
 
 const shouldClearTerminalForFrame = ({
   isTTY,
@@ -381,8 +385,20 @@ export const createInk = (options: Options): Ink => {
   let lastOutputToRender = "";
   let lastOutputHeight = 0;
   let lastScreen: Screen | undefined;
-  let lastTerminalWidth = getWindowSize(options.stdout).columns;
-  let lastTerminalHeight = getWindowSize(options.stdout).rows;
+  // The terminal size comes from the capabilities store: the stream's
+  // `columns`/`rows`, or — on terminals that send in-band size reports —
+  // the emulator's own figure, which is the one later output will meet.
+  const windowSize = () => capabilitiesStore.current.size;
+  let lastTerminalWidth = windowSize().columns;
+  let lastTerminalHeight = windowSize().rows;
+  // Resize events arrive in bursts (one per frame of a window drag), and the
+  // emulator's rewrap and the PTY size never update atomically — depending on
+  // the terminal app the PTY is resized before or after the screen is
+  // rewrapped. Anything written mid-burst lands on a screen whose width is
+  // not the reported one, and the rows that leaves behind can never be
+  // accounted for by a later erase. Events therefore only arm this settle
+  // timer; the frame is erased and repainted once the size has held still.
+  let resizeSettle: ReturnType<typeof setTimeout> | undefined;
 
   // This variable is used only in debug mode to store full static output
   // so that it's rerendered every time, not just new static parts, like in non-debug mode
@@ -431,11 +447,17 @@ export const createInk = (options: Options): Ink => {
   if (options.patchConsole) installConsolePatch();
 
   if (interactive) {
-    options.stdout.on("resize", resized);
-
-    unsubscribeResize = () => {
-      options.stdout.off("resize", resized);
-    };
+    // Follow the store rather than the stream's `resize` event: the store
+    // folds in the terminal's in-band size reports where available, and
+    // says which source a size came from.
+    let seenColumns = lastTerminalWidth;
+    let seenRows = lastTerminalHeight;
+    unsubscribeResize = capabilitiesStore.subscribe(({ size }) => {
+      if (size.columns === seenColumns && size.rows === seenRows) return;
+      seenColumns = size.columns;
+      seenRows = size.rows;
+      resized(size.source);
+    });
   }
 
   initKittyKeyboard();
@@ -450,9 +472,28 @@ export const createInk = (options: Options): Ink => {
 
   void exitPromise.catch(noop);
 
-  function resized(): void {
-    const currentWidth = getWindowSize(options.stdout).columns;
-    const currentHeight = getWindowSize(options.stdout).rows;
+  function resized(source: "pty" | "terminal"): void {
+    if (resizeSettle !== undefined) {
+      clearTimeout(resizeSettle);
+      resizeSettle = undefined;
+    }
+
+    // An in-band report is the emulator's own word, sent after it rewrapped
+    // and ordered with everything else in the stream, so there is nothing
+    // to wait for. A PTY size may run ahead of or behind the emulator.
+    if (source === "terminal") {
+      settleResize();
+      return;
+    }
+
+    resizeSettle = setTimeout(settleResize, RESIZE_SETTLE_MS);
+  }
+
+  function settleResize(): void {
+    resizeSettle = undefined;
+    if (isUnmounted || isUnmounting) return;
+
+    const { columns: currentWidth, rows: currentHeight } = windowSize();
 
     // A width decrease rewraps lines and any height change moves content
     // through scrollback, so the incremental render state no longer
@@ -460,11 +501,15 @@ export const createInk = (options: Options): Ink => {
     // render to be a full rewrite instead of an incremental diff that
     // would skip "unchanged" lines over stale screen content.
     if (currentWidth < lastTerminalWidth || currentHeight !== lastTerminalHeight) {
-      // Clearing erases the full previous frame line count from
-      // the cursor upward — after a height grow that also covers frame
-      // lines the emulator pulled back from scrollback, so no extra
-      // erase is needed for them.
-      clearLiveOutput();
+      // Clearing erases the full previous frame from the cursor upward —
+      // after a height grow that also covers frame lines the emulator
+      // pulled back from scrollback, so no extra erase is needed for them.
+      // The current width lets the presenter count the rows a reflowing
+      // emulator has already rewrapped after a width shrink; the logical
+      // line count alone under-erases and leaves the frame's top rows
+      // behind. Terminals that never rewrap keep the logical count, since
+      // the rewrap-aware one would erase rows above the frame there.
+      clearLiveOutput(rewrapsOnResize() ? currentWidth : undefined);
       resetLiveOutput();
       lastOutput = "";
       lastOutputToRender = "";
@@ -475,12 +520,20 @@ export const createInk = (options: Options): Ink => {
       lastOutputHeight = 0;
     }
 
+    lastTerminalWidth = currentWidth;
+    lastTerminalHeight = currentHeight;
+
     calculateLayout();
     dom.emitLayoutListeners(rootNode);
     onRender();
+  }
 
-    lastTerminalWidth = currentWidth;
-    lastTerminalHeight = currentHeight;
+  // Whether the terminal rewraps existing screen rows when its width
+  // changes. Nearly every modern emulator does (xterm.js, Ghostty, kitty,
+  // iTerm2, WezTerm, Alacritty, Windows Terminal, tmux); Apple's Terminal.app
+  // and the classic Windows console keep rows as they were written.
+  function rewrapsOnResize(): boolean {
+    return !isWindows && capabilitiesStore.current.terminal.name !== "apple-terminal";
   }
 
   function handleAppExit(errorOrResult?: unknown): void {
@@ -519,9 +572,9 @@ export const createInk = (options: Options): Ink => {
     }
   }
 
-  function clearLiveOutput(): void {
+  function clearLiveOutput(columns?: number): void {
     if (isScreenReaderEnabled) accessiblePresenter!.clear();
-    else terminal.clearFrame();
+    else terminal.clearFrame({ columns });
   }
 
   function finishLiveOutput(): void {
@@ -535,7 +588,7 @@ export const createInk = (options: Options): Ink => {
   }
 
   function calculateLayout(): void {
-    const terminalWidth = getWindowSize(options.stdout).columns;
+    const terminalWidth = windowSize().columns;
 
     rootNode.yogaNode!.setWidth(terminalWidth);
 
@@ -558,6 +611,18 @@ export const createInk = (options: Options): Ink => {
     // renders; resume() forces a full redraw once Ink reclaims the terminal.
     // Resolve any awaited render commit so callers don't hang during suspension.
     if (terminal.suspended) {
+      if (nextRenderCommit) {
+        nextRenderCommit.resolve();
+        nextRenderCommit = undefined;
+      }
+
+      return;
+    }
+
+    // A resize burst is still settling: the emulator is rewrapping the screen
+    // under us, and the frame will be erased and repainted as a whole once it
+    // holds still. Writing now would leave rows no later erase can find.
+    if (resizeSettle !== undefined && !isUnmounting) {
       if (nextRenderCommit) {
         nextRenderCommit.resolve();
         nextRenderCommit = undefined;
@@ -642,7 +707,7 @@ export const createInk = (options: Options): Ink => {
         return;
       }
 
-      const terminalWidth = getWindowSize(options.stdout).columns;
+      const terminalWidth = windowSize().columns;
 
       const wrappedOutput = wrapAnsi(output, terminalWidth, {
         trim: false,
@@ -795,6 +860,11 @@ export const createInk = (options: Options): Ink => {
     }
 
     isUnmounting = true;
+
+    if (resizeSettle !== undefined) {
+      clearTimeout(resizeSettle);
+      resizeSettle = undefined;
+    }
 
     unsubscribeBeforeExit?.();
     unsubscribeBeforeExit = undefined;
@@ -1163,7 +1233,7 @@ export const createInk = (options: Options): Ink => {
 
     // Detect fullscreen: output fills or exceeds terminal height.
     // Only apply when writing to a real TTY — piped output always gets trailing newlines.
-    const viewportRows = isTTY ? getWindowSize(options.stdout).rows : 24;
+    const viewportRows = isTTY ? windowSize().rows : 24;
 
     // Clamp the frame to the viewport, keeping its bottom rows. Rows above
     // the top margin cannot be updated or erased in place, and the

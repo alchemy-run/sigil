@@ -128,11 +128,17 @@ const createStore = (stdin: StoreStdin, stdout: StoreStdout): CapabilitiesStore 
   let resizeSubscribers = 0;
 
   let focused: boolean | undefined;
+  // The size from the terminal's latest in-band report (mode 2048). While
+  // set it is authoritative: the report is ordered in the input stream after
+  // the emulator rewrapped, whereas the stream's `columns`/`rows` only say
+  // what the OS told the PTY, before or after the emulator caught up.
+  let reportedSize: { columns: number; rows: number } | undefined;
   let snapshot: Capabilities | undefined;
   let snapshotQuery: TerminalQueryResult | undefined;
   let snapshotColumns: number | undefined;
   let snapshotRows: number | undefined;
   let snapshotFocused: boolean | undefined;
+  let snapshotReportedSize: typeof reportedSize;
 
   const current = (): Capabilities => {
     const query = getTerminalQuery(stdout);
@@ -142,15 +148,20 @@ const createStore = (stdin: StoreStdin, stdout: StoreStdout): CapabilitiesStore 
       query !== snapshotQuery ||
       columns !== snapshotColumns ||
       rows !== snapshotRows ||
-      focused !== snapshotFocused
+      focused !== snapshotFocused ||
+      reportedSize !== snapshotReportedSize
     ) {
       const detected = detectCapabilities({ stdout });
       const applied = query ? applyTerminalQuery(detected, query) : detected;
-      snapshot = focused === undefined ? applied : { ...applied, focused };
+      const sized = reportedSize
+        ? { ...applied, size: { ...applied.size, ...reportedSize, source: "terminal" as const } }
+        : applied;
+      snapshot = focused === undefined ? sized : { ...sized, focused };
       snapshotQuery = query;
       snapshotColumns = columns;
       snapshotRows = rows;
       snapshotFocused = focused;
+      snapshotReportedSize = reportedSize;
     }
 
     return snapshot;
@@ -217,6 +228,9 @@ const createStore = (stdin: StoreStdin, stdout: StoreStdout): CapabilitiesStore 
       integration?.setReportFeed?.(false);
       removeExitHandler?.();
       removeExitHandler = undefined;
+      // No further reports will arrive; the stream is the only size source
+      // again and the last report would go stale on the next resize.
+      reportedSize = undefined;
     }
   };
 
@@ -255,6 +269,7 @@ const createStore = (stdin: StoreStdin, stdout: StoreStdout): CapabilitiesStore 
     if (resize) {
       const [, rows, columns, pixelHeight, pixelWidth] = resize.map(Number);
       if (columns && rows) {
+        reportedSize = { columns, rows };
         patchTerminalQuery(stdout, {
           textAreaPixels:
             pixelWidth && pixelHeight ? { width: pixelWidth, height: pixelHeight } : undefined,

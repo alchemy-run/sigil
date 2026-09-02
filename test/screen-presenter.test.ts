@@ -87,3 +87,48 @@ test("forceRewrite bypasses suffix rendering", () => {
 
   expect(writes).toEqual([ansiEscapes.eraseLines(4) + "one\ntwo\nnew\n"]);
 });
+
+test("clear erases the rewrapped footprint when the terminal got narrower", () => {
+  const { subject, writes } = presenter();
+  subject.present(frame("short", "a line of twenty chars", "end"), { colorProfile: "none" });
+  writes.length = 0;
+
+  // At 10 columns the emulator rewraps the 22-cell row onto three rows.
+  subject.clear({ columns: 10 });
+
+  expect(writes).toEqual([ansiEscapes.eraseLines(1 + 3 + 1 + 1)]);
+});
+
+test("clear keeps the logical line count when the terminal is at least as wide", () => {
+  const { subject, writes } = presenter();
+  subject.present(frame("short", "a line of twenty chars", "end"), { colorProfile: "none" });
+  writes.length = 0;
+
+  subject.clear({ columns: 22 });
+  subject.clear();
+
+  expect(writes).toEqual([ansiEscapes.eraseLines(4), ansiEscapes.eraseLines(0)]);
+});
+
+test("clear ignores trailing blank padding but counts styled blanks", () => {
+  const { subject, writes } = presenter();
+  const screen = frame("ab   ", "c    ");
+  for (let x = 1; x < 5; x++) {
+    screen.setCell(
+      x,
+      1,
+      createCell(" ", 1, {
+        underline: "none",
+        attributes: 0,
+        background: { model: "rgb", red: 1, green: 2, blue: 3, alpha: 1 },
+      }),
+    );
+  }
+  subject.present(screen, { colorProfile: "none" });
+  writes.length = 0;
+
+  subject.clear({ columns: 2 });
+
+  // "ab" fits one row; "c" plus four highlighted blanks is five cells → three rows.
+  expect(writes).toEqual([ansiEscapes.eraseLines(1 + 3 + 1)]);
+});

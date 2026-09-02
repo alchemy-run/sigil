@@ -7,9 +7,9 @@ import {
   cursorPositionChanged,
   type CursorPosition,
 } from "#/cursor-position.ts";
-import { cellsEqual } from "#/screen/cell.ts";
+import { cellAttributes, cellsEqual, type Cell } from "#/screen/cell.ts";
 import type { ColorProfile } from "#/screen/color-profile.ts";
-import type { Screen } from "#/screen/screen.ts";
+import type { Line, Screen } from "#/screen/screen.ts";
 import { serializeLine, serializeScreen } from "#/screen/serialize.ts";
 
 type Write = (data: string) => boolean;
@@ -123,15 +123,41 @@ export class ScreenPresenter {
     );
   }
 
-  clear(): void {
+  /**
+  Erases the presented frame from the cursor upward.
+
+  `columns` is the terminal's current width. When it is narrower than the width
+  the frame was painted at, a reflowing emulator (xterm.js, Ghostty, kitty,
+  iTerm2, WezTerm, tmux, …) has already rewrapped every wider row onto several
+  physical rows before the resize event reaches us, so the erase has to cover
+  that physical footprint. Erasing only the logical row count leaves the frame's
+  top rows behind as ghosts, one more batch per resize event.
+  */
+  clear(options: { readonly columns?: number } = {}): void {
     this.#write(
       buildReturnToBottomPrefix(this.#cursorWasShown, this.#lineCount, this.#cursor) +
-        ansiEscapes.eraseLines(this.#lineCount),
+        ansiEscapes.eraseLines(this.#physicalLineCount(options.columns)),
     );
     this.#lineCount = 0;
     this.#cursor = undefined;
     this.#cursorWasShown = false;
     this.#fullscreen = false;
+  }
+
+  #physicalLineCount(columns: number | undefined): number {
+    if (
+      this.#screen === undefined ||
+      this.#lineCount === 0 ||
+      columns === undefined ||
+      columns < 1
+    ) {
+      return this.#lineCount;
+    }
+    let rows = 0;
+    for (const line of this.#screen.toRows()) {
+      rows += Math.max(1, Math.ceil(contentWidth(line) / columns));
+    }
+    return rows + (this.#fullscreen ? 0 : 1);
   }
 
   reset(): void {
@@ -160,6 +186,34 @@ export class ScreenPresenter {
     this.#cursorWasShown = cursor !== undefined;
     this.#fullscreen = fullscreen;
   }
+}
+
+/**
+The columns a row occupies once written: everything up to its last visible
+cell. Trailing unstyled blanks are trimmed by the serializer and never reach
+the terminal, while styled blanks (a highlighted tab's padding) do.
+*/
+function contentWidth(line: Line): number {
+  let width = 0;
+  let end = 0;
+  for (const cell of line) {
+    width += cell.width;
+    if (!isBlank(cell)) end = width;
+  }
+  return end;
+}
+
+function isBlank(cell: Cell): boolean {
+  const { style } = cell;
+  return (
+    (cell.grapheme === " " || cell.width === 0) &&
+    style.foreground === undefined &&
+    style.background === undefined &&
+    style.underlineColor === undefined &&
+    style.underline === "none" &&
+    style.attributes === cellAttributes.none &&
+    cell.hyperlink === undefined
+  );
 }
 
 function findFirstChangedRow(previous: Screen, next: Screen): number | undefined {

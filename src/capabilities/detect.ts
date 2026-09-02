@@ -85,8 +85,21 @@ export type Capabilities = {
   /**
 	Current terminal dimensions in cells, plus pixel geometry once the
 	terminal has answered the query.
+
+	`source` tells where the cell dimensions come from. `"pty"` is the
+	stream's own `columns`/`rows`, updated by the OS on SIGWINCH — which says
+	nothing about whether the emulator has finished rewrapping its screen.
+	`"terminal"` is the emulator's in-band size report (mode 2048), which
+	arrives in the input stream after the rewrap and so describes the screen
+	exactly as later output will find it. While the terminal reports, its
+	size wins over the stream's.
 	*/
-  size: { columns: number; rows: number; pixels: PixelGeometry | undefined };
+  size: {
+    columns: number;
+    rows: number;
+    pixels: PixelGeometry | undefined;
+    source: "pty" | "terminal";
+  };
 
   platform: NodeJS.Platform;
 
@@ -580,6 +593,7 @@ export function detectCapabilities({ stdout = process.stdout }: DetectOptions = 
         ? { columns: stdout.columns, rows: stdout.rows }
         : terminalSize()),
       pixels: undefined,
+      source: "pty",
     },
     focused: undefined,
     theme: {

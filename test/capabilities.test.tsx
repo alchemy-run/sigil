@@ -93,7 +93,12 @@ describe("detectCapabilities", () => {
   test("reads size from the given stdout", () => {
     const stdout = createStdout(120, true, 40);
 
-    expect(detectCapabilities({ stdout }).size).toEqual({ columns: 120, rows: 40 });
+    expect(detectCapabilities({ stdout }).size).toEqual({
+      columns: 120,
+      rows: 40,
+      pixels: undefined,
+      source: "pty",
+    });
   });
 
   test("detects SSH sessions", () => {
@@ -803,5 +808,42 @@ describe("useCapabilities", () => {
       { focused: false, wasFocused: undefined },
       { focused: true, wasFocused: false },
     ]);
+  });
+});
+
+describe("in-band size reports", () => {
+  test("the stream size is labelled as the PTY's", () => {
+    const stdin = createQueryStdin();
+    const stdout = createStdout(80, true, 24);
+    const store = getCapabilities(stdin, stdout);
+
+    expect(store.current.size).toMatchObject({ columns: 80, rows: 24, source: "pty" });
+  });
+
+  test("a report becomes the snapshot size and outranks the stream", () => {
+    const stdin = createQueryStdin();
+    const stdout = createStdout(80, true, 24);
+    const store = getCapabilities(stdin, stdout);
+
+    const sizes: Array<{ columns: number; rows: number; source: string }> = [];
+    const unsubscribe = store.subscribe(({ size }) => {
+      sizes.push({ columns: size.columns, rows: size.rows, source: size.source });
+    });
+
+    expect(store.ingest(`${ESC}[48;40;120;0;0t`)).toBe(true);
+    expect(store.current.size).toMatchObject({ columns: 120, rows: 40, source: "terminal" });
+
+    // The PTY catching up (or lagging) does not move the size: the emulator
+    // has the last word while it reports.
+    stdout.columns = 100;
+    stdout.rows = 30;
+    stdout.emit("resize");
+    expect(store.current.size).toMatchObject({ columns: 120, rows: 40, source: "terminal" });
+
+    // Every notification since the report (including the one for the stream
+    // change) carries the reported size.
+    expect(sizes.length).toBeGreaterThan(0);
+    for (const size of sizes) expect(size).toEqual({ columns: 120, rows: 40, source: "terminal" });
+    unsubscribe();
   });
 });

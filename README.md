@@ -2254,7 +2254,7 @@ Type: `number`
 Number of rows (vertical character cells).
 
 > [!NOTE]
-> When the terminal is resized narrower, ghost lines may briefly appear depending on the terminal emulator's reflow behavior.
+> On terminals that send in-band size reports (mode 2048, e.g. Ghostty, kitty, foot) the frame is repainted as soon as the report arrives, since the emulator has already rewrapped by then. Elsewhere the size comes from the PTY, which can run ahead of or behind the emulator, so resize events are coalesced: the frame is erased and repainted about 50 ms after the size stops changing and is briefly absent during a window drag. Painting mid-rewrap is what leaves ghost rows behind.
 
 ### useFocus(options?)
 

@@ -1,7 +1,6 @@
-import { useState, useEffect } from "react";
+import { useMemo } from "react";
 
-import { useStdout } from "#/hooks/use-stdout.ts";
-import { getWindowSize } from "#/utils.ts";
+import { useCapabilities } from "#/hooks/use-capabilities.ts";
 
 /**
 Dimensions of the terminal window.
@@ -20,22 +19,12 @@ export type WindowSize = {
 
 /**
 A React hook that returns the current terminal window dimensions and re-renders the component whenever the terminal is resized.
+
+Reads the capabilities store, so on terminals that send in-band size reports
+(mode 2048) the dimensions are the emulator's own, arriving after it has
+rewrapped its screen; elsewhere they are the stream's `columns`/`rows`.
 */
 export const useWindowSize = (): WindowSize => {
-  const { stdout } = useStdout();
-  const [size, setSize] = useState<WindowSize>(() => getWindowSize(stdout));
-
-  useEffect(() => {
-    const onResize = () => {
-      setSize(getWindowSize(stdout));
-    };
-
-    stdout.on("resize", onResize);
-
-    return () => {
-      stdout.off("resize", onResize);
-    };
-  }, [stdout]);
-
-  return size;
+  const { size } = useCapabilities();
+  return useMemo(() => ({ columns: size.columns, rows: size.rows }), [size.columns, size.rows]);
 };

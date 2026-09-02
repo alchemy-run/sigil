@@ -4,6 +4,7 @@ import React from "react";
 import { expect, test, afterAll } from "vite-plus/test";
 
 import { stripAnsi } from "#/ansi/strip.ts";
+import { getCapabilities } from "#/capabilities/store.ts";
 import { render, Box, Text, useWindowSize } from "#/index.ts";
 
 import createStdout, { type FakeStdout } from "./helpers/create-stdout.ts";
@@ -395,6 +396,41 @@ test("height shrink below the previous frame height does not erase scrollback", 
     afterResize,
     "A height shrink must not funnel the stale frame height into clearTerminal",
   ).not.toContain("\u001B[3J");
+
+  unmount();
+});
+
+// In-band size reports (mode 2048) come from the emulator itself, after it
+// has rewrapped, so the renderer acts on them at once instead of waiting for
+// the PTY-driven size to settle.
+test("an in-band size report repaints immediately at the reported width", async () => {
+  const stdout = createStdout(100);
+  stdout.rows = 30;
+
+  function Test() {
+    const { columns } = useWindowSize();
+    return (
+      <Box borderStyle="round">
+        <Text>{columns} wide</Text>
+      </Box>
+    );
+  }
+
+  const { waitUntilRenderFlush, unmount } = render(<Test />, { stdout });
+  await waitUntilRenderFlush();
+  expect(stripAnsi(getWriteContents(stdout).at(-1)!)).toContain("100 wide");
+
+  const store = getCapabilities(process.stdin, stdout);
+  const writesBefore = stdout.getWrites().length;
+  // The PTY still says 100 columns; the emulator reports 60.
+  expect(store.ingest("\u001B[48;30;60;0;0t")).toBe(true);
+  await waitUntilRenderFlush();
+
+  const afterReport = stripAnsi(stdout.getWrites().slice(writesBefore).join(""));
+  expect(afterReport, "the report repaints without the settle delay").toContain("60 wide");
+  const frame = getWriteContents(stdout).at(-1)!;
+  const topBorder = stripAnsi(frame).split("\n")[0];
+  expect(topBorder.length, "the frame is laid out at the reported width").toBe(60);
 
   unmount();
 });

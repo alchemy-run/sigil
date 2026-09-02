@@ -100,7 +100,13 @@ export type TerminalApp = {
 	*/
   type: (text: string) => void;
 
-  resize: (columns: number, rows: number) => void;
+  /**
+	Resizes the PTY and the emulator. Real terminal apps never do both at
+	once: `emulatorLag` (ms) delays the emulator's rewrap behind the PTY
+	resize, simulating an app that reports the new size to the process
+	before its screen has been rewrapped.
+	*/
+  resize: (columns: number, rows: number, options?: { readonly emulatorLag?: number }) => void;
 
   /**
 	Flips the emulated OS color scheme (Ghostty engine only) — the app
@@ -306,9 +312,15 @@ export const launchTerminal = async (
     type: (text) => {
       child.write(text);
     },
-    resize: (nextColumns, nextRows) => {
+    resize: (nextColumns, nextRows, options = {}) => {
       child.resize(nextColumns, nextRows);
-      emulator.resize(nextColumns, nextRows);
+      if (options.emulatorLag === undefined) {
+        emulator.resize(nextColumns, nextRows);
+        return;
+      }
+      setTimeout(() => {
+        if (!closed) emulator.resize(nextColumns, nextRows);
+      }, options.emulatorLag);
     },
     setColorScheme: (scheme) => {
       if (!emulator.setColorScheme) {

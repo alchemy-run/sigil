@@ -84,6 +84,60 @@ describe.each(["ghostty", "xterm"] as const)("%s engine", (emulator) => {
       await expect(app.getByText("Welcome!")).toBeVisible();
     });
   }, 30_000);
+
+  test("a width shrink erases the emulator-rewrapped frame without ghost rows", async () => {
+    const app = await launchTerminal(tsx("test/fixtures/e2e-reflow.ts"), {
+      emulator,
+      columns: 100,
+      rows: 30,
+    });
+    await closing(app, async () => {
+      await expect(app.getByText("footer at 100 columns")).toBeVisible();
+
+      app.resize(40, 30);
+      // The footer proves Sigil re-rendered at the new width; by then the old
+      // frame's rows, rewrapped by the emulator onto extra rows, must be gone.
+      await expect(app.getByText("footer at 40 columns")).toBeVisible();
+
+      expect(app.lines().filter((line) => line.includes("TOPROW")).length).toBe(1);
+      expect(app.lines().filter((line) => line.includes("second row")).length).toBe(1);
+    });
+  }, 30_000);
+
+  test("a drag that resizes the PTY before the emulator rewraps leaves no ghost rows", async () => {
+    const app = await launchTerminal(tsx("test/fixtures/e2e-reflow.ts"), {
+      emulator,
+      columns: 100,
+      rows: 30,
+    });
+    await closing(app, async () => {
+      await expect(app.getByText("footer at 100 columns")).toBeVisible();
+
+      // One event per frame, narrow and back twice, with the emulator's
+      // rewrap trailing each PTY resize the way a real terminal app's does.
+      const widths: number[] = [];
+      for (let round = 0; round < 2; round++) {
+        for (let columns = 96; columns >= 24; columns -= 4) widths.push(columns);
+        for (let columns = 28; columns <= 100; columns += 4) widths.push(columns);
+      }
+      for (const columns of widths) {
+        app.resize(columns, 30, { emulatorLag: 5 });
+        await new Promise((resolve) => setTimeout(resolve, 15));
+      }
+
+      // Settles once the frame has been repainted at the final width with
+      // every row present exactly once; leftovers never go away on their own.
+      const count = (text: string) => app.lines().filter((line) => line.includes(text)).length;
+      await app.waitFor(
+        () =>
+          count("footer at 100 columns") === 1 &&
+          count("TOPROW") === 1 &&
+          count("second row") === 1 &&
+          count("long line x") === 1 &&
+          count("another long line") === 1,
+      );
+    });
+  }, 60_000);
 });
 
 describe("ghostty engine specifics", () => {
