@@ -109,6 +109,7 @@ export function App({
   internal_eventEmitter.current.setMaxListeners(Infinity);
   // Store the currently attached readable listener to avoid stale closure issues
   const readableListenerRef = useRef<(() => void) | undefined>(undefined);
+  const isMountedRef = useRef(true);
   const pendingInputFlushRef = useRef<NodeJS.Timeout | undefined>(undefined);
   // Small delay to let chunked escape sequences complete before flushing as literal input.
   const pendingInputFlushDelayMilliseconds = 20;
@@ -417,7 +418,12 @@ export function App({
           ? refreshTerminalQuery(stdin, stdout)
           : ensureTerminalQuery(stdin, stdout));
       } finally {
-        attachReadableListener();
+        // A slow terminal response may arrive after this renderer has been
+        // replaced. Do not leave its reader attached to consume input meant
+        // for a subsequent renderer.
+        if (isMountedRef.current) {
+          attachReadableListener();
+        }
         handleSetRawMode(false);
       }
     },
@@ -741,7 +747,10 @@ export function App({
 
   // Handle cursor visibility, raw mode, and bracketed paste mode cleanup on unmount
   useEffect(() => {
+    isMountedRef.current = true;
+
     return () => {
+      isMountedRef.current = false;
       const canWriteToStdout = !stdout.destroyed && !stdout.writableEnded;
 
       if (interactive && canWriteToStdout) {

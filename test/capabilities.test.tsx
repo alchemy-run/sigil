@@ -777,6 +777,56 @@ describe("useCapabilities", () => {
     expect(inputs.join("")).not.toContain("[O");
   });
 
+  test("does not restore an input reader when a query finishes after unmount", async () => {
+    stubCleanEnv();
+    const stdin = createQueryStdin();
+    const stdout = createStdout();
+    const inputs: string[] = [];
+
+    function Querying() {
+      useCapabilities();
+      return <Text>querying</Text>;
+    }
+
+    function Interactive() {
+      useInput((input) => {
+        inputs.push(input);
+      });
+      return <Text>ready</Text>;
+    }
+
+    const querying = render(<Querying />, {
+      stdout,
+      stdin,
+      debug: true,
+      interactive: true,
+    });
+    await delay(50);
+    expect(stdout.getWrites().join("")).toContain(`${CSI}c`);
+
+    querying.unmount();
+    await querying.waitUntilExit();
+
+    // Complete the old renderer's in-flight query after it has unmounted.
+    stdin.emit("data", `${CSI}?62c`);
+    await delay(50);
+
+    const interactive = render(<Interactive />, {
+      stdout,
+      stdin,
+      debug: true,
+      interactive: true,
+    });
+    await delay(0);
+    emitReadable(stdin, "x");
+    await delay(0);
+
+    expect(inputs).toEqual(["x"]);
+
+    interactive.unmount();
+    await interactive.waitUntilExit();
+  });
+
   test("useCapabilitiesChange delivers next and previous snapshots", async () => {
     stubCleanEnv();
     const stdin = createQueryStdin();
