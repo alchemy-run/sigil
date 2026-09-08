@@ -164,6 +164,7 @@ _(PRs welcome. Append new entries at the end. Repos must have 100+ stars and sho
   - [`<Spacer>`](#spacer)
   - [`<Static>`](#static)
   - [`<Transform>`](#transform)
+  - [`<VirtualList>`](#virtuallist)
 - [Hooks](#hooks)
   - [`useInput`](#useinputinputhandler-options)
   - [`usePaste`](#usepastehandler-options)
@@ -171,6 +172,7 @@ _(PRs welcome. Append new entries at the end. Repos must have 100+ stars and sho
   - [`useStdin`](#usestdin)
   - [`useStdout`](#usestdout)
   - [`useBoxMetrics`](#useboxmetricsref)
+  - [`useVirtualScroll`](#usevirtualscrolloptions)
   - [`useStderr`](#usestderr)
   - [`useWindowSize`](#usewindowsize)
   - [`useFocus`](#usefocusoptions)
@@ -1655,6 +1657,87 @@ Type: `number`
 
 The zero-indexed line number of the line that's currently being transformed.
 
+### `<VirtualList>`
+
+A vertically windowed list. Only the items that intersect the viewport are rendered, inside a clipped box that scrolls by whole rows. Items may have different heights, and the item at the top edge may be partially visible.
+
+Give it a fixed `height`, or omit it and bound an ancestor instead: the list then takes the height of its content and shrinks to whatever rows the container leaves over. Siblings that must keep their size need `flexShrink={0}`, because every `<Box>` shrinks by default.
+
+```jsx
+import { useState } from "react";
+import { render, Box, Text, VirtualList, useInput, useWindowSize } from "@alchemy.run/sigil";
+
+const entries = Array.from({ length: 200 }, (_, index) => `entry ${index}`);
+
+const Example = () => {
+  const { rows } = useWindowSize();
+  const [cursor, setCursor] = useState(0);
+
+  useInput((_, key) => {
+    if (key.upArrow) setCursor((index) => Math.max(0, index - 1));
+    if (key.downArrow) setCursor((index) => Math.min(entries.length - 1, index + 1));
+  });
+
+  return (
+    <Box flexDirection="column" maxHeight={rows}>
+      <Box flexShrink={0}>
+        <Text bold>Entries</Text>
+      </Box>
+      <VirtualList
+        items={entries}
+        itemHeight={() => 1}
+        focusedIndex={cursor}
+        renderItem={(entry, index) => <Text inverse={index === cursor}>{entry}</Text>}
+      />
+      <Box flexShrink={0}>
+        <Text dimColor>↑/↓ move</Text>
+      </Box>
+    </Box>
+  );
+};
+
+render(<Example />);
+```
+
+#### items
+
+Type: `ReadonlyArray<Item>`
+
+Items to window over.
+
+#### itemHeight
+
+Type: `(item: Item, index: number) => number`
+
+Height of an item in rows. It must match what `renderItem` produces for it: the window is computed from these numbers, never from the rendered output.
+
+#### renderItem
+
+Type: `(item: Item, index: number) => ReactNode`
+
+Render one item. Only items intersecting the viewport are rendered.
+
+#### getKey
+
+Type: `(item: Item, index: number) => React.Key`
+
+React key for an item. Defaults to its index.
+
+#### focusedIndex
+
+Type: `number`
+
+Item to keep fully visible. When it changes, the list scrolls as little as necessary to show it. An item taller than the viewport is aligned to its top.
+
+#### height
+
+Type: `number`
+
+Viewport height in rows. When omitted the list shrinks to the space its container leaves over, as described above.
+
+> [!NOTE]
+> Until the first layout pass has measured the viewport, every item is rendered inside the clipped box so the first frame already looks right.
+
 ## Hooks
 
 ### useInput(inputHandler, options?)
@@ -2173,6 +2256,99 @@ Whether the currently tracked element has been measured.
 
 > [!NOTE]
 > The hook returns `{width: 0, height: 0, left: 0, top: 0}` until the first layout pass completes. It also returns zeros when the tracked ref is detached.
+
+### useVirtualScroll(options)
+
+A React hook that owns the scroll position of a windowed list and returns which items to render for it. The position is clamped to the scrollable range and, while `focusedIndex` is set, moved as little as necessary to keep that item fully visible.
+
+[`<VirtualList>`](#virtuallist) wraps this hook. Use it directly to draw your own chrome around the window, such as overflow markers or a scrollbar.
+
+```jsx
+import { Box, Text, useVirtualScroll } from "@alchemy.run/sigil";
+
+const Example = ({ lines, cursor }) => {
+  const { start, end, offset, hiddenAbove, hiddenBelow } = useVirtualScroll({
+    count: lines.length,
+    itemHeight: () => 1,
+    viewportHeight: 10,
+    focusedIndex: cursor,
+  });
+
+  return (
+    <Box flexDirection="column">
+      <Text dimColor>{hiddenAbove > 0 ? `↑ ${hiddenAbove} more` : ""}</Text>
+      <Box flexDirection="column" height={10} overflowY="hidden">
+        <Box flexDirection="column" flexShrink={0} marginTop={offset}>
+          {lines.slice(start, end).map((line, index) => (
+            <Text key={start + index} inverse={start + index === cursor}>
+              {line}
+            </Text>
+          ))}
+        </Box>
+      </Box>
+      <Text dimColor>{hiddenBelow > 0 ? `↓ ${hiddenBelow} more` : ""}</Text>
+    </Box>
+  );
+};
+```
+
+#### options
+
+##### count
+
+Type: `number`
+
+Number of items in the list.
+
+##### itemHeight
+
+Type: `(index: number) => number`
+
+Height of the item at `index` in rows. It must match what the item renders.
+
+##### viewportHeight
+
+Type: `number`
+
+Rows available to show items.
+
+##### focusedIndex
+
+Type: `number`
+
+Item that must stay fully visible. An item taller than the viewport is aligned to the top. Out-of-range values are ignored.
+
+#### Result
+
+##### start, end
+
+Type: `number`
+
+The items intersecting the viewport are `[start, end)`.
+
+##### offset
+
+Type: `number`
+
+Position of the `start` item relative to the top of the viewport. Zero or negative: a negative value means the item is partially scrolled out above. Apply it as `marginTop` on the box holding the rendered items.
+
+##### scrollTop, maxScrollTop, totalHeight
+
+Type: `number`
+
+The effective position, the largest position that still fills the viewport, and the height of every item combined, all in rows.
+
+##### hiddenAbove, hiddenBelow
+
+Type: `number`
+
+Rows scrolled out above the viewport and rows left below it.
+
+##### scrollTo(top), scrollBy(delta)
+
+Type: `(rows: number) => void`
+
+Move the viewport. While `focusedIndex` is set, a position that would hide it is corrected on the next render.
 
 ### useStderr()
 

@@ -22,6 +22,8 @@ export { Hyperlink } from "#/components/Hyperlink.tsx";
 export type { Props as NewlineProps } from "#/components/Newline.tsx";
 export { Newline } from "#/components/Newline.tsx";
 export { Spacer } from "#/components/Spacer.tsx";
+export type { Props as VirtualListProps } from "#/components/VirtualList.tsx";
+export { VirtualList } from "#/components/VirtualList.tsx";
 // Keep the Ink-compatible root surface fixed. New terminal-core APIs live on
 // their focused subpaths rather than leaking through this entry point.
 export type {
@@ -80,6 +82,12 @@ export type { WindowSize } from "#/hooks/use-window-size.ts";
 export { useWindowSize } from "#/hooks/use-window-size.ts";
 export type { BoxMetrics, UseBoxMetricsResult } from "#/hooks/use-box-metrics.ts";
 export { useBoxMetrics } from "#/hooks/use-box-metrics.ts";
+export type { VirtualScrollWindow } from "#/virtual-scroll.ts";
+export type {
+  UseVirtualScrollOptions,
+  UseVirtualScrollResult,
+} from "#/hooks/use-virtual-scroll.ts";
+export { useVirtualScroll } from "#/hooks/use-virtual-scroll.ts";
 export type { CursorPosition } from "#/cursor-position.ts";
 export { measureElement } from "#/measure-element.ts";
 export type { ElementMetrics } from "#/measure-element.ts";

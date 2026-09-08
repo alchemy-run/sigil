@@ -54,7 +54,12 @@ import {
   type TextProps,
   type TransformProps,
   type UseBoxMetricsResult,
+  type UseVirtualScrollOptions,
+  type UseVirtualScrollResult,
+  type VirtualListProps,
+  type VirtualScrollWindow,
   type WindowSize,
+  VirtualList,
 } from "#/index.ts";
 
 /**
@@ -70,6 +75,7 @@ export const rootRuntimeExports = [
   "Static",
   "Text",
   "Transform",
+  "VirtualList",
   "applyTerminalQuery",
   "capabilities",
   "createSupportsColor",
@@ -106,6 +112,7 @@ export const rootRuntimeExports = [
   "useStdin",
   "useStdout",
   "useTitle",
+  "useVirtualScroll",
   "useWindowSize",
   "useWorkingDirectory",
 ] as const;
@@ -155,6 +162,10 @@ export type RootPublicTypes = {
   TextProps: TextProps;
   TransformProps: TransformProps;
   UseBoxMetricsResult: UseBoxMetricsResult;
+  UseVirtualScrollOptions: UseVirtualScrollOptions;
+  UseVirtualScrollResult: UseVirtualScrollResult;
+  VirtualListProps: VirtualListProps<unknown>;
+  VirtualScrollWindow: VirtualScrollWindow;
   WindowSize: WindowSize;
 };
 
@@ -222,6 +233,12 @@ export const compileInkCompatibleUsage = (children: ReactNode): Instance => {
       </Transform>
       <AnsiText>{"\u001B[32mexternal\u001B[0m"}</AnsiText>
       <Spacer />
+      <VirtualList
+        items={["one", "two"]}
+        itemHeight={() => 1}
+        focusedIndex={1}
+        renderItem={(item) => <Text>{item}</Text>}
+      />
       <Static items={["complete"]}>{(item) => <Text key={item}>{item}</Text>}</Static>
     </Box>
   );
