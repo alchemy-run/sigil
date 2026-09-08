@@ -7,6 +7,7 @@ import { stripAnsi } from "#/ansi/strip.ts";
 import { getCapabilities } from "#/capabilities/store.ts";
 import { render, Box, Text, useWindowSize } from "#/index.ts";
 
+import { createStdin } from "./helpers/create-stdin.ts";
 import createStdout, { type FakeStdout } from "./helpers/create-stdout.ts";
 
 const getWriteContents = (stdout: FakeStdout): string[] =>
@@ -433,4 +434,21 @@ test("an in-band size report repaints immediately at the reported width", async 
   expect(topBorder.length, "the frame is laid out at the reported width").toBe(60);
 
   unmount();
+});
+
+test("window-size-only consumers never query the terminal or change raw mode", async () => {
+  const stdin = createStdin();
+  const stdout = createStdout(100);
+  function Size() {
+    const { columns } = useWindowSize();
+    return <Text>{columns}</Text>;
+  }
+  for (let mount = 0; mount < 3; mount++) {
+    const instance = render(<Size />, { stdin, stdout, interactive: true });
+    await instance.waitUntilRenderFlush();
+    instance.unmount();
+  }
+  expect(stdout.getWrites().join("")).not.toContain("\u001B]10;?");
+  expect(stdout.getWrites().join("")).not.toContain("\u001B[c");
+  expect(stdin.setRawMode).not.toHaveBeenCalledWith(true);
 });

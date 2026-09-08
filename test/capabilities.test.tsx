@@ -1,3 +1,4 @@
+import { PassThrough } from "node:stream";
 import { setTimeout as delay } from "node:timers/promises";
 
 import { afterEach, describe, expect, test, vi, type Mock } from "vite-plus/test";
@@ -775,6 +776,86 @@ describe("useCapabilities", () => {
     // None of the reports leaked into useInput.
     expect(inputs.join("")).not.toContain("997");
     expect(inputs.join("")).not.toContain("[O");
+  });
+
+  test("late and delayed split query replies never reach useInput", async () => {
+    stubCleanEnv();
+    const stdin = createQueryStdin();
+    const stdout = createStdout();
+    const inputs: string[] = [];
+    function Prompt() {
+      useCapabilities();
+      useInput((input) => inputs.push(input));
+      return <Text>Token:</Text>;
+    }
+    const instance = render(<Prompt />, { stdout, stdin, debug: true, interactive: true });
+    try {
+      await delay(50);
+      stdin.emit("data", `${CSI}?1;2c`);
+      await delay(50);
+      emitReadable(stdin, `${CSI}4;588;2009t${CSI}6;14;7t${CSI}?1;2c`);
+      emitReadable(stdin, `${CSI}4;588;`);
+      // Longer than App's Escape timeout: the reply must remain buffered.
+      await delay(100);
+      emitReadable(stdin, "2009t");
+      emitReadable(stdin, "token");
+      await delay(50);
+      expect(inputs).toEqual(["token"]);
+    } finally {
+      instance.unmount();
+    }
+  });
+
+  test("slow replies survive query timeout and split ST without swallowing Escape", async () => {
+    stubCleanEnv();
+    const stdin = Object.assign(new PassThrough(), {
+      isTTY: true,
+      isRaw: false,
+      setRawMode(mode: boolean) {
+        this.isRaw = mode;
+        return this;
+      },
+      ref() {},
+      unref() {},
+    });
+    const stdout = createStdout();
+    const inputs: Array<{ input: string; escape: boolean }> = [];
+    function Prompt() {
+      useCapabilities();
+      useInput((input, key) => inputs.push({ input, escape: key.escape }));
+      return <Text>Token:</Text>;
+    }
+    const instance = render(<Prompt />, { stdout, stdin, debug: true, interactive: true });
+    try {
+      await delay(50);
+      stdin.write(`${OSC}10;rgb:`);
+      // The query collector times out at 500ms with only a partial OSC reply.
+      await delay(650);
+      for (const chunk of [
+        "bfbf/",
+        "bdbd/",
+        "b6b6",
+        ESC,
+        "\\",
+        `${CSI}4;588;`,
+        "2009t",
+        `${CSI}?1;2c`,
+      ]) {
+        stdin.write(chunk);
+        await delay(100);
+      }
+      stdin.write("token");
+      await delay(100);
+      stdin.write(ESC);
+      await delay(100);
+      expect(inputs).toEqual([
+        { input: "token", escape: false },
+        { input: "", escape: true },
+      ]);
+    } finally {
+      instance.unmount();
+      stdin.destroy();
+    }
   });
 
   test("does not restore an input reader when a query finishes after unmount", async () => {

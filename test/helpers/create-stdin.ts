@@ -6,9 +6,11 @@ import { vi, type Mock } from "vite-plus/test";
 // vi.fn() mocks where tests need to observe calls (setRawMode, read, ref).
 export type FakeStdin = Omit<
   NodeJS.ReadStream,
-  "setRawMode" | "setEncoding" | "read" | "ref" | "unref"
+  "setRawMode" | "setEncoding" | "read" | "ref" | "unref" | "pause" | "resume"
 > & {
   isTTY: boolean;
+  pause: Mock<() => FakeStdin>;
+  resume: Mock<() => FakeStdin>;
   setRawMode: Mock<(mode: boolean) => void>;
   setEncoding: (encoding?: BufferEncoding) => FakeStdin;
   read: NodeJS.ReadableStream["read"] & Mock<() => unknown>;
@@ -19,6 +21,8 @@ export type FakeStdin = Omit<
 export const createStdin = (): FakeStdin => {
   const stdin = new EventEmitter() as unknown as FakeStdin;
   stdin.isTTY = true;
+  stdin.pause = vi.fn(() => stdin);
+  stdin.resume = vi.fn(() => stdin);
   stdin.setRawMode = vi.fn();
   stdin.setEncoding = () => stdin;
   stdin.read = vi.fn() as FakeStdin["read"];

@@ -1,3 +1,4 @@
+import { isTerminalQueryResponse } from "#/capabilities/query.ts";
 import type { CapabilitiesStore } from "#/capabilities/store.ts";
 import { createInputParser, type InputEvent } from "#/input-parser.ts";
 
@@ -25,13 +26,18 @@ export class TerminalInput {
   }
 
   push(chunk: string): InputEvent[] {
-    return this.#parser.push(chunk).filter((event) => {
-      if (typeof event !== "string") return true;
-      if (this.#capabilities.ingest(event)) return false;
+    return this.#parser.push(chunk).flatMap((event): InputEvent[] => {
+      if (typeof event !== "string") return [event];
+      // A user Escape immediately before a reply is not an Alt-modified key.
+      if (event.startsWith("\u001B\u001B") && isTerminalQueryResponse(event.slice(1))) {
+        return ["\u001B"];
+      }
+      if (this.#capabilities.ingest(event)) return [];
+      if (isTerminalQueryResponse(event)) return [];
       const mouse = parseMouseEvent(event);
-      if (!mouse) return true;
+      if (!mouse) return [event];
       for (const listener of this.#mouseListeners) listener(mouse);
-      return false;
+      return [];
     });
   }
 

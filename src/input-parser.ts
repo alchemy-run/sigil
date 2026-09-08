@@ -42,6 +42,12 @@ const parseCsiSequence = (
       return "pending";
     }
 
+    // A new Escape or Ctrl+C cancels a truncated control sequence. Keep the
+    // cancelling byte for the next event, never insert the abandoned prefix.
+    if (byte === 0x1b || byte === 0x03) {
+      return { sequence: "", nextIndex: index };
+    }
+
     if (isCsiParameterByte(byte) || isCsiIntermediateByte(byte)) {
       continue;
     }
@@ -97,6 +103,25 @@ const parseControlSequence = (
 
   if (sequenceType === "[") {
     return parseCsiSequence(input, startIndex, prefixLength);
+  }
+
+  // OSC, DCS and APC replies are single events, even across stdin chunks.
+  if (sequenceType === "]" || sequenceType === "P" || sequenceType === "_") {
+    for (let index = startIndex + prefixLength + 1; index < input.length; index++) {
+      if (
+        input[index] === "\u0003" ||
+        (input[index] === escape && index + 1 < input.length && input[index + 1] !== "\\")
+      ) {
+        return { sequence: "", nextIndex: index };
+      }
+      const bel = sequenceType === "]" && input[index] === "\u0007";
+      const st = input[index] === escape && input[index + 1] === "\\";
+      if (bel || st) {
+        const nextIndex = index + (st ? 2 : 1);
+        return { sequence: input.slice(startIndex, nextIndex), nextIndex };
+      }
+    }
+    return "pending";
   }
 
   if (sequenceType === "O") {
@@ -232,7 +257,7 @@ const parseKeypresses = (input: string): ParsedInput => {
       continue;
     }
 
-    events.push(parsedEscapeSequence.sequence);
+    if (parsedEscapeSequence.sequence.length > 0) events.push(parsedEscapeSequence.sequence);
     index = parsedEscapeSequence.nextIndex;
   }
 
@@ -251,6 +276,9 @@ export type InputParser = {
 
 export const createInputParser = (): InputParser => {
   let pending = "";
+  // Only ambiguous Escape/Alt prefixes may time out. Once a control
+  // sequence starts, keep it intact until its terminator arrives.
+  const hasPendingEscape = () => pending.startsWith(escape) && !/^\u001B{1,2}[[\]P_]/.test(pending);
 
   return {
     push(chunk) {
@@ -258,17 +286,9 @@ export const createInputParser = (): InputParser => {
       pending = parsedInput.pending;
       return parsedInput.events;
     },
-    hasPendingEscape() {
-      // Don't trigger the escape flush timer while assembling a paste start
-      // marker (`\u001B[200` and then `~`) or while waiting for paste end.
-      return (
-        pending.startsWith(escape) &&
-        !pending.startsWith(pasteStart) &&
-        pending !== pasteStart.slice(0, -1)
-      );
-    },
+    hasPendingEscape,
     flushPendingEscape() {
-      if (!pending.startsWith(escape)) {
+      if (!hasPendingEscape()) {
         return;
       }
 

@@ -108,9 +108,11 @@ test("useInput - handle meta + backspace (0x7F)", async () => {
   expect(ps.output).toContain("exited");
 });
 
-test("useInput - flushes ESC[ prefix as literal input", async () => {
-  const ps = term("use-input", ["escapeBracketPrefix"]);
+test("useInput - holds a split CSI key across the Escape timeout", async () => {
+  const ps = term("use-input", ["splitArrow"]);
   ps.write("\u001B[");
+  await delay(100);
+  ps.write("A");
   await ps.waitForExit();
   expect(ps.output).toContain("exited");
 });

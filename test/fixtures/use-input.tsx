@@ -98,7 +98,7 @@ function UserInput({ test }: { readonly test: string | undefined }) {
       return;
     }
 
-    if (test === "escapeBracketPrefix" && input === "[" && !key.meta) {
+    if (test === "splitArrow" && key.upArrow) {
       exit();
       return;
     }

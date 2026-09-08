@@ -253,6 +253,23 @@ const winopsResponse = new RegExp(`${ESC}\\[(4|6);(\\d+);(\\d+)t`);
 const colorSchemeResponse = new RegExp(`${ESC}\\[\\?997;(\\d+)n`);
 const da1Response = new RegExp(`${ESC}\\[\\?([\\d;]*)c`);
 
+// Also used by the normal input decoder: replies can outlive the query timeout
+// or arrive after its DA1 sentinel. Never deliver those bytes as keystrokes.
+const terminalResponses = [
+  oscColorResponse,
+  kittyKeyboardResponse,
+  decrqmResponse,
+  xtversionResponse,
+  xtgettcapResponse,
+  kittyGraphicsResponse,
+  winopsResponse,
+  colorSchemeResponse,
+  da1Response,
+].map((pattern) => new RegExp(`^(?:${pattern.source})$`));
+
+export const isTerminalQueryResponse = (sequence: string): boolean =>
+  terminalResponses.some((pattern) => pattern.test(sequence));
+
 const buildQuery = (palette: boolean, scope: "full" | "dynamic"): string => {
   const queries = [
     `${OSC}10;?${BEL}`, // foreground color
@@ -346,6 +363,10 @@ export const queryTerminal = async (
 
       done = true;
       clearTimeout(timer);
+      // Stop flowing before returning buffered bytes. Without this, unshift()
+      // can discard a partial reply between removing this data listener and
+      // the application's readable listener reattaching (especially on timeout).
+      stdin.pause();
       stdin.removeListener("data", onData);
 
       if (paletteColors.size === paletteSize) {
@@ -505,6 +526,7 @@ export const queryTerminal = async (
     // Attach before writing so immediate responses aren't missed.
     stdin.on("data", onData);
     const timer = setTimeout(finish, timeout);
+    stdin.resume();
 
     stdout.write(buildQuery(palette, scope));
   });

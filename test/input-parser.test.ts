@@ -88,7 +88,7 @@ test("holds incomplete CSI sequence until final byte arrives", () => {
   const parser = createInputParser();
 
   expect(parser.push("\u001B[")).toEqual([]);
-  expect(parser.hasPendingEscape()).toEqual(true);
+  expect(parser.hasPendingEscape()).toEqual(false);
   expect(parser.push("1;5")).toEqual([]);
   expect(parser.push("A")).toEqual(["\u001B[1;5A"]);
 });
@@ -124,14 +124,14 @@ test("keeps pending plain escape and can flush it", () => {
   expect(parser.hasPendingEscape()).toEqual(false);
 });
 
-test("flushes pending CSI prefix as literal input", () => {
+test("does not flush a pending CSI prefix into literal input", () => {
   const parser = createInputParser();
 
   expect(parser.push("\u001B[")).toEqual([]);
-  expect(parser.hasPendingEscape()).toEqual(true);
-  expect(parser.flushPendingEscape()).toEqual("\u001B[");
   expect(parser.hasPendingEscape()).toEqual(false);
-  expect(parser.push("A")).toEqual(["A"]);
+  expect(parser.flushPendingEscape()).toBeUndefined();
+  expect(parser.hasPendingEscape()).toEqual(false);
+  expect(parser.push("A")).toEqual(["\u001B[A"]);
 });
 
 test("reset clears pending input state", () => {
@@ -166,13 +166,13 @@ test("flushes pending SS3 prefix as literal input", () => {
   expect(parser.push("x")).toEqual(["x"]);
 });
 
-test("flushes pending legacy CSI prefix as literal input", () => {
+test("keeps pending legacy CSI prefix until its final byte", () => {
   const parser = createInputParser();
 
   expect(parser.push("\u001B[[")).toEqual([]);
-  expect(parser.hasPendingEscape()).toEqual(true);
-  expect(parser.flushPendingEscape()).toEqual("\u001B[[");
-  expect(parser.push("x")).toEqual(["x"]);
+  expect(parser.hasPendingEscape()).toEqual(false);
+  expect(parser.flushPendingEscape()).toBeUndefined();
+  expect(parser.push("A")).toEqual(["\u001B[[A"]);
 });
 
 test("parses meta+SS3 sequence with double escape", () => {
@@ -200,7 +200,7 @@ test("empty chunk does not disturb pending state", () => {
 
   expect(parser.push("\u001B[")).toEqual([]);
   expect(parser.push("")).toEqual([]);
-  expect(parser.hasPendingEscape()).toEqual(true);
+  expect(parser.hasPendingEscape()).toEqual(false);
   expect(parser.push("A")).toEqual(["\u001B[A"]);
 });
 
@@ -362,18 +362,18 @@ test("handles pasteStart split before the tilde (\\u001B[200 without ~)", () => 
   expect(parser.push("~hello\u001B[201~")).toEqual([{ paste: "hello" }]);
 });
 
-test("hasPendingEscape returns true for length-3 pasteStart prefix (\\u001B[2)", () => {
+test("hasPendingEscape returns false for length-3 pasteStart prefix (\\u001B[2)", () => {
   const parser = createInputParser();
 
   expect(parser.push("\u001B[2")).toEqual([]);
-  expect(parser.hasPendingEscape()).toEqual(true);
+  expect(parser.hasPendingEscape()).toEqual(false);
 });
 
-test("hasPendingEscape returns true for length-4 pasteStart prefix (\\u001B[20)", () => {
+test("hasPendingEscape returns false for length-4 pasteStart prefix (\\u001B[20)", () => {
   const parser = createInputParser();
 
   expect(parser.push("\u001B[20")).toEqual([]);
-  expect(parser.hasPendingEscape()).toEqual(true);
+  expect(parser.hasPendingEscape()).toEqual(false);
 });
 
 test("paste event delivers backspace chars verbatim without splitting", () => {
