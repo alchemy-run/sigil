@@ -11,8 +11,17 @@ export default defineConfig({
       color: "src/color/index.ts",
       screen: "src/screen/index.ts",
       terminal: "src/terminal/index.ts",
+      react: "src/react.ts",
+      "jsx-runtime": "src/jsx-runtime.ts",
+      "jsx-dev-runtime": "src/jsx-dev-runtime.ts",
     },
     format: "esm",
+    // React, the reconciler, and the scheduler are private to the renderer.
+    // Bundling them (instead of externalizing as a peer) guarantees a single
+    // React identity no matter how the consumer's install tree is hoisted.
+    deps: {
+      alwaysBundle: [/^react(?:\/|$)/, /^react-reconciler(?:\/|$)/, /^scheduler(?:\/|$)/],
+    },
     outExtensions: () => ({ js: ".js", dts: ".d.ts" }),
     dts: true,
     nodeProtocol: true,
@@ -21,10 +30,7 @@ export default defineConfig({
     projects: [
       {
         test: {
-          alias: {
-            ink: "src/index.ts",
-            "yoga-layout": "test/yoga/yoga-layout-compat.ts",
-          },
+          alias: { "yoga-layout": "test/yoga/yoga-layout-compat.ts" },
           globalSetup: ["test/yoga/reference/setup.ts"],
           include: [".vendor/yoga/javascript/tests/**/*.test.ts"],
           exclude: [".vendor/yoga/javascript/tests/Benchmarks/**"],
@@ -33,7 +39,6 @@ export default defineConfig({
       },
       {
         test: {
-          alias: { ink: "src/index.ts" },
           include: ["test/**/*.test.{ts,tsx}"],
           // PTY-based integration tests regularly exceed the default 5s.
           testTimeout: 60_000,

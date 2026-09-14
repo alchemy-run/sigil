@@ -72,6 +72,21 @@
       "import": "./dist/terminal.js",
       "types": "./dist/terminal.d.ts",
       "default": "./dist/terminal.js"
+    },
+    "./react": {
+      "import": "./dist/react.js",
+      "types": "./dist/react.d.ts",
+      "default": "./dist/react.js"
+    },
+    "./jsx-runtime": {
+      "import": "./dist/jsx-runtime.js",
+      "types": "./dist/jsx-runtime.d.ts",
+      "default": "./dist/jsx-runtime.js"
+    },
+    "./jsx-dev-runtime": {
+      "import": "./dist/jsx-dev-runtime.js",
+      "types": "./dist/jsx-dev-runtime.d.ts",
+      "default": "./dist/jsx-dev-runtime.js"
     }
   },
   "publishConfig": {
@@ -96,6 +111,7 @@
     "fuzz:loop": "vpr build:reference && tsx test/yoga/fuzz/loop.ts"
   },
   "dependencies": {
+    "react": "^19.2.8",
     "react-reconciler": "^0.33.0",
     "scheduler": "^0.27.0"
   },
@@ -114,7 +130,6 @@
     "@xterm/addon-webgl": "^0.19.0",
     "@xterm/headless": "^6.0.0",
     "@xterm/xterm": "^6.0.0",
-    "react": "^19.2.8",
     "react-devtools-core": "^7.0.1",
     "tsx": "^4.21.0",
     "typescript": "^7.0.2",
@@ -125,7 +140,6 @@
   },
   "peerDependencies": {
     "@types/react": ">=19.2.0",
-    "react": ">=19.2.0",
     "react-devtools-core": ">=6.1.2"
   },
   "peerDependenciesMeta": {
