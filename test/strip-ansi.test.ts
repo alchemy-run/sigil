@@ -20,18 +20,25 @@ import { stripAnsi } from "#/ansi/strip.ts";
 const semicolonSgr = "A\u001B[38;2;255;100;0mcolor\u001B[39mB";
 const colonSgr = "A\u001B[38:2::255:100:0mcolor\u001B[39mB";
 
+// Node 24.21+ ships the upstream fix (nodejs/node#65379). The wrapper stays
+// until the minimum supported Node has it; the leak test only documents the
+// old behavior on runtimes that still have it.
+const nodeStripsColonSgr = stripVTControlCharacters(colonSgr) === "AcolorB";
+
 test("both strippers agree on semicolon-separated SGR", () => {
   expect(stripVTControlCharacters(semicolonSgr)).toBe("AcolorB");
   expect(stripAnsi(semicolonSgr)).toBe("AcolorB");
 });
 
-test("node's stripVTControlCharacters leaks colon-separated SGR parameters", () => {
-  // `ESC[38` is consumed as a (bogus) complete sequence; the remainder of the
-  // real sequence survives as text. This documents current node behavior —
-  // if it starts failing, node fixed their regex (see nodejs/node#65379) and
-  // the stripAnsi wrapper can likely be retired.
-  expect(stripVTControlCharacters(colonSgr)).toBe("A:2::255:100:0mcolorB");
-});
+test.skipIf(nodeStripsColonSgr)(
+  "node's stripVTControlCharacters leaks colon-separated SGR parameters",
+  () => {
+    // `ESC[38` is consumed as a (bogus) complete sequence; the remainder of
+    // the real sequence survives as text. This documents pre-fix node
+    // behavior so the wrapper's reason for existing stays visible.
+    expect(stripVTControlCharacters(colonSgr)).toBe("A:2::255:100:0mcolorB");
+  },
+);
 
 test("stripAnsi removes colon-separated SGR before delegating to node", () => {
   // Sigil preserves colon SGR in its output (see sanitize-ansi.ts), so its
@@ -43,6 +50,5 @@ test("stripAnsi removes colon-separated SGR before delegating to node", () => {
 test("stripAnsi also handles the C1 (8-bit CSI) colon form", () => {
   const c1ColonSgr = "A\u009B38:2::255:100:0mcolor\u009B0mB";
 
-  expect(stripVTControlCharacters(c1ColonSgr)).not.toBe("AcolorB");
   expect(stripAnsi(c1ColonSgr)).toBe("AcolorB");
 });
