@@ -132,6 +132,56 @@ type HostContext = {
 
 let currentUpdatePriority = NoEventPriority;
 
+/**
+ * Host hooks react-reconciler 0.34 (React 19.3) added for View Transitions
+ * and Fragment refs. `@types/react-reconciler` (0.33) does not declare them
+ * yet, so they are spread in rather than written inline (excess-property
+ * checks would reject them on the literal).
+ *
+ * A terminal has no view transitions, so a `<ViewTransition>` commits like
+ * any other update: `startViewTransition` mirrors react-dom's fallback when
+ * the document can't animate — run the commit phases synchronously and
+ * return no transition handle. `suspendOnActiveViewTransition` is on the
+ * hot path: the reconciler calls it for every transition-lane commit, so
+ * without it `startTransition` / `useTransition` updates never land.
+ */
+const viewTransitionHostConfig = {
+  suspendOnActiveViewTransition() {},
+  startViewTransition(
+    _suspendedState: unknown,
+    _rootContainer: DOMElement,
+    _transitionTypes: unknown,
+    mutationCallback: () => void,
+    layoutCallback: () => void,
+    _afterMutationCallback: () => void,
+    spawnedWorkCallback: () => void,
+    _passiveCallback: () => void,
+    _errorCallback: (error: unknown) => void,
+    _blockedCallback: (reason: string) => void,
+    finishedAnimation: () => void,
+  ): null {
+    mutationCallback();
+    layoutCallback();
+    finishedAnimation();
+    spawnedWorkCallback();
+    return null;
+  },
+  stopViewTransition() {},
+  createViewTransitionInstance: (name: string) => ({ name }),
+  measureInstance: () => null,
+  measureClonedInstance: () => null,
+  wasInstanceInViewport: () => false,
+  hasInstanceChanged: () => false,
+  hasInstanceAffectedParent: () => false,
+  applyViewTransitionName() {},
+  restoreViewTransitionName() {},
+  cancelViewTransitionName() {},
+  cancelRootViewTransitionName() {},
+  restoreRootViewTransitionName() {},
+  createFragmentInstance: (fiber: unknown) => ({ fiber }),
+  updateFragmentInstanceFiber() {},
+};
+
 export const reconciler = createReconciler<
   ElementNames,
   Props,
@@ -422,4 +472,5 @@ export const reconciler = createReconciler<
   },
   rendererPackageName: pkg.name,
   rendererVersion: pkg.version,
+  ...viewTransitionHostConfig,
 });
