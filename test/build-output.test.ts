@@ -1,6 +1,7 @@
-import { execSync } from "node:child_process";
+import { execFileSync, execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 import { expect, test } from "vite-plus/test";
 
@@ -39,4 +40,28 @@ test("dist entry point and type declarations exist", () => {
   expect(fs.existsSync(path.join(distDir, "index.d.ts")), "dist/index.d.mts should exist").toBe(
     true,
   );
+});
+
+// React exports `jsxDEV` from `react/jsx-dev-runtime` in its development build
+// only, and this package bundles React, so under `NODE_ENV=production` the
+// re-export used to resolve to `undefined`. A transpiler picks the development
+// JSX transform independently of `NODE_ENV` — bun's runtime transpiler emits
+// `jsxDEV` calls while the host process may already have set production — so
+// that combination failed at the first render. Asserted against the built
+// output rather than the source, because it is the bundler that inlines the
+// branch.
+test("jsxDEV is callable under NODE_ENV=production", () => {
+  const entry = pathToFileURL(path.join(distDir, "jsx-dev-runtime.js")).href;
+  const probe = [
+    `const { jsxDEV, Fragment } = await import(${JSON.stringify(entry)});`,
+    'if (typeof jsxDEV !== "function") throw new Error("jsxDEV is " + typeof jsxDEV);',
+    'if (Fragment === undefined) throw new Error("Fragment is undefined");',
+    'const el = jsxDEV(Fragment, { children: "x" }, undefined, false);',
+    'if (el?.type !== Fragment) throw new Error("jsxDEV returned " + String(el?.type));',
+  ].join("\n");
+  execFileSync(process.execPath, ["--input-type=module", "-e", probe], {
+    cwd: rootDir,
+    stdio: "pipe",
+    env: { ...process.env, NODE_ENV: "production" },
+  });
 });
