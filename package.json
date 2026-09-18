@@ -1,6 +1,6 @@
 {
   "name": "@alchemy.run/sigil",
-  "version": "0.0.0-alpha.11",
+  "version": "0.1.0-alpha.1",
   "description": "React for CLIs. A self-contained fork of Ink with an integrated TypeScript Yoga layout engine.",
   "keywords": [
     "cli",
