@@ -70,8 +70,13 @@ Object.defineProperty(globalThis, "__REACT_DEVTOOLS_COMPONENT_FILTERS__", {
 const isDevToolsReachable = () =>
   new Promise<boolean>((resolve) => {
     const socket = new WebSocket("ws://localhost:8097");
+    let settled = false;
 
     const settle = (reachable: boolean) => {
+      // Node 22 can emit another error synchronously when closing a failed
+      // connection. Mark it settled before close() re-enters this handler.
+      if (settled) return;
+      settled = true;
       clearTimeout(timeout);
       socket.close();
       resolve(reachable);

@@ -1,0 +1,105 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release spec (alpha for the next 0.1.0-alpha.N, alpha.N for an exact candidate, or an explicit version)
+        required: false
+        type: string
+        default: alpha
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  release:
+    name: Release
+    if: github.ref_type == 'branch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Setup Vite+ and Node.js
+        uses: voidzero-dev/setup-vp@e4759006b2f2888ed11658d4609d4d2fc859f271 # v1.21.0
+        with:
+          version: "0.3.2"
+          node-version: "24"
+          run-install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Prepare release
+        id: release
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          resolved=$(node scripts/release-version.ts "$RELEASE_VERSION")
+          pnpm version "$resolved" --no-git-tag-version --allow-same-version
+          version=$(node -p 'JSON.parse(require("node:fs").readFileSync("package.json", "utf8")).version')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [[ "$version" == *-* ]]; then
+            echo "tag=next" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=latest" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Commit and tag
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          RELEASE_BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if git rev-parse --verify "refs/tags/v${VERSION}" >/dev/null 2>&1; then
+            # A retry may reuse the tag only when its tracked contents match.
+            git diff --exit-code "v${VERSION}" -- .
+            exit 0
+          fi
+          git config user.email "alchemy-version-bot[bot]@users.noreply.github.com"
+          git config user.name "alchemy-version-bot[bot]"
+          git add package.json pnpm-lock.yaml
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(release): ${VERSION}"
+          fi
+          git tag -a "v${VERSION}" -m "Release v${VERSION}"
+          git push --atomic origin "HEAD:refs/heads/${RELEASE_BRANCH}" "refs/tags/v${VERSION}"
+
+      - name: Publish with OIDC
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          PUBLISH_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if pnpm view "@alchemy.run/sigil@${VERSION}" version >/dev/null 2>&1; then
+            echo "@alchemy.run/sigil@${VERSION} is already published; skipping publish"
+          else
+            pnpm publish --access public --tag "$PUBLISH_TAG" --no-git-checks
+          fi
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.release.outputs.version }}
+          PUBLISH_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "v${VERSION}" >/dev/null 2>&1; then
+            args=(--verify-tag --generate-notes)
+            if [[ "$PUBLISH_TAG" == "next" ]]; then
+              args+=(--prerelease)
+            fi
+            gh release create "v${VERSION}" "${args[@]}"
+          fi

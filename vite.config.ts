@@ -16,12 +16,7 @@ export default defineConfig({
       "jsx-dev-runtime": "src/jsx-dev-runtime.ts",
     },
     format: "esm",
-    // React, the reconciler, and the scheduler are private to the renderer.
-    // Bundling them (instead of externalizing as a peer) guarantees a single
-    // React identity no matter how the consumer's install tree is hoisted.
-    deps: {
-      alwaysBundle: [/^react(?:\/|$)/, /^react-reconciler(?:\/|$)/, /^scheduler(?:\/|$)/],
-    },
+    define: { "process.env.NODE_ENV": '"production"' },
     outExtensions: () => ({ js: ".js", dts: ".d.ts" }),
     dts: true,
     nodeProtocol: true,

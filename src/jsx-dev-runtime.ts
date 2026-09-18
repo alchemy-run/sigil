@@ -1,3 +1,3 @@
-// See jsx-runtime.ts for why the names are enumerated.
-export { Fragment, jsxDEV } from "react/jsx-dev-runtime";
+// Accept development JSX transforms while using the production runtime.
+export { Fragment, jsx as jsxDEV } from "react/jsx-runtime";
 export type { JSX } from "react/jsx-dev-runtime";
