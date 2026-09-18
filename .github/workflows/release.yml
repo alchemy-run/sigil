@@ -48,11 +48,7 @@ jobs:
           pnpm version "$resolved" --no-git-tag-version --allow-same-version
           version=$(node -p 'JSON.parse(require("node:fs").readFileSync("package.json", "utf8")).version')
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          if [[ "$version" == *-* ]]; then
-            echo "tag=next" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=latest" >> "$GITHUB_OUTPUT"
-          fi
+          echo "tag=latest" >> "$GITHUB_OUTPUT"
 
       - name: Build
         run: pnpm run build

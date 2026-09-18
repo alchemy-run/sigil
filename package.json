@@ -22,7 +22,7 @@
     "email": "blank@alchemy.run",
     "url": "https://blankparticle.com"
   },
-  "repository": "alchemy-run/sigil",
+  "repository": "https://github.com/alchemy-run/sigil",
   "files": [
     "src",
     "dist",
