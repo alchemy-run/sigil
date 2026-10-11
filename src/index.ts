@@ -70,10 +70,13 @@ export { useCursor } from "#/hooks/use-cursor.ts";
 export type { AnimationResult } from "#/hooks/use-animation.ts";
 export { useAnimation } from "#/hooks/use-animation.ts";
 export type { ProgressOptions } from "#/hooks/use-terminal-osc.ts";
+export type { ProgramStatus, ProgramStatusKind, ProgramStatusState } from "#/ansi/osc.ts";
+export type { ProgramStatusMode } from "#/terminal/session.ts";
 export {
   useClipboard,
   useNotification,
   usePointerShape,
+  useProgramStatus,
   useProgress,
   useTitle,
   useWorkingDirectory,

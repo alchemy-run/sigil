@@ -1,12 +1,16 @@
 import { ansiEscapes, type CursorShape } from "#/ansi/escapes.ts";
 import {
+  clearProgramStatus,
   notify,
   setPointerShape,
+  setProgramStatus,
   setTerminalProgress,
   setWindowTitle,
   setWorkingDirectory,
   tmuxPassthrough,
   type ClipboardSelection,
+  type ProgramStatus,
+  type ProgramStatusState,
   type TerminalProgressState,
 } from "#/ansi/osc.ts";
 import { colorState, type ColorPolicy } from "#/capabilities/color-policy.ts";
@@ -20,11 +24,15 @@ import { copyToClipboard } from "#/terminal/clipboard.ts";
 import { TerminalInput } from "#/terminal/input.ts";
 import { ScreenPresenter } from "#/terminal/screen-presenter.ts";
 
+/** Whether OSC 7501 program status reports are sent. */
+export type ProgramStatusMode = "auto" | "enabled" | "disabled";
+
 export type TerminalSessionOptions = {
   readonly stdin: NodeJS.ReadableStream;
   readonly stdout: OutputStream;
   readonly stderr: OutputStream;
   readonly colorPolicy?: ColorPolicy;
+  readonly programStatus?: ProgramStatusMode;
   readonly onCapabilitiesChange?: () => void;
 };
 
@@ -45,6 +53,13 @@ export type TerminalCursor = {
 type ActiveMode = TerminalMode & { count: number };
 const imperativeProgressOwner = Symbol("imperative-progress");
 const imperativeTitleOwner = Symbol("imperative-title");
+// Root record key; real ids are never empty.
+const rootStatus = "";
+const statusKey = (status: ProgramStatus): string => status.id ?? rootStatus;
+const isUnder = (key: string, parent: string): boolean =>
+  parent === rootStatus || key === parent || key.startsWith(`${parent}/`);
+// Results the user hasn't seen yet outlive their publisher, per the OSC 7501 spec.
+const isSettled = (state: ProgramStatusState): boolean => state === "done" || state === "error";
 
 /** Instance-scoped terminal state and lifecycle ownership. */
 export class TerminalSession {
@@ -76,6 +91,11 @@ export class TerminalSession {
   #progressPublishers = new Map<symbol, { state: TerminalProgressState; value?: number }>();
   #titlePublishers = new Map<symbol, string>();
   #titleActive = false;
+  #statusPublishers = new Map<symbol, ProgramStatus>();
+  #imperativeStatusOwners = new Map<string, symbol>();
+  #statusWritten = new Map<string, { state: ProgramStatusState; sequence: string }>();
+  #statusSupport: boolean | "pending" | undefined;
+  #statusBeforeSuspension: Map<string, { state: ProgramStatusState; sequence: string }> | undefined;
 
   constructor(options: TerminalSessionOptions) {
     this.stdin = options.stdin;
@@ -85,6 +105,8 @@ export class TerminalSession {
     this.input = new TerminalInput(this.capabilities);
     this.#presenter = new ScreenPresenter((data) => this.write(data), this.stdout);
     this.#policy = options.colorPolicy ?? "auto";
+    if (options.programStatus === "enabled") this.#statusSupport = true;
+    if (options.programStatus === "disabled") this.#statusSupport = false;
     this.#profile = colorState(this.capabilities.current, this.#policy).effective;
     this.#unsubscribe = this.capabilities.subscribe(
       (capabilities) => {
@@ -273,6 +295,107 @@ export class TerminalSession {
     this.#progressSequence = undefined;
   }
 
+  /**
+   * Publish an OSC 7501 record for `owner`, or withdraw it with `undefined`.
+   * The latest publisher of an id wins. A withdrawn id with no publisher
+   * left is cleared, unless it last reported `done` or `error`.
+   */
+  publishStatus(owner: symbol, status?: ProgramStatus): boolean {
+    if (status !== undefined) setProgramStatus(status); // validate before mutating
+    const previous = this.#statusPublishers.get(owner);
+    this.#statusPublishers.delete(owner);
+    if (status !== undefined) this.#statusPublishers.set(owner, status);
+    const keys = new Set<string>();
+    if (previous !== undefined) keys.add(statusKey(previous));
+    if (status !== undefined) keys.add(statusKey(status));
+    this.#detectStatusSupport();
+    let written = true;
+    for (const key of keys) written = this.#applyStatus(key) && written;
+    return written;
+  }
+
+  // Reports are only sent once the terminal answers the OSC 7501 query
+  // (multiplexers like tmux and screen don't). The `programStatus` option
+  // skips the query. The query runs at most once per session.
+  #detectStatusSupport(): void {
+    if (this.#statusSupport !== undefined) return;
+    const known = this.capabilities.current.supports.programStatus;
+    if (known !== undefined) this.#statusSupport = known;
+    else {
+      this.#statusSupport = "pending";
+      void this.capabilities
+        .query()
+        .then((capabilities) => capabilities.supports.programStatus === true)
+        .catch(() => false)
+        .then((supported) => {
+          this.#statusSupport = supported;
+          if (supported && !this.#cleaned) this.#flushStatus();
+        });
+    }
+  }
+
+  get #statusLive(): boolean {
+    return this.#statusSupport === true && !this.suspended;
+  }
+
+  #flushStatus(): void {
+    const keys = new Set([...this.#statusPublishers.values()].map(statusKey));
+    for (const key of keys) this.#applyStatus(key);
+  }
+
+  /** Report program status (OSC 7501) for `status.id`, outside of any component. */
+  setStatus(status: ProgramStatus): boolean {
+    const key = statusKey(status);
+    let owner = this.#imperativeStatusOwners.get(key);
+    if (owner === undefined) {
+      owner = Symbol("imperative-status");
+      this.#imperativeStatusOwners.set(key, owner);
+    }
+    return this.publishStatus(owner, status);
+  }
+
+  /** Remove the imperative record for `id` (or the root) and clear it unless another publisher holds it. */
+  clearStatus(id?: string): boolean {
+    const key = id ?? rootStatus;
+    const owner = this.#imperativeStatusOwners.get(key);
+    this.#imperativeStatusOwners.delete(key);
+    if (owner !== undefined) this.#statusPublishers.delete(owner);
+    if (this.#currentStatus(key) !== undefined) return this.#applyStatus(key);
+    if (!this.#statusLive || !this.#statusWritten.has(key)) return true;
+    return this.#clearStatusRecords(key);
+  }
+
+  #currentStatus(key: string): ProgramStatus | undefined {
+    return [...this.#statusPublishers.values()].findLast((status) => statusKey(status) === key);
+  }
+
+  #applyStatus(key: string): boolean {
+    if (!this.#statusLive) return true;
+    const current = this.#currentStatus(key);
+    if (current !== undefined) {
+      const sequence = setProgramStatus(current);
+      if (this.#statusWritten.get(key)?.sequence === sequence) return true;
+      this.#statusWritten.set(key, { state: current.state, sequence });
+      return this.write(this.#wrapOsc(sequence));
+    }
+    const last = this.#statusWritten.get(key);
+    if (last === undefined || isSettled(last.state)) return true;
+    return this.#clearStatusRecords(key);
+  }
+
+  // `clear` also removes descendants (every record, for the root), so
+  // re-report the ones that still have a publisher.
+  #clearStatusRecords(key: string): boolean {
+    for (const written of this.#statusWritten.keys())
+      if (isUnder(written, key)) this.#statusWritten.delete(written);
+    let ok = this.write(this.#wrapOsc(clearProgramStatus(key === rootStatus ? undefined : key)));
+    const survivors = new Set(
+      [...this.#statusPublishers.values()].map(statusKey).filter((other) => isUnder(other, key)),
+    );
+    for (const survivor of survivors) ok = this.#applyStatus(survivor) && ok;
+    return ok;
+  }
+
   enableMode(mode: TerminalMode): void;
   enableMode(enable: string, disable: string): void;
   enableMode(modeOrEnable: TerminalMode | string, disable?: string): void {
@@ -353,6 +476,13 @@ export class TerminalSession {
 
   beginSuspension(): void {
     if (this.suspended) throw new Error("The terminal session is already suspended");
+    // Nothing is working while another program has the terminal; resume()
+    // reports the records again.
+    if (this.#statusWritten.size > 0) {
+      this.#statusBeforeSuspension = new Map(this.#statusWritten);
+      this.#statusWritten.clear();
+      this.write(this.#wrapOsc(clearProgramStatus()));
+    }
     this.suspended = true;
   }
 
@@ -360,6 +490,18 @@ export class TerminalSession {
     if (!this.suspended) return;
     this.suspended = false;
     this.#presenter.reset();
+    const before = this.#statusBeforeSuspension;
+    this.#statusBeforeSuspension = undefined;
+    if (before !== undefined && this.#statusLive) {
+      // Settled records outlive their publishers, so restore those directly.
+      for (const [key, entry] of before) {
+        if (isSettled(entry.state) && this.#currentStatus(key) === undefined) {
+          this.#statusWritten.set(key, entry);
+          this.write(this.#wrapOsc(entry.sequence));
+        }
+      }
+    }
+    this.#flushStatus();
   }
 
   cleanup(): void {
@@ -373,6 +515,13 @@ export class TerminalSession {
         this.stdout.write(this.#wrapOsc(setTerminalProgress("inactive")));
       } catch {}
       this.#progressActive = false;
+    }
+    this.#statusPublishers.clear();
+    this.#imperativeStatusOwners.clear();
+    for (const key of this.#statusWritten.keys()) {
+      try {
+        this.#applyStatus(key);
+      } catch {}
     }
     this.#titlePublishers.clear();
     if (this.#titleActive) {

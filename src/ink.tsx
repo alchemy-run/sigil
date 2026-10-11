@@ -7,7 +7,7 @@ import { type FiberRoot } from "react-reconciler";
 import { LegacyRoot, ConcurrentRoot } from "react-reconciler/constants.js";
 
 import { ansiEscapes, bsu, esu } from "#/ansi/escapes.ts";
-import type { ClipboardSelection, TerminalProgressState } from "#/ansi/osc.ts";
+import type { ClipboardSelection, ProgramStatus, TerminalProgressState } from "#/ansi/osc.ts";
 import { wrapAnsi } from "#/ansi/wrap.ts";
 import { accessibilityContext as AccessibilityContext } from "#/components/AccessibilityContext.ts";
 import { App } from "#/components/App.tsx";
@@ -27,7 +27,7 @@ import { signalExit } from "#/signal-exit.ts";
 import { type OutputStream } from "#/stream.ts";
 import { createInlinePresenter } from "#/terminal/inline-presenter.ts";
 import { createRenderScheduler } from "#/terminal/render-scheduler.ts";
-import { TerminalSession } from "#/terminal/session.ts";
+import { TerminalSession, type ProgramStatusMode } from "#/terminal/session.ts";
 import { type Throttled } from "#/throttle.ts";
 import { Yoga } from "#/yoga/index.ts";
 
@@ -226,6 +226,7 @@ export type Options = {
   isScreenReaderEnabled?: boolean;
   maxFps?: number;
   colorProfile?: import("#/screen/color-profile.ts").ColorProfile;
+  programStatus?: ProgramStatusMode;
 
   /**
 	Enable React Concurrent Rendering mode.
@@ -316,6 +317,12 @@ export type Ink = {
 
   /** Update terminal-native progress through the renderer-owned session. */
   setProgress: (state: TerminalProgressState, value?: number) => boolean;
+
+  /** Report program status (OSC 7501) through the renderer-owned session. */
+  setStatus: (status: ProgramStatus) => boolean;
+
+  /** Clear a program status record set with `setStatus`. */
+  clearStatus: (id?: string) => boolean;
 };
 
 export const createInk = (options: Options): Ink => {
@@ -349,6 +356,7 @@ export const createInk = (options: Options): Ink => {
     stdout: options.stdout,
     stderr: options.stderr,
     colorPolicy: options.colorProfile ?? "auto",
+    programStatus: options.programStatus,
     onCapabilitiesChange: () => rootNode.onRender?.(),
   });
   const terminalOsc = {
@@ -363,6 +371,7 @@ export const createInk = (options: Options): Ink => {
       terminal.copyToClipboard(text, selection);
     },
     publishTitle: (owner: symbol, title?: string) => terminal.publishTitle(owner, title),
+    publishStatus: (owner: symbol, status?: ProgramStatus) => terminal.publishStatus(owner, status),
     setWorkingDirectory: (directory: URL | string) => terminal.setWorkingDirectory(directory),
     notify: (title: string) => terminal.notify(title),
     setPointerShape: (shape: string) => terminal.setPointerShape(shape),
@@ -1614,5 +1623,7 @@ export const createInk = (options: Options): Ink => {
     copyToClipboard: (text, selection) => terminal.copyToClipboard(text, selection),
     setAlternateScreen: switchAlternateScreen,
     setProgress: (state, value) => terminal.setProgress(state, value),
+    setStatus: (status) => terminal.setStatus(status),
+    clearStatus: (id) => terminal.clearStatus(id),
   };
 };

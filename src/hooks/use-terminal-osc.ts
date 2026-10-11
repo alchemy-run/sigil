@@ -1,6 +1,6 @@
 import { useCallback, useContext, useEffect, useRef } from "react";
 
-import type { ClipboardSelection, TerminalProgressState } from "#/ansi/osc.ts";
+import type { ClipboardSelection, ProgramStatus, TerminalProgressState } from "#/ansi/osc.ts";
 import { TerminalOscContext } from "#/components/TerminalOscContext.ts";
 
 export type ProgressOptions = {
@@ -22,6 +22,27 @@ export const useProgress = ({ state, value }: ProgressOptions): void => {
       terminal.publishProgress(owner.current!, "inactive");
     };
   }, [terminal]);
+};
+
+/**
+Report this component's program status (OSC 7501) while it is mounted. Pass
+`undefined` to withdraw it. On unmount the record is cleared unless it last
+reported `done` or `error`, which stay for the user to find.
+*/
+export const useProgramStatus = (status: ProgramStatus | undefined): void => {
+  const terminal = useContext(TerminalOscContext);
+  const owner = useRef<symbol>(undefined);
+  owner.current ??= Symbol("program-status");
+  const { state, id, kind, progress, app, title, msg } = status ?? {};
+
+  useEffect(() => {
+    terminal.publishStatus(
+      owner.current!,
+      state === undefined ? undefined : { state, id, kind, progress, app, title, msg },
+    );
+  }, [terminal, state, id, kind, progress, app, title, msg]);
+
+  useEffect(() => () => terminal.publishStatus(owner.current!, undefined), [terminal]);
 };
 
 export const useClipboard = (): ((text: string, selection?: ClipboardSelection) => void) => {

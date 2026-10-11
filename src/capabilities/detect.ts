@@ -186,6 +186,7 @@ export type Capabilities = {
     graphemeClustering: boolean | undefined;
     colorSchemeUpdates: boolean | undefined;
     inBandResize: boolean | undefined;
+    programStatus: boolean | undefined;
   };
 };
 
@@ -580,6 +581,7 @@ const computeStatic = (stdout: CapabilityStdout): StaticCapabilities => {
       graphemeClustering: undefined,
       colorSchemeUpdates: undefined,
       inBandResize: undefined,
+      programStatus: undefined,
     },
   };
 };

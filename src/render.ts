@@ -2,11 +2,12 @@ import { Stream, type Writable } from "node:stream";
 
 import type { ReactNode } from "react";
 
-import type { ClipboardSelection, TerminalProgressState } from "#/ansi/osc.ts";
+import type { ClipboardSelection, ProgramStatus, TerminalProgressState } from "#/ansi/osc.ts";
 import { createInk, type Ink, type Options as InkOptions, type RenderMetrics } from "#/ink.tsx";
 import { instances } from "#/instances.ts";
 import { type KittyKeyboardOptions } from "#/kitty-keyboard.ts";
 import { type ColorProfile } from "#/screen/color-profile.ts";
+import { type ProgramStatusMode } from "#/terminal/session.ts";
 
 export type RenderOptions = {
   /**
@@ -96,6 +97,16 @@ export type RenderOptions = {
 	replayed or recolored.
 	*/
   colorProfile?: ColorProfile;
+
+  /**
+	Control OSC 7501 program status reports (`setStatus`, `useProgramStatus`).
+	- `'auto'`: query the terminal and send reports only if it confirms support
+	- `'enabled'`: always send reports
+	- `'disabled'`: never send reports
+
+	@default 'auto'
+	*/
+  programStatus?: ProgramStatusMode;
 
   /**
 	Enable React Concurrent Rendering mode.
@@ -224,6 +235,12 @@ export type Instance = {
 
   /** Update terminal-native progress through the renderer-owned session. */
   setProgress: (state: TerminalProgressState, value?: number) => boolean;
+
+  /** Report program status (OSC 7501) through the renderer-owned session. */
+  setStatus: (status: ProgramStatus) => boolean;
+
+  /** Clear a program status record set with `setStatus`. */
+  clearStatus: (id?: string) => boolean;
 };
 
 /**
@@ -269,6 +286,8 @@ export const render = (node: ReactNode, options?: Writable | RenderOptions): Ins
     copyToClipboard: instance.copyToClipboard,
     setAlternateScreen: instance.setAlternateScreen,
     setProgress: instance.setProgress,
+    setStatus: instance.setStatus,
+    clearStatus: instance.clearStatus,
   };
 };
 

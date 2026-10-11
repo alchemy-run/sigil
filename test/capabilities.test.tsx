@@ -408,6 +408,7 @@ describe("queryTerminal", () => {
         `${CSI}4;1044;1712t`, // text area pixels
         `${CSI}6;29;16t`, // cell pixels
         `${CSI}?997;2n`, // color scheme: light
+        `${OSC}7501;?${ESC}\\`, // OSC 7501 program status
         `${CSI}?62;4;22c`, // DA1 with sixel (4)
       ].join(""),
     );
@@ -427,6 +428,8 @@ describe("queryTerminal", () => {
     expect(result.appearance).toBe("light");
     expect(result.sixel).toBe(true);
     expect(result.deviceAttributes).toEqual([62, 4, 22]);
+    expect(result.programStatus).toBe(true);
+    expect(stdin.unshift).not.toHaveBeenCalled();
   });
 
   test("background luminance beats the OS color scheme report", async () => {

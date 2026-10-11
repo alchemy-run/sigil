@@ -136,6 +136,11 @@ export type TerminalQueryResult = {
   inBandResize: boolean;
 
   /**
+	The terminal echoed the OSC 7501 program status query.
+	*/
+  programStatus: boolean;
+
+  /**
 	Text area size in pixels (XTWINOPS 14).
 	*/
   textAreaPixels: PixelSize | undefined;
@@ -241,6 +246,9 @@ const kittyGraphicsProbe = `${ESC}_Gi=${kittyGraphicsProbeId},s=1,v=1,a=q,t=d,f=
 
 // Response patterns, built from the shared escape constants. OSC replies may
 // terminate with BEL or ST.
+// Matched before color replies, whose pattern would also accept it. A future
+// revision may append pairs after the `?`.
+const programStatusResponse = new RegExp(`${ESC}\\]7501;\\?[^${BEL}${ESC}]*(?:${BEL}|${ESC}\\\\)`);
 const oscColorResponse = new RegExp(
   `${ESC}\\](\\d+);(?:(\\d+);)?([^${BEL}${ESC}]*)(?:${BEL}|${ESC}\\\\)`,
 );
@@ -256,6 +264,7 @@ const da1Response = new RegExp(`${ESC}\\[\\?([\\d;]*)c`);
 // Also used by the normal input decoder: replies can outlive the query timeout
 // or arrive after its DA1 sentinel. Never deliver those bytes as keystrokes.
 const terminalResponses = [
+  programStatusResponse,
   oscColorResponse,
   kittyKeyboardResponse,
   decrqmResponse,
@@ -293,6 +302,7 @@ const buildQuery = (palette: boolean, scope: "full" | "dynamic"): string => {
       `${ESC}P+q${xtgettcapRgb}${ESC}\\`, // XTGETTCAP "RGB" (truecolor)
       kittyGraphicsProbe,
       `${CSI}>0q`, // XTVERSION
+      `${OSC}7501;?${ESC}\\`, // OSC 7501 program status
     );
   }
 
@@ -343,6 +353,7 @@ export const queryTerminal = async (
       graphemeClustering: false,
       colorSchemeUpdates: false,
       inBandResize: false,
+      programStatus: false,
       textAreaPixels: undefined,
       cellPixels: undefined,
       terminal: undefined,
@@ -402,6 +413,11 @@ export const queryTerminal = async (
     // Consumes the earliest recognized response in the buffer. Returns false
     // when nothing (complete) is left to consume.
     const consumeResponse = (): boolean => {
+      if (consumeMatch(programStatusResponse)) {
+        result.programStatus = true;
+        return true;
+      }
+
       const oscMatch = consumeMatch(oscColorResponse);
       if (oscMatch) {
         const [, code, index, value] = oscMatch;
@@ -685,5 +701,6 @@ export const applyTerminalQuery = (
     graphemeClustering: query.graphemeClustering,
     colorSchemeUpdates: query.colorSchemeUpdates,
     inBandResize: query.inBandResize,
+    programStatus: query.programStatus,
   },
 });

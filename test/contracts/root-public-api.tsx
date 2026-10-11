@@ -107,6 +107,7 @@ export const rootRuntimeExports = [
   "useNotification",
   "usePaste",
   "usePointerShape",
+  "useProgramStatus",
   "useProgress",
   "useStderr",
   "useStdin",
@@ -185,6 +186,8 @@ export type InstanceContract = Assert<
     | "copyToClipboard"
     | "setAlternateScreen"
     | "setProgress"
+    | "setStatus"
+    | "clearStatus"
   >
 >;
 
@@ -202,6 +205,7 @@ export type RenderOptionsContract = Assert<
     | "isScreenReaderEnabled"
     | "maxFps"
     | "colorProfile"
+    | "programStatus"
     | "concurrent"
     | "kittyKeyboard"
     | "interactive"

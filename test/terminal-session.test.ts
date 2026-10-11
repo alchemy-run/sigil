@@ -1,9 +1,15 @@
 import { EventEmitter } from "node:events";
 
-import { expect, test, vi } from "vite-plus/test";
+import { describe, expect, test, vi } from "vite-plus/test";
 
-import { ansiEscapes } from "#/ansi/escapes.ts";
-import { setClipboard, setTerminalProgress } from "#/ansi/osc.ts";
+import { ansiEscapes, ESC } from "#/ansi/escapes.ts";
+import {
+  clearProgramStatus,
+  setClipboard,
+  setProgramStatus,
+  setTerminalProgress,
+  tmuxPassthrough,
+} from "#/ansi/osc.ts";
 import { createCell } from "#/screen/cell.ts";
 import { Screen } from "#/screen/screen.ts";
 import { TerminalSession } from "#/terminal/index.ts";
@@ -86,9 +92,167 @@ test("refreshes active terminal progress until stopped", () => {
   }
 });
 
+// Answers the capability query like a terminal: optionally the OSC 7501
+// echo, then the DA1 sentinel.
+const answeringStreams = (supportsStatus: boolean) => {
+  const base = streams();
+  const stdin = Object.assign(base.stdin, {
+    isTTY: true,
+    isRaw: false,
+    setRawMode: vi.fn(),
+    resume: vi.fn(),
+    pause: vi.fn(),
+    unshift: vi.fn(),
+  });
+  base.write.mockImplementation((data: unknown, callback?: () => void) => {
+    if (typeof data === "string" && data.includes(`${ESC}[c`))
+      queueMicrotask(() =>
+        stdin.emit("data", `${supportsStatus ? `${ESC}]7501;?${ESC}\\` : ""}${ESC}[?62c`),
+      );
+    callback?.();
+    return true;
+  });
+  return { ...base, stdin };
+};
+
+const statusWrites = (write: ReturnType<typeof vi.fn>) =>
+  write.mock.calls.map(([value]) => value).filter((value) => String(value).includes("7501;state"));
+
+describe("program status", () => {
+  test("publishes program status per id with the latest publisher winning", () => {
+    const { stdin, stdout, stderr, write } = streams();
+    const session = new TerminalSession({ stdin, stdout, stderr, programStatus: "enabled" });
+    const first = Symbol("first");
+    const second = Symbol("second");
+    session.publishStatus(first, { state: "working", progress: 10 });
+    session.publishStatus(first, { state: "working", progress: 10 });
+    session.publishStatus(second, { state: "blocked", kind: "question" });
+    session.publishStatus(second, undefined);
+    session.publishStatus(first, undefined);
+
+    expect(write.mock.calls.map(([value]) => value)).toEqual([
+      setProgramStatus({ state: "working", progress: 10 }),
+      setProgramStatus({ state: "blocked", kind: "question" }),
+      setProgramStatus({ state: "working", progress: 10 }),
+      clearProgramStatus(),
+    ]);
+    session.cleanup();
+  });
+
+  test("keeps done and error records after their publisher leaves", () => {
+    const { stdin, stdout, stderr, write } = streams();
+    const session = new TerminalSession({ stdin, stdout, stderr, programStatus: "enabled" });
+    const owner = Symbol("owner");
+    session.publishStatus(owner, { state: "done", msg: "deployed" });
+    session.publishStatus(owner, undefined);
+    session.setStatus({ state: "error", id: "eu" });
+    session.cleanup();
+
+    expect(write.mock.calls.map(([value]) => value)).toEqual([
+      setProgramStatus({ state: "done", msg: "deployed" }),
+      setProgramStatus({ state: "error", id: "eu" }),
+    ]);
+  });
+
+  test("re-reports surviving children after clearing a parent", () => {
+    const { stdin, stdout, stderr, write } = streams();
+    const session = new TerminalSession({ stdin, stdout, stderr, programStatus: "enabled" });
+    session.setStatus({ state: "working", id: "deploy" });
+    session.setStatus({ state: "working", id: "deploy/us" });
+    session.clearStatus("deploy");
+    session.clearStatus("deploy/missing");
+    session.cleanup();
+
+    expect(write.mock.calls.map(([value]) => value)).toEqual([
+      setProgramStatus({ state: "working", id: "deploy" }),
+      setProgramStatus({ state: "working", id: "deploy/us" }),
+      clearProgramStatus("deploy"),
+      setProgramStatus({ state: "working", id: "deploy/us" }),
+      clearProgramStatus("deploy/us"),
+    ]);
+  });
+
+  test("validates program status before changing state", () => {
+    const { stdin, stdout, stderr, write } = streams();
+    const session = new TerminalSession({ stdin, stdout, stderr, programStatus: "enabled" });
+    session.setStatus({ state: "working" });
+    expect(() => session.setStatus({ state: "idle", id: "bad id" })).toThrow();
+    session.cleanup();
+    expect(write.mock.calls.map(([value]) => value)).toEqual([
+      setProgramStatus({ state: "working" }),
+      clearProgramStatus(),
+    ]);
+  });
+
+  test("wraps program status for tmux", () => {
+    const { stdin, stdout, stderr, write } = streams();
+    const session = new TerminalSession({ stdin, stdout, stderr, programStatus: "enabled" });
+    (session.capabilities.current.terminal as { multiplexer?: string }).multiplexer = "tmux";
+    session.setStatus({ state: "done" });
+    expect(write.mock.calls.map(([value]) => value)).toEqual([
+      tmuxPassthrough(setProgramStatus({ state: "done" })),
+    ]);
+    session.cleanup();
+  });
+
+  test("sends nothing when program status is turned off", () => {
+    const { stdin, stdout, stderr, write } = streams();
+    const session = new TerminalSession({ stdin, stdout, stderr, programStatus: "disabled" });
+    session.setStatus({ state: "working" });
+    session.cleanup();
+    expect(write).not.toHaveBeenCalled();
+  });
+
+  test("holds program status until the terminal confirms support", async () => {
+    const { stdin, stdout, stderr, write } = answeringStreams(true);
+    const session = new TerminalSession({ stdin, stdout, stderr });
+    session.setStatus({ state: "working", progress: 5 });
+    session.setStatus({ state: "working", progress: 10 });
+    expect(statusWrites(write)).toEqual([]);
+    expect(String(write.mock.calls[0][0])).toContain(`${ESC}]7501;?`);
+
+    await vi.waitFor(() =>
+      expect(statusWrites(write)).toEqual([setProgramStatus({ state: "working", progress: 10 })]),
+    );
+    session.cleanup();
+  });
+
+  test("drops program status when the terminal answers DA1 first", async () => {
+    const { stdin, stdout, stderr, write } = answeringStreams(false);
+    const session = new TerminalSession({ stdin, stdout, stderr });
+    session.setStatus({ state: "working" });
+    await vi.waitFor(() => expect(session.capabilities.current.supports.programStatus).toBe(false));
+    session.setStatus({ state: "done" });
+    session.cleanup();
+    expect(statusWrites(write)).toEqual([]);
+  });
+
+  test("clears program status while suspended and restores it on resume", () => {
+    const { stdin, stdout, stderr, write } = streams();
+    const session = new TerminalSession({ stdin, stdout, stderr, programStatus: "enabled" });
+    const owner = Symbol("owner");
+    session.publishStatus(owner, { state: "done", id: "build" });
+    session.publishStatus(owner, undefined);
+    session.setStatus({ state: "working", progress: 50 });
+    session.beginSuspension();
+    session.setStatus({ state: "working", progress: 60 });
+    session.resume();
+    session.cleanup();
+
+    expect(write.mock.calls.map(([value]) => value)).toEqual([
+      setProgramStatus({ state: "done", id: "build" }),
+      setProgramStatus({ state: "working", progress: 50 }),
+      clearProgramStatus(),
+      setProgramStatus({ state: "done", id: "build" }),
+      setProgramStatus({ state: "working", progress: 60 }),
+      clearProgramStatus(),
+    ]);
+  });
+});
+
 test("reference-counts modes and owns screen and suspension state", () => {
   const { stdin, stdout, stderr, write } = streams();
-  const session = new TerminalSession({ stdin, stdout, stderr });
+  const session = new TerminalSession({ stdin, stdout, stderr, programStatus: "enabled" });
   session.enableMode({ id: "mouse", enable: "mouse-on", disable: "mouse-off" });
   session.enableMode({ id: "mouse", enable: "mouse-on", disable: "mouse-off" });
   session.disableMode("mouse");
@@ -133,7 +297,7 @@ test("owns sparse presentation and invalidates frames across terminal transition
 
 test("tracks cursor position, appearance, and color", () => {
   const { stdin, stdout, stderr, write } = streams();
-  const session = new TerminalSession({ stdin, stdout, stderr });
+  const session = new TerminalSession({ stdin, stdout, stderr, programStatus: "enabled" });
   session.setCursor({ x: 2, y: 1 });
   session.setCursorAppearance({ shape: "bar", blinking: false, color: "#123456" });
   expect(session.cursor).toEqual({
@@ -151,14 +315,14 @@ test("does not leave a pending flush when a write throws", async () => {
   stdout.write = vi.fn(() => {
     throw new Error("closed");
   });
-  const session = new TerminalSession({ stdin, stdout, stderr });
+  const session = new TerminalSession({ stdin, stdout, stderr, programStatus: "enabled" });
   expect(() => session.write("frame")).toThrow("closed");
   await expect(session.flush()).resolves.toBeUndefined();
 });
 
 test("matches a reference model across cursor and mode transitions", () => {
   const { stdin, stdout, stderr, write } = streams();
-  const session = new TerminalSession({ stdin, stdout, stderr });
+  const session = new TerminalSession({ stdin, stdout, stderr, programStatus: "enabled" });
   const counts = new Map<string, number>();
   const expectedWrites: string[] = [];
   let state = 0x5e_55_10;
