@@ -1,7 +1,8 @@
-import { expect, test } from "vite-plus/test";
+import { useState } from "react";
+import { expect, onTestFinished, test } from "vite-plus/test";
 
 import { chalk } from "#/ansi/chalk.ts";
-import { render, Box, Text } from "#/index.ts";
+import { render, Box, Text, Static } from "#/index.ts";
 
 import createStdout from "./helpers/create-stdout.ts";
 import { enableTestColors, disableTestColors } from "./helpers/force-colors.ts";
@@ -46,6 +47,44 @@ test.afterAll(() => {
   disableTestColors();
 });
 
+for (const initialBackgroundColor of [undefined, "red"]) {
+  test(`Box preserves child state when ${initialBackgroundColor ? "removing" : "adding"} a background color`, async () => {
+    function StatefulChild({ initialValue }: { readonly initialValue: string }) {
+      const [value] = useState(initialValue);
+      return <Text>{value}</Text>;
+    }
+
+    const { getOutput, rerenderAsync, unmount } = await renderAsync(
+      <Box backgroundColor={initialBackgroundColor}>
+        <StatefulChild initialValue="original" />
+      </Box>,
+    );
+    onTestFinished(() => {
+      unmount();
+    });
+    expect(getOutput()).toContain("original");
+
+    await rerenderAsync(
+      <Box backgroundColor={initialBackgroundColor ? undefined : "red"}>
+        <StatefulChild initialValue="reset" />
+      </Box>,
+    );
+
+    expect(getOutput()).toContain("original");
+    expect(getOutput()).not.toContain("reset");
+  });
+}
+
+test("Static background color is inherited by its text", () => {
+  const output = renderToString(
+    <Static items={["A"]} style={{ width: 3, backgroundColor: "blue" }}>
+      {(item) => <Text key={item}>{item}</Text>}
+    </Static>,
+  );
+
+  expect(output).toBe(`${ansi.bgBlue}A  ${ansi.bgReset}\n`);
+});
+
 // Text inheritance tests (these work in non-TTY)
 test("Text inherits parent Box background color", () => {
   const output = renderToString(
@@ -73,6 +112,18 @@ test("Nested Box background inheritance", () => {
       <Box backgroundColor="blue">
         <Text>Hello World</Text>
       </Box>
+    </Box>,
+  );
+
+  expect(output).toBe(chalk.bgBlue("Hello World"));
+});
+
+test("Nested Text inherits the nearest Text background instead of the Box background", () => {
+  const output = renderToString(
+    <Box backgroundColor="red" alignSelf="flex-start">
+      <Text backgroundColor="blue">
+        Hello <Text>World</Text>
+      </Text>
     </Box>,
   );
 

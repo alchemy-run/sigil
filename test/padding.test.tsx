@@ -1,7 +1,8 @@
 import { expect, test } from "vite-plus/test";
 
-import { Box, Text } from "#/index.ts";
+import { Box, Text, render } from "#/index.ts";
 
+import createStdout from "./helpers/create-stdout.ts";
 import { renderToString, renderToStringAsync } from "./helpers/render-to-string.ts";
 
 test("padding", () => {
@@ -166,4 +167,51 @@ test("nested padding - concurrent", async () => {
   );
 
   expect(output).toBe("\n\n\n\n    X\n\n\n\n");
+});
+
+test("removing paddingLeft restores paddingX on rerender", () => {
+  function Example({ paddingLeft }: { readonly paddingLeft?: number }) {
+    return (
+      <Box>
+        <Box paddingX={2} paddingLeft={paddingLeft}>
+          <Text>X</Text>
+        </Box>
+        <Text>Y</Text>
+      </Box>
+    );
+  }
+
+  const stdout = createStdout();
+  const { rerender, unmount } = render(<Example paddingLeft={1} />, {
+    stdout,
+    debug: true,
+  });
+
+  expect(stdout.get()).toBe(" X  Y");
+  rerender(<Example />);
+  expect(stdout.get()).toBe("  X  Y");
+  rerender(<Example paddingLeft={0} />);
+  expect(stdout.get()).toBe("X  Y");
+  unmount();
+});
+
+test("removing paddingX restores padding on rerender", () => {
+  function Example({ paddingX }: { readonly paddingX?: number }) {
+    return (
+      <Box padding={2} paddingX={paddingX}>
+        <Text>X</Text>
+      </Box>
+    );
+  }
+
+  const stdout = createStdout();
+  const { rerender, unmount } = render(<Example paddingX={1} />, {
+    stdout,
+    debug: true,
+  });
+
+  expect(stdout.get()).toBe("\n\n X\n\n");
+  rerender(<Example />);
+  expect(stdout.get()).toBe("\n\n  X\n\n");
+  unmount();
 });

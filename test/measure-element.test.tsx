@@ -345,7 +345,14 @@ test("measure element returns zeros for node without yoga", () => {
   } as unknown as DOMElement;
 
   const metrics = measureElement(node);
-  expect(metrics).toEqual({ x: 0, y: 0, width: 0, height: 0 });
+  expect(metrics).toEqual({
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+    clientWidth: 0,
+    clientHeight: 0,
+  });
 });
 
 test("calculate layout while rendering is throttled", async () => {
@@ -380,4 +387,68 @@ test("calculate layout while rendering is throttled", async () => {
   const lastContentWrite = writes.at(-1)!;
 
   expect(stripAnsi(lastContentWrite).trim()).toBe("Width: 100");
+});
+
+test("measure element client size with overflowing content", async () => {
+  const stdout = createStdout();
+
+  function Test() {
+    const [metrics, setMetrics] = useState("");
+    const ref = useRef<DOMElement>(null);
+
+    useEffect(() => {
+      if (!ref.current) {
+        return;
+      }
+
+      const { clientWidth, clientHeight } = measureElement(ref.current);
+
+      setMetrics(`client:${clientWidth}x${clientHeight}`);
+    }, []);
+
+    return (
+      <Box flexDirection="column">
+        <Box ref={ref} width={12} height={2} overflow="hidden" flexDirection="column">
+          <Box width={20} height={5} flexShrink={0} flexGrow={0} />
+        </Box>
+        <Text>{metrics}</Text>
+      </Box>
+    );
+  }
+
+  render(<Test />, { stdout, debug: true });
+  await delay(100);
+
+  expect(stripAnsi(stdout.write.mock.lastCall![0])).toContain("client:12x2");
+});
+
+test("measure element client size excludes borders", async () => {
+  const stdout = createStdout();
+
+  function Test() {
+    const [metrics, setMetrics] = useState("");
+    const ref = useRef<DOMElement>(null);
+
+    useEffect(() => {
+      if (!ref.current) {
+        return;
+      }
+
+      const { width, height, clientWidth, clientHeight } = measureElement(ref.current);
+
+      setMetrics(`${width}x${height} client:${clientWidth}x${clientHeight}`);
+    }, []);
+
+    return (
+      <Box flexDirection="column">
+        <Box ref={ref} width={12} height={4} borderStyle="round" />
+        <Text>{metrics}</Text>
+      </Box>
+    );
+  }
+
+  render(<Test />, { stdout, debug: true });
+  await delay(100);
+
+  expect(stripAnsi(stdout.write.mock.lastCall![0])).toContain("12x4 client:10x2");
 });

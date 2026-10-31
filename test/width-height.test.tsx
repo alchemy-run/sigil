@@ -18,6 +18,20 @@ test("set width", () => {
   expect(output).toBe("A    B");
 });
 
+test("set width in fractional percent", () => {
+  const output = renderToString(
+    <Box width={200}>
+      <Box width="12.5%">
+        <Text>A</Text>
+      </Box>
+      <Text>B</Text>
+    </Box>,
+    { columns: 200 },
+  );
+
+  expect(output).toBe(`A${" ".repeat(24)}B`);
+});
+
 test("set width in percent", () => {
   const output = renderToString(
     <Box width={10}>
@@ -58,6 +72,7 @@ test("set min width", () => {
 test.fails("set min width in percent", () => {
   const output = renderToString(
     <Box width={10}>
+      {/* @ts-expect-error Unsupported until Yoga fixes percentage width constraints. */}
       <Box minWidth="50%">
         <Text>A</Text>
       </Box>
@@ -310,6 +325,7 @@ test("clears aspectRatio on rerender", () => {
 test.fails("set max width in percent", () => {
   const output = renderToString(
     <Box width={10}>
+      {/* @ts-expect-error Unsupported until Yoga fixes percentage width constraints. */}
       <Box maxWidth="50%">
         <Text>AAAAAAAAAA</Text>
       </Box>

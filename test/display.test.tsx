@@ -1,7 +1,8 @@
 import { expect, test } from "vite-plus/test";
 
-import { Box, Text } from "#/index.ts";
+import { Box, Text, render } from "#/index.ts";
 
+import createStdout from "./helpers/create-stdout.ts";
 import { renderToString, renderToStringAsync } from "./helpers/render-to-string.ts";
 
 test("display flex", () => {
@@ -48,3 +49,29 @@ test("display none - concurrent", async () => {
 
   expect(output).toBe("Doggo");
 });
+
+for (const initialDisplay of ["none", "flex"] as const) {
+  test(`removing display="${initialDisplay}" restores the default layout`, () => {
+    function Example({ display }: { readonly display?: "none" | "flex" }) {
+      return (
+        <Box>
+          <Box display={display}>
+            <Text>Cat</Text>
+          </Box>
+          <Text>Dog</Text>
+        </Box>
+      );
+    }
+
+    const stdout = createStdout();
+    const { rerender, unmount } = render(<Example display={initialDisplay} />, {
+      stdout,
+      debug: true,
+    });
+
+    expect(stdout.get()).toBe(initialDisplay === "none" ? "Dog" : "CatDog");
+    rerender(<Example />);
+    expect(stdout.get()).toBe("CatDog");
+    unmount();
+  });
+}

@@ -27,6 +27,8 @@ const EMOJI_RE =
   /[\u{1F1E6}-\u{1F1FF}]{2}|\u{1F3F4}[\u{E0061}-\u{E007A}]{2}[\u{E0030}-\u{E0039}\u{E0061}-\u{E007A}]{1,3}\u{E007F}|(?:\p{Emoji}\uFE0F\u20E3?|\p{Emoji_Modifier_Base}\p{Emoji_Modifier}?|\p{Emoji_Presentation})(?:\u200D(?:\p{Emoji_Modifier_Base}\p{Emoji_Modifier}?|\p{Emoji_Presentation}|\p{Emoji}\uFE0F\u20E3?))*/uy;
 const LATIN_RE = /(?:[\x20-\x7E\xA0-\xFF](?!\uFE0F)){1,1000}/y;
 const MODIFIER_RE = /\p{M}+/gu;
+// Invisible characters such as zero-width spaces occupy no terminal column.
+const IGNORABLE_RE = /^\p{Default_Ignorable_Code_Point}$/u;
 
 const ANSI_WIDTH = 0;
 const CONTROL_WIDTH = 0;
@@ -62,11 +64,13 @@ export const stringWidth = (input: string): number => {
       for (const char of unmatched.replaceAll(MODIFIER_RE, "")) {
         const codePoint = char.codePointAt(0) || 0;
 
-        width += isFullWidth(codePoint)
-          ? FULL_WIDTH_WIDTH
-          : isWideNotCJKTNotEmoji(codePoint)
-            ? WIDE_WIDTH
-            : REGULAR_WIDTH;
+        width += IGNORABLE_RE.test(char)
+          ? 0
+          : isFullWidth(codePoint)
+            ? FULL_WIDTH_WIDTH
+            : isWideNotCJKTNotEmoji(codePoint)
+              ? WIDE_WIDTH
+              : REGULAR_WIDTH;
       }
 
       unmatchedStart = unmatchedEnd = 0;

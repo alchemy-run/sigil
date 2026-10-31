@@ -1050,6 +1050,71 @@ Default: `visible`
 
 A shortcut for setting `overflowX` and `overflowY` at the same time.
 
+##### contentOffsetX
+
+Type: `number`\
+Default: `0`
+
+Horizontal offset applied to the element's children, in columns. Children are shifted left by this amount. Combine with `overflow="hidden"` to build scrollable views.
+
+Offsets are terminal cell coordinates, so fractional values are truncated toward zero and non-finite values are treated as `0`.
+
+##### contentOffsetY
+
+Type: `number`\
+Default: `0`
+
+Vertical offset applied to the element's children, in rows. Children are shifted up by this amount. Combine with `overflow="hidden"` to build scrollable views.
+
+Offsets are terminal cell coordinates, so fractional values are truncated toward zero and non-finite values are treated as `0`.
+
+When an offset splits a wide character, such as CJK, its visible half is rendered as a blank that keeps the character's style, so the columns after it stay aligned.
+
+```jsx
+import { useState, useRef } from "react";
+import { Box, useInput, useBoxMetrics } from "@alchemy.run/sigil";
+
+const ScrollView = ({ height, children }) => {
+  const ref = useRef(null);
+  const contentRef = useRef(null);
+  const { clientHeight } = useBoxMetrics(ref);
+  const content = useBoxMetrics(contentRef);
+  const [requestedScrollTop, setRequestedScrollTop] = useState(0);
+  const maxScrollTop = Math.max(0, content.height - clientHeight);
+  // Clamp on every render, since the maximum shrinks when the content gets
+  // shorter or the terminal gets taller.
+  const scrollTop = Math.min(requestedScrollTop, maxScrollTop);
+
+  useInput((input, key) => {
+    if (key.upArrow) {
+      setRequestedScrollTop(Math.max(0, scrollTop - 1));
+    }
+
+    if (key.downArrow) {
+      setRequestedScrollTop(Math.min(maxScrollTop, scrollTop + 1));
+    }
+  });
+
+  return (
+    <Box
+      ref={ref}
+      height={height}
+      overflow="hidden"
+      contentOffsetY={scrollTop}
+      flexDirection="column"
+    >
+      <Box ref={contentRef} flexDirection="column" flexShrink={0}>
+        {children}
+      </Box>
+    </Box>
+  );
+};
+```
+
+Note: put any padding on the content wrapper rather than the viewport. `clientHeight` excludes borders but not padding, so a padded viewport reports more room than its content actually gets.
+
+Note: wrap the content in a `flexShrink={0}` container so it keeps its natural height. Without it, Yoga squeezes the children into the fixed-height viewport, leaving nothing to scroll.
+
 #### Borders
 
 ##### borderStyle
@@ -2240,13 +2305,25 @@ Element height.
 
 Type: `number`
 
-Distance from the left edge of the parent.
+Distance from the left edge of the parent. These are layout coordinates and do not include any `contentOffsetX`/`contentOffsetY` applied by an ancestor, so hit-testing inside a scrolled container has to subtract those offsets too.
 
 #### top
 
 Type: `number`
 
-Distance from the top edge of the parent.
+Distance from the top edge of the parent. These are layout coordinates and do not include any `contentOffsetX`/`contentOffsetY` applied by an ancestor, so hit-testing inside a scrolled container has to subtract those offsets too.
+
+#### clientWidth
+
+Type: `number`
+
+Element width excluding borders.
+
+#### clientHeight
+
+Type: `number`
+
+Element height excluding borders.
 
 #### hasMeasured
 
@@ -2255,7 +2332,7 @@ Type: `boolean`
 Whether the currently tracked element has been measured.
 
 > [!NOTE]
-> The hook returns `{width: 0, height: 0, left: 0, top: 0}` until the first layout pass completes. It also returns zeros when the tracked ref is detached.
+> The hook returns zeros for all metrics until the first layout pass completes. It also returns zeros when the tracked ref is detached.
 
 ### useVirtualScroll(options)
 
@@ -3102,12 +3179,14 @@ clear();
 #### measureElement(ref)
 
 Measure the layout metrics of a particular `<Box>` element.
-Returns an object with `x`, `y`, `width`, and `height` properties.
+Returns an object with `x`, `y`, `width`, `height`, `clientWidth` and `clientHeight` properties.
 
-`x` and `y` are the element's position within the live layout region, computed by walking up the layout tree. These are layout-tree coordinates, not terminal viewport coordinates. To compare them with mouse events, convert the event coordinates using the live region's viewport position. This is necessary even in alternate-screen mode when output, such as `<Static>` content, appears above the live region.
+`x` and `y` are the element's position within the live layout region, computed by walking up the layout tree. These are layout-tree coordinates, not terminal viewport coordinates. To compare them with mouse events, convert the event coordinates using the live region's viewport position. This is necessary even in alternate-screen mode when output, such as `<Static>` content, appears above the live region. These are layout coordinates and do not include any `contentOffsetX`/`contentOffsetY` applied by an ancestor, so hit-testing inside a scrolled container has to subtract those offsets too.
+
+`clientWidth` and `clientHeight` are the element's dimensions excluding borders, which is the space its content can occupy. Use them with `contentOffsetX`/`contentOffsetY` to clamp a scroll offset, for example `content.height - viewport.clientHeight`.
 
 > [!NOTE]
-> `measureElement()` returns `{x: 0, y: 0, width: 0, height: 0}` when called during render (before layout is calculated). Call it from post-render code, such as `useEffect`, `useLayoutEffect`, input handlers, or timer callbacks. When content changes, pass the relevant dependency to your effect so it re-measures after each update.
+> `measureElement()` returns zeros for all properties when called during render (before layout is calculated). Call it from post-render code, such as `useEffect`, `useLayoutEffect`, input handlers, or timer callbacks. When content changes, pass the relevant dependency to your effect so it re-measures after each update.
 
 ##### ref
 

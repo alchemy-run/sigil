@@ -213,7 +213,7 @@ export type Styles = {
 	Sets a minimum width of the element.
 	Percentages aren't supported yet; see https://github.com/facebook/yoga/issues/872.
 	*/
-  readonly minWidth?: number | string;
+  readonly minWidth?: number;
 
   /**
 	Sets a minimum height of the element in lines (rows). You can also set it as a percentage, which will calculate the minimum height based on the height of the parent element.
@@ -224,7 +224,7 @@ export type Styles = {
 	Sets a maximum width of the element.
 	Percentages aren't supported yet; see https://github.com/facebook/yoga/issues/872.
 	*/
-  readonly maxWidth?: number | string;
+  readonly maxWidth?: number;
 
   /**
 	Sets a maximum height of the element in lines (rows). You can also set it as a percentage, which will calculate the maximum height based on the height of the parent element.
@@ -383,6 +383,24 @@ export type Styles = {
   readonly overflowY?: "visible" | "hidden";
 
   /**
+	Horizontal offset applied to the element's children, in columns. Children are shifted left by this amount. Combine with `overflow="hidden"` to build scrollable views.
+
+	Offsets are terminal cell coordinates, so fractional values are truncated toward zero and non-finite values are treated as `0`.
+
+	@default 0
+	*/
+  readonly contentOffsetX?: number;
+
+  /**
+	Vertical offset applied to the element's children, in rows. Children are shifted up by this amount. Combine with `overflow="hidden"` to build scrollable views.
+
+	Offsets are terminal cell coordinates, so fractional values are truncated toward zero and non-finite values are treated as `0`.
+
+	@default 0
+	*/
+  readonly contentOffsetY?: number;
+
+  /**
 	Background color for the element.
 
 	Accepts the same values as `color` in the `<Text>` component.
@@ -432,27 +450,27 @@ const applyMarginStyles = (node: YogaNode, style: Styles): void => {
   }
 
   if ("marginX" in style) {
-    node.setMargin(Yoga.EDGE_HORIZONTAL, style.marginX ?? 0);
+    node.setMargin(Yoga.EDGE_HORIZONTAL, style.marginX);
   }
 
   if ("marginY" in style) {
-    node.setMargin(Yoga.EDGE_VERTICAL, style.marginY ?? 0);
+    node.setMargin(Yoga.EDGE_VERTICAL, style.marginY);
   }
 
   if ("marginLeft" in style) {
-    node.setMargin(Yoga.EDGE_START, style.marginLeft ?? 0);
+    node.setMargin(Yoga.EDGE_START, style.marginLeft);
   }
 
   if ("marginRight" in style) {
-    node.setMargin(Yoga.EDGE_END, style.marginRight ?? 0);
+    node.setMargin(Yoga.EDGE_END, style.marginRight);
   }
 
   if ("marginTop" in style) {
-    node.setMargin(Yoga.EDGE_TOP, style.marginTop ?? 0);
+    node.setMargin(Yoga.EDGE_TOP, style.marginTop);
   }
 
   if ("marginBottom" in style) {
-    node.setMargin(Yoga.EDGE_BOTTOM, style.marginBottom ?? 0);
+    node.setMargin(Yoga.EDGE_BOTTOM, style.marginBottom);
   }
 };
 
@@ -462,27 +480,27 @@ const applyPaddingStyles = (node: YogaNode, style: Styles): void => {
   }
 
   if ("paddingX" in style) {
-    node.setPadding(Yoga.EDGE_HORIZONTAL, style.paddingX ?? 0);
+    node.setPadding(Yoga.EDGE_HORIZONTAL, style.paddingX);
   }
 
   if ("paddingY" in style) {
-    node.setPadding(Yoga.EDGE_VERTICAL, style.paddingY ?? 0);
+    node.setPadding(Yoga.EDGE_VERTICAL, style.paddingY);
   }
 
   if ("paddingLeft" in style) {
-    node.setPadding(Yoga.EDGE_LEFT, style.paddingLeft ?? 0);
+    node.setPadding(Yoga.EDGE_LEFT, style.paddingLeft);
   }
 
   if ("paddingRight" in style) {
-    node.setPadding(Yoga.EDGE_RIGHT, style.paddingRight ?? 0);
+    node.setPadding(Yoga.EDGE_RIGHT, style.paddingRight);
   }
 
   if ("paddingTop" in style) {
-    node.setPadding(Yoga.EDGE_TOP, style.paddingTop ?? 0);
+    node.setPadding(Yoga.EDGE_TOP, style.paddingTop);
   }
 
   if ("paddingBottom" in style) {
-    node.setPadding(Yoga.EDGE_BOTTOM, style.paddingBottom ?? 0);
+    node.setPadding(Yoga.EDGE_BOTTOM, style.paddingBottom);
   }
 };
 
@@ -531,7 +549,7 @@ const applyFlexStyles = (node: YogaNode, style: Styles): void => {
     if (typeof style.flexBasis === "number") {
       node.setFlexBasis(style.flexBasis);
     } else if (typeof style.flexBasis === "string") {
-      node.setFlexBasisPercent(Number.parseInt(style.flexBasis, 10));
+      node.setFlexBasisPercent(Number.parseFloat(style.flexBasis));
     } else {
       node.setFlexBasisAuto();
     }
@@ -648,7 +666,7 @@ const applyDimensionStyles = (node: YogaNode, style: Styles): void => {
     if (typeof style.width === "number") {
       node.setWidth(style.width);
     } else if (typeof style.width === "string") {
-      node.setWidthPercent(Number.parseInt(style.width, 10));
+      node.setWidthPercent(Number.parseFloat(style.width));
     } else {
       node.setWidthAuto();
     }
@@ -658,39 +676,31 @@ const applyDimensionStyles = (node: YogaNode, style: Styles): void => {
     if (typeof style.height === "number") {
       node.setHeight(style.height);
     } else if (typeof style.height === "string") {
-      node.setHeightPercent(Number.parseInt(style.height, 10));
+      node.setHeightPercent(Number.parseFloat(style.height));
     } else {
       node.setHeightAuto();
     }
   }
 
   if ("minWidth" in style) {
-    if (typeof style.minWidth === "string") {
-      node.setMinWidthPercent(Number.parseInt(style.minWidth, 10));
-    } else {
-      node.setMinWidth(style.minWidth ?? 0);
-    }
+    node.setMinWidth(style.minWidth ?? 0);
   }
 
   if ("minHeight" in style) {
     if (typeof style.minHeight === "string") {
-      node.setMinHeightPercent(Number.parseInt(style.minHeight, 10));
+      node.setMinHeightPercent(Number.parseFloat(style.minHeight));
     } else {
       node.setMinHeight(style.minHeight ?? 0);
     }
   }
 
   if ("maxWidth" in style) {
-    if (typeof style.maxWidth === "string") {
-      node.setMaxWidthPercent(Number.parseInt(style.maxWidth, 10));
-    } else {
-      node.setMaxWidth(style.maxWidth);
-    }
+    node.setMaxWidth(style.maxWidth);
   }
 
   if ("maxHeight" in style) {
     if (typeof style.maxHeight === "string") {
-      node.setMaxHeightPercent(Number.parseInt(style.maxHeight, 10));
+      node.setMaxHeightPercent(Number.parseFloat(style.maxHeight));
     } else {
       node.setMaxHeight(style.maxHeight);
     }
@@ -703,7 +713,7 @@ const applyDimensionStyles = (node: YogaNode, style: Styles): void => {
 
 const applyDisplayStyles = (node: YogaNode, style: Styles): void => {
   if ("display" in style) {
-    node.setDisplay(style.display === "flex" ? Yoga.DISPLAY_FLEX : Yoga.DISPLAY_NONE);
+    node.setDisplay(style.display === "none" ? Yoga.DISPLAY_NONE : Yoga.DISPLAY_FLEX);
   }
 };
 
@@ -733,11 +743,11 @@ const applyGapStyles = (node: YogaNode, style: Styles): void => {
   }
 
   if ("columnGap" in style) {
-    node.setGap(Yoga.GUTTER_COLUMN, style.columnGap ?? 0);
+    node.setGap(Yoga.GUTTER_COLUMN, style.columnGap);
   }
 
   if ("rowGap" in style) {
-    node.setGap(Yoga.GUTTER_ROW, style.rowGap ?? 0);
+    node.setGap(Yoga.GUTTER_ROW, style.rowGap);
   }
 };
 

@@ -255,12 +255,18 @@ export class Screen {
 
     const leadingCell = row[leadingColumn];
     const width = Math.max(1, leadingCell?.width ?? 1);
+    // Columns of a wide grapheme that survive a partial overwrite become
+    // blanks that keep its style, so its background is not punched out.
+    const blank =
+      width > 1 && leadingCell && leadingCell.style !== emptyCell.style
+        ? createCell(" ", 1, leadingCell.style)
+        : emptyCell;
     for (
       let column = leadingColumn;
       column < Math.min(leadingColumn + width, row.length);
       column++
     ) {
-      row[column] = emptyCell;
+      row[column] = blank;
       this.#painted[y]![column] = true;
     }
     this.#markDirty(y, leadingColumn, leadingColumn + width);

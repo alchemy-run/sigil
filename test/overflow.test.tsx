@@ -1,8 +1,22 @@
 import { expect, test } from "vite-plus/test";
 
-import { Box, Text } from "#/index.ts";
+import { Box, Text, Transform } from "#/index.ts";
 
 import { renderToString, renderToStringAsync } from "./helpers/render-to-string.ts";
+
+test("vertical clipping preserves Transform line indices", () => {
+  const output = renderToString(
+    <Box height={2} overflow="hidden" contentOffsetY={1}>
+      <Box flexDirection="column" flexShrink={0}>
+        <Transform transform={(line, index) => line.replaceAll("x", String(index))}>
+          <Text>{"xx\nxx\nxx"}</Text>
+        </Transform>
+      </Box>
+    </Box>,
+  );
+
+  expect(output).toBe("11\n22");
+});
 
 test("overflowX - single text node in a box inside overflow container", () => {
   const output = renderToString(
@@ -339,6 +353,34 @@ test("overflowY - box intersecting with bottom edge of overflow container with b
   );
 
   expect(output).toBe(["╭─────╮", "│Hello│", "╰─────╯"].join("\n"));
+});
+
+test("overflowX visible overrides overflow hidden while preserving vertical clipping", () => {
+  const output = renderToString(
+    <Box width={6} height={2}>
+      <Box width={3} height={1} overflow="hidden" overflowX="visible">
+        <Box width={6} height={2} flexShrink={0}>
+          <Text>{"ABCDEF\nGHIJKL"}</Text>
+        </Box>
+      </Box>
+    </Box>,
+  );
+
+  expect(output).toBe("ABCDEF\n");
+});
+
+test("overflowY visible overrides overflow hidden while preserving horizontal clipping", () => {
+  const output = renderToString(
+    <Box width={6} height={2}>
+      <Box width={3} height={1} overflow="hidden" overflowY="visible">
+        <Box width={6} height={2} flexShrink={0}>
+          <Text>{"ABCDEF\nGHIJKL"}</Text>
+        </Box>
+      </Box>
+    </Box>,
+  );
+
+  expect(output).toBe("ABC\nGHI");
 });
 
 test("overflow - single text node inside overflow container", () => {

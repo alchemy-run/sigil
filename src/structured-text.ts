@@ -273,6 +273,8 @@ function appendAnsiText(text: string, semantic: SemanticTextStyle, lines: Semant
       continue;
     }
 
+    if (isInvisible(cell.grapheme)) continue;
+
     const hasForeground = cell.style.foreground !== undefined;
     const hasBackground = cell.style.background !== undefined;
     lines.at(-1)!.push({
@@ -295,6 +297,11 @@ function appendAnsiText(text: string, semantic: SemanticTextStyle, lines: Semant
   }
 }
 
+// Standalone invisible characters (e.g. zero-width spaces) measure as zero
+// columns, so they must not occupy a terminal cell either.
+const isInvisible = (grapheme: string): boolean =>
+  /^\p{Default_Ignorable_Code_Point}+$/u.test(grapheme);
+
 function appendText(text: string, style: SemanticTextStyle, lines: SemanticCell[][]): void {
   const cellStyle = semanticTextStyleToCellStyle(style);
 
@@ -307,6 +314,8 @@ function appendText(text: string, style: SemanticTextStyle, lines: SemanticCell[
       lines.push([]);
       continue;
     }
+
+    if (isInvisible(segment)) continue;
 
     lines.at(-1)!.push({
       ...createCell(

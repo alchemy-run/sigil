@@ -6,6 +6,39 @@ import { Box, Text } from "#/index.ts";
 
 import { renderToString } from "./helpers/render-to-string.ts";
 
+test("zero-width spaces do not overwrite box borders", () => {
+  const output = renderToString(
+    <Box borderStyle="single" width={7}>
+      <Text>{"he\u200Bllo"}</Text>
+    </Box>,
+  );
+
+  expect(output.replaceAll("\u200B", "")).toBe("┌─────┐\n│hello│\n└─────┘");
+});
+
+test("zero-width overlay does not erase wide characters", () => {
+  const output = renderToString(
+    <Box width={4} height={1}>
+      <Text>你好</Text>
+      <Box position="absolute" left={1}>
+        <Text>{"\u200B"}</Text>
+      </Box>
+    </Box>,
+  );
+
+  expect(output.replaceAll("\u200B", "")).toBe("你好");
+});
+
+test("combining marks and joined emoji retain their graphemes", () => {
+  const output = renderToString(
+    <Box borderStyle="single" width={5}>
+      <Text>{"e\u0301👩‍💻"}</Text>
+    </Box>,
+  );
+
+  expect(output).toBe("┌───┐\n│e\u0301👩‍💻│\n└───┘");
+});
+
 test("wide characters do not add extra space inside fixed-width Box", () => {
   const output = renderToString(
     <Box flexDirection="column">
@@ -213,4 +246,18 @@ test("clipped empty write does not corrupt existing wide characters", () => {
   );
 
   expect(stripAnsi(output)).toBe("あい");
+});
+
+test("wide characters crossing the left output edge preserve visible columns", () => {
+  const output = renderToString(
+    <Box width={4} height={1}>
+      <Box position="absolute" left={-1}>
+        <Text>好AB</Text>
+      </Box>
+      <Box position="absolute" left={3}>
+        <Text>!</Text>
+      </Box>
+    </Box>,
+  );
+  expect(output).toBe(" AB!");
 });

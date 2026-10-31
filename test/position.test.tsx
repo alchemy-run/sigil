@@ -29,6 +29,18 @@ test("absolute position with bottom and right offsets", () => {
   expect(output).toBe("\n\n    X\n");
 });
 
+test("renders visible lines of text positioned above the output area", () => {
+  const output = renderToString(
+    <Box width={6} height={2}>
+      <Box position="absolute" top={-1}>
+        <Text>{"Hidden\nFirst\nSecond"}</Text>
+      </Box>
+    </Box>,
+  );
+
+  expect(output).toBe("First\nSecond");
+});
+
 test("absolute position with percentage offsets", () => {
   const output = renderToString(
     <Box width={6} height={4}>
