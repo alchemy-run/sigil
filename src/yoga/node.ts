@@ -22,6 +22,7 @@ import {
   Gutter,
   Justify,
   MeasureMode,
+  NodeType,
   Overflow,
   PositionType,
   Unit,
@@ -1016,6 +1017,23 @@ export class Node extends CoreNode {
 
   unsetMeasureFunc(): void {
     super.setMeasureFunc(null);
+  }
+
+  /**
+	Selects pixel rounding (YGNodeSetNodeType). A measure function makes a node
+	`Text`, which rounds its size up and its position down so content is never
+	cut off; `Default` rounds each edge to the nearest pixel, like a container.
+	Setting a measure function resets this to `Text`.
+	*/
+  setNodeType(nodeType: NodeType): void {
+    if (this.nodeType === nodeType) return;
+    this.nodeType = nodeType;
+    // nodeType is a pixel-grid input.
+    this.markLayoutWritten();
+  }
+
+  getNodeType(): NodeType {
+    return this.nodeType;
   }
 
   setDirtiedFunc(dirtiedFunc: DirtiedFunction | null): void {

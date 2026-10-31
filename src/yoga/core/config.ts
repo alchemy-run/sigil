@@ -21,7 +21,9 @@ export class Config {
   private version_ = 0;
   private experimentalFeatures_ = 0;
   private errata_: Errata =
-    Errata.MinSizeUndefinedInsteadOfAuto | Errata.FlexFirstPassUsesRunningTotals;
+    Errata.MinSizeUndefinedInsteadOfAuto |
+    Errata.FlexFirstPassUsesRunningTotals |
+    Errata.FlexItemPercentMinMaxAgainstOwner;
   private pointScaleFactor_ = 1.0;
 
   setUseWebDefaults(useWebDefaults: boolean): void {

@@ -69,9 +69,11 @@ test("row - space evenly two text nodes", () => {
   expect(output).toBe("  A   B");
 });
 
-// Yoga has a bug, where first child in a container with space-around doesn't have
-// the correct X coordinate and measure function is used on that child node
-test.fails("row - align two text nodes with equal space around them", () => {
+// Yoga rounds text nodes' positions down so text is never cut off: A sits at
+// x=0.75 and B at x=3.25, so both floor. Ink expects " A B" and skips this
+// test. Sigil keeps Yoga's text rounding, which also keeps centred text
+// leaning left in odd gaps.
+test("row - align two text nodes with equal space around them", () => {
   const output = renderToString(
     <Box justifyContent="space-around" width={5}>
       <Text>A</Text>
@@ -79,7 +81,7 @@ test.fails("row - align two text nodes with equal space around them", () => {
     </Box>,
   );
 
-  expect(output).toBe(" A B");
+  expect(output).toBe("A  B");
 });
 
 test("row - align colored text node when text is squashed", () => {
@@ -123,9 +125,9 @@ test("column - align two text nodes on the edges", () => {
   expect(output).toBe("A\n\n\nB");
 });
 
-// Yoga has a bug, where first child in a container with space-around doesn't have
-// the correct X coordinate and measure function is used on that child node
-test.fails("column - align two text nodes with equal space around them", () => {
+// The same text rounding floors A from y=0.75 to row 0. Ink expects
+// "\nA\n\nB\n" and skips this test.
+test("column - align two text nodes with equal space around them", () => {
   const output = renderToString(
     <Box flexDirection="column" justifyContent="space-around" height={5}>
       <Text>A</Text>
@@ -133,5 +135,5 @@ test.fails("column - align two text nodes with equal space around them", () => {
     </Box>,
   );
 
-  expect(output).toBe("\nA\n\nB\n");
+  expect(output).toBe("A\n\n\nB\n");
 });

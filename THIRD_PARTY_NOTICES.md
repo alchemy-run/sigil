@@ -21,8 +21,8 @@ Licensed under the MIT License (text below).
 ## Yoga
 
 The layout engine (`src/yoga/`) is a TypeScript port of
-[Yoga](https://github.com/facebook/yoga), and `patches/yoga-f64.patch` modifies
-Yoga sources.
+[Yoga](https://github.com/facebook/yoga), and the patches in `patches/`
+(`yoga-f64.patch`, `yoga-flex-item-percent-min-max.patch`) modify Yoga sources.
 
 MIT License
 

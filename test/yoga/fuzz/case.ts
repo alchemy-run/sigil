@@ -198,7 +198,7 @@ export function generateCase(seed: number, maxNodes = 24): FuzzCase {
     seed: normalizedSeed,
     pointScaleFactor: random.pick([0, 1, 1, 2, 3]),
     useWebDefaults: random.boolean(),
-    errata: random.pick([0, 8, 24, 2_147_483_646, 2_147_483_647]),
+    errata: random.pick([0, 8, 24, 56, 2_147_483_646, 2_147_483_647]),
     availableWidth: available(),
     availableHeight: available(),
     direction: random.pick([1, 2]) as Direction,

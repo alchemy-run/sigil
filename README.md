@@ -9,11 +9,11 @@
 **Sigil is a fork of [Ink](https://github.com/vadimdemedes/ink)** by [Vadym Demedes](https://github.com/vadimdemedes), maintained by [Functionless Corp.](https://alchemy.run) and published as [`@alchemy.run/sigil`](https://npmjs.com/package/@alchemy.run/sigil). It differs from upstream Ink in a few deliberate ways:
 
 - **Self-contained**: the only runtime dependencies are `react-reconciler` and `scheduler`. Everything else — the ANSI/terminal subsystem (`src/ansi/`), styling, width measurement, wrapping — is first-class TypeScript in this repository.
-- **Integrated layout engine**: layout is computed by a TypeScript port of [Yoga](https://github.com/facebook/yoga) (`src/yoga/`) instead of the Yoga WASM binary, continuously verified against an f64-patched reference Yoga build via differential fuzzing.
+- **Integrated layout engine**: layout is computed by a TypeScript port of [Yoga](https://github.com/facebook/yoga) (`src/yoga/`) instead of the Yoga WASM binary, continuously verified against an f64-patched reference Yoga build via differential fuzzing. Percentage `minWidth`/`maxWidth` resolve against the parent ([yoga#872](https://github.com/react/yoga/issues/872) is fixed); see the [Yoga notes](docs/yoga.md).
 - **Modern toolchain**: built with [Vite+](https://viteplus.dev) (Vitest, Oxlint, Oxfmt, tsdown) and TypeScript 7.
 - **Structured terminal core**: cells retain semantic colors, gradients, links, and graphemes through layout and composition, then serialize for the target terminal profile.
 
-Low-level integrations are available through focused `ansi`, `capabilities`, `color`, `router`, `screen`, `terminal`, and `yoga` subpaths. See the [architecture guide](docs/architecture.md), [API stability policy](docs/api-stability.md), [color semantics](docs/color-semantics.md), and [performance notes](docs/performance.md).
+Low-level integrations are available through focused `ansi`, `capabilities`, `color`, `router`, `screen`, `terminal`, and `yoga` subpaths. See the [architecture guide](docs/architecture.md), [API stability policy](docs/api-stability.md), [color semantics](docs/color-semantics.md), [performance notes](docs/performance.md), and [Yoga notes](docs/yoga.md).
 
 Upstream Ink and Yoga are tracked as submodules in `.vendor/` — upstream's test suites run against this codebase as part of the regular test run. See `THIRD_PARTY_NOTICES.md` for attribution.
 
@@ -504,10 +504,10 @@ You can also set it as a percentage, which will calculate the height based on th
 
 ##### minWidth
 
-Type: `number`
+Type: `number` `string`
 
-Sets a minimum width of the element.
-Percentages aren't supported yet; see https://github.com/facebook/yoga/issues/872.
+Sets a minimum width of the element in spaces.
+You can also set it as a percentage, which will calculate the minimum width based on the width of the parent element.
 
 ##### minHeight
 
@@ -518,10 +518,10 @@ You can also set it as a percentage, which will calculate the minimum height bas
 
 ##### maxWidth
 
-Type: `number`
+Type: `number` `string`
 
-Sets a maximum width of the element.
-Percentages aren't supported yet; see https://github.com/facebook/yoga/issues/872.
+Sets a maximum width of the element in spaces.
+You can also set it as a percentage, which will calculate the maximum width based on the width of the parent element.
 
 ##### maxHeight
 

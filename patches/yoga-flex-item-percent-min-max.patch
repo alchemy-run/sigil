@@ -1,0 +1,139 @@
+diff --git a/enums.py b/enums.py
+index 83bd8527..bc0da3ce 100755
+--- a/enums.py
++++ b/enums.py
+@@ -100,6 +100,10 @@ ENUMS = {
+         # default on new configs to preserve the pre-fix geometry. Clear this
+         # bit to opt into the spec-correct single distribution.
+         ("FlexFirstPassUsesRunningTotals", 1 << 4),
++        # Resolve flex items' percentage min/max sizes against the container's
++        # own owner rather than the container's content box (#872). Set by
++        # default on new configs to preserve the pre-fix geometry.
++        ("FlexItemPercentMinMaxAgainstOwner", 1 << 5),
+         # Enable all incorrect behavior (preserve compatibility)
+         ("All", 0x7FFFFFFF),
+         # Enable all errata except for "StretchFlexBasis" (Defaults behavior
+diff --git a/javascript/src/generated/YGEnums.ts b/javascript/src/generated/YGEnums.ts
+index 18f52e86..073bc6ca 100644
+--- a/javascript/src/generated/YGEnums.ts
++++ b/javascript/src/generated/YGEnums.ts
+@@ -63,6 +63,7 @@ export enum Errata {
+   AbsolutePercentAgainstInnerSize = 4,
+   MinSizeUndefinedInsteadOfAuto = 8,
+   FlexFirstPassUsesRunningTotals = 16,
++  FlexItemPercentMinMaxAgainstOwner = 32,
+   All = 2147483647,
+   Classic = 2147483646,
+ }
+@@ -192,6 +193,7 @@ const constants = {
+   ERRATA_ABSOLUTE_PERCENT_AGAINST_INNER_SIZE: Errata.AbsolutePercentAgainstInnerSize,
+   ERRATA_MIN_SIZE_UNDEFINED_INSTEAD_OF_AUTO: Errata.MinSizeUndefinedInsteadOfAuto,
+   ERRATA_FLEX_FIRST_PASS_USES_RUNNING_TOTALS: Errata.FlexFirstPassUsesRunningTotals,
++  ERRATA_FLEX_ITEM_PERCENT_MIN_MAX_AGAINST_OWNER: Errata.FlexItemPercentMinMaxAgainstOwner,
+   ERRATA_ALL: Errata.All,
+   ERRATA_CLASSIC: Errata.Classic,
+   EXPERIMENTAL_FEATURE_WEB_FLEX_BASIS: ExperimentalFeature.WebFlexBasis,
+diff --git a/yoga/YGEnums.cpp b/yoga/YGEnums.cpp
+index 017d6ee4..b2f98013 100644
+--- a/yoga/YGEnums.cpp
++++ b/yoga/YGEnums.cpp
+@@ -121,6 +121,8 @@ const char* YGErrataToString(const YGErrata value) {
+       return "min-size-undefined-instead-of-auto";
+     case YGErrataFlexFirstPassUsesRunningTotals:
+       return "flex-first-pass-uses-running-totals";
++    case YGErrataFlexItemPercentMinMaxAgainstOwner:
++      return "flex-item-percent-min-max-against-owner";
+     case YGErrataAll:
+       return "all";
+     case YGErrataClassic:
+diff --git a/yoga/YGEnums.h b/yoga/YGEnums.h
+index c6728700..5efdfedc 100644
+--- a/yoga/YGEnums.h
++++ b/yoga/YGEnums.h
+@@ -69,6 +69,7 @@ YG_ENUM_DECL(
+     YGErrataAbsolutePercentAgainstInnerSize = 4,
+     YGErrataMinSizeUndefinedInsteadOfAuto = 8,
+     YGErrataFlexFirstPassUsesRunningTotals = 16,
++    YGErrataFlexItemPercentMinMaxAgainstOwner = 32,
+     YGErrataAll = 2147483647,
+     YGErrataClassic = 2147483646)
+ YG_DEFINE_ENUM_FLAG_OPERATORS(YGErrata)
+diff --git a/yoga/algorithm/CalculateLayout.cpp b/yoga/algorithm/CalculateLayout.cpp
+index 1095c2d1..181d2c92 100644
+--- a/yoga/algorithm/CalculateLayout.cpp
++++ b/yoga/algorithm/CalculateLayout.cpp
+@@ -1657,8 +1657,12 @@ static void justifyMainAxis(
+               direction,
+               mainAxis,
+               childLayout.computedFlexBasis,
+-              mainAxisOwnerSize,
+-              ownerWidth)
++              node->hasErrata(Errata::FlexItemPercentMinMaxAgainstOwner)
++                  ? mainAxisOwnerSize
++                  : availableInnerMainDim,
++              node->hasErrata(Errata::FlexItemPercentMinMaxAgainstOwner)
++                  ? ownerWidth
++                  : availableInnerWidth)
+               .unwrap();
+       flexLine.layout.crossDim = availableInnerCrossDim;
+     } else {
+@@ -2021,12 +2025,20 @@ static void calculateLayoutImpl(
+ 
+   // Max main dimension of all the lines.
+   double maxLineMainDim = 0;
++  // Flex items' min/max percentages resolve against this node's content box.
++  // The errata keeps resolving them against this node's own owner (#872).
++  const bool childBoundsAgainstOwner =
++      node->hasErrata(Errata::FlexItemPercentMinMaxAgainstOwner);
++  const double childBoundsOwnerWidth =
++      childBoundsAgainstOwner ? ownerWidth : availableInnerWidth;
++  const double childBoundsMainAxisOwnerSize =
++      childBoundsAgainstOwner ? mainAxisOwnerSize : availableInnerMainDim;
+   for (; startOfLineIterator != node->getLayoutChildren().end(); lineCount++) {
+     auto flexLine = calculateFlexLine(
+         node,
+         ownerDirection,
+-        ownerWidth,
+-        mainAxisOwnerSize,
++        childBoundsOwnerWidth,
++        childBoundsMainAxisOwnerSize,
+         availableInnerWidth,
+         availableInnerMainDim,
+         startOfLineIterator,
+@@ -2121,8 +2133,8 @@ static void calculateLayoutImpl(
+           mainAxis,
+           crossAxis,
+           direction,
+-          ownerWidth,
+-          mainAxisOwnerSize,
++          childBoundsOwnerWidth,
++          childBoundsMainAxisOwnerSize,
+           availableInnerMainDim,
+           availableInnerCrossDim,
+           availableInnerWidth,
+diff --git a/yoga/config/Config.h b/yoga/config/Config.h
+index fbfe8826..44bc959a 100644
+--- a/yoga/config/Config.h
++++ b/yoga/config/Config.h
+@@ -88,7 +88,8 @@ class YG_EXPORT Config : public ::YGConfig {
+   uint32_t version_ = 0;
+   ExperimentalFeatureSet experimentalFeatures_{};
+   Errata errata_ = Errata::MinSizeUndefinedInsteadOfAuto |
+-      Errata::FlexFirstPassUsesRunningTotals;
++      Errata::FlexFirstPassUsesRunningTotals |
++      Errata::FlexItemPercentMinMaxAgainstOwner;
+   double pointScaleFactor_ = 1.0;
+   void* context_ = nullptr;
+ };
+diff --git a/yoga/enums/Errata.h b/yoga/enums/Errata.h
+index 09e6f83a..de79993f 100644
+--- a/yoga/enums/Errata.h
++++ b/yoga/enums/Errata.h
+@@ -22,6 +22,7 @@ enum class Errata : uint32_t {
+   AbsolutePercentAgainstInnerSize = YGErrataAbsolutePercentAgainstInnerSize,
+   MinSizeUndefinedInsteadOfAuto = YGErrataMinSizeUndefinedInsteadOfAuto,
+   FlexFirstPassUsesRunningTotals = YGErrataFlexFirstPassUsesRunningTotals,
++  FlexItemPercentMinMaxAgainstOwner = YGErrataFlexItemPercentMinMaxAgainstOwner,
+   All = YGErrataAll,
+   Classic = YGErrataClassic,
+ };

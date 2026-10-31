@@ -69,10 +69,9 @@ test("set min width", () => {
   expect(largerOutput).toBe("AAAAAB");
 });
 
-test.fails("set min width in percent", () => {
+test("set min width in percent", () => {
   const output = renderToString(
     <Box width={10}>
-      {/* @ts-expect-error Unsupported until Yoga fixes percentage width constraints. */}
       <Box minWidth="50%">
         <Text>A</Text>
       </Box>
@@ -408,10 +407,9 @@ test("clears aspectRatio on rerender", () => {
   expect(stdout.write.mock.lastCall![0]).toBe("┌──────┐\n│X     │\n└──────┘\nY");
 });
 
-test.fails("set max width in percent", () => {
+test("set max width in percent", () => {
   const output = renderToString(
     <Box width={10}>
-      {/* @ts-expect-error Unsupported until Yoga fixes percentage width constraints. */}
       <Box maxWidth="50%">
         <Text>AAAAAAAAAA</Text>
       </Box>
@@ -419,7 +417,9 @@ test.fails("set max width in percent", () => {
     </Box>,
   );
 
-  expect(output).toBe("AAAAAB");
+  // Ink expects "AAAAAB", but ten characters in a 5-wide box wrap onto two
+  // lines, as they would in CSS.
+  expect(output).toBe("AAAAAB\nAAAAA");
 });
 
 test("set max height in percent", () => {

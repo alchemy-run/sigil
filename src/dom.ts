@@ -93,6 +93,11 @@ export type DOMNode<T = { nodeName: NodeNames }> = T extends {
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export type DOMNodeAttribute = boolean | string | number;
 
+// Sigil's layout config: Yoga's defaults, except that flex items' percentage
+// min/max sizes resolve against their container (yoga#872).
+const yogaConfig = Yoga.Config.create();
+yogaConfig.setErrata(yogaConfig.getErrata() & ~Yoga.ERRATA_FLEX_ITEM_PERCENT_MIN_MAX_AGAINST_OWNER);
+
 export const createNode = (nodeName: ElementNames): DOMElement => {
   const node: DOMElement = {
     nodeName,
@@ -100,7 +105,7 @@ export const createNode = (nodeName: ElementNames): DOMElement => {
     attributes: {},
     childNodes: [],
     parentNode: undefined,
-    yogaNode: nodeName === "ink-virtual-text" ? undefined : Yoga.Node.create(),
+    yogaNode: nodeName === "ink-virtual-text" ? undefined : Yoga.Node.create(yogaConfig),
     // eslint-disable-next-line @typescript-eslint/naming-convention
     internal_accessibility: {},
   };

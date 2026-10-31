@@ -210,10 +210,9 @@ export type Styles = {
   readonly height?: number | string;
 
   /**
-	Sets a minimum width of the element.
-	Percentages aren't supported yet; see https://github.com/facebook/yoga/issues/872.
+	Sets a minimum width of the element in spaces. You can also set it as a percentage, which will calculate the minimum width based on the width of the parent element.
 	*/
-  readonly minWidth?: number;
+  readonly minWidth?: number | string;
 
   /**
 	Sets a minimum height of the element in lines (rows). You can also set it as a percentage, which will calculate the minimum height based on the height of the parent element.
@@ -221,10 +220,9 @@ export type Styles = {
   readonly minHeight?: number | string;
 
   /**
-	Sets a maximum width of the element.
-	Percentages aren't supported yet; see https://github.com/facebook/yoga/issues/872.
+	Sets a maximum width of the element in spaces. You can also set it as a percentage, which will calculate the maximum width based on the width of the parent element.
 	*/
-  readonly maxWidth?: number;
+  readonly maxWidth?: number | string;
 
   /**
 	Sets a maximum height of the element in lines (rows). You can also set it as a percentage, which will calculate the maximum height based on the height of the parent element.
@@ -683,7 +681,11 @@ const applyDimensionStyles = (node: YogaNode, style: Styles): void => {
   }
 
   if ("minWidth" in style) {
-    node.setMinWidth(style.minWidth ?? 0);
+    if (typeof style.minWidth === "string") {
+      node.setMinWidthPercent(Number.parseFloat(style.minWidth));
+    } else {
+      node.setMinWidth(style.minWidth ?? 0);
+    }
   }
 
   if ("minHeight" in style) {
@@ -695,7 +697,11 @@ const applyDimensionStyles = (node: YogaNode, style: Styles): void => {
   }
 
   if ("maxWidth" in style) {
-    node.setMaxWidth(style.maxWidth);
+    if (typeof style.maxWidth === "string") {
+      node.setMaxWidthPercent(Number.parseFloat(style.maxWidth));
+    } else {
+      node.setMaxWidth(style.maxWidth);
+    }
   }
 
   if ("maxHeight" in style) {

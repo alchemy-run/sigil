@@ -1689,8 +1689,12 @@ function justifyMainAxis(
           direction,
           mainAxis,
           childLayout.computedFlexBasis,
-          mainAxisOwnerSize,
-          ownerWidth,
+          node.hasErrata(Errata.FlexItemPercentMinMaxAgainstOwner)
+            ? mainAxisOwnerSize
+            : availableInnerMainDim,
+          node.hasErrata(Errata.FlexItemPercentMinMaxAgainstOwner)
+            ? ownerWidth
+            : availableInnerWidth,
         );
       flexLine.layout.crossDim = availableInnerCrossDim;
     } else {
@@ -2020,14 +2024,21 @@ function calculateLayoutImpl(
       crossDim: 0,
     },
   });
+  // Flex items' min/max percentages resolve against this node's content box.
+  // The errata keeps resolving them against this node's own owner (yoga#872).
+  const childBoundsAgainstOwner = node.hasErrata(Errata.FlexItemPercentMinMaxAgainstOwner);
+  const childBoundsOwnerWidth = childBoundsAgainstOwner ? ownerWidth : availableInnerWidth;
+  const childBoundsMainAxisOwnerSize = childBoundsAgainstOwner
+    ? mainAxisOwnerSize
+    : availableInnerMainDim;
   const lineStarts = (node.layout.flexLineStarts ??= []);
   for (; startOfLineIndex < layoutChildren.length; lineCount++) {
     lineStarts[lineCount] = startOfLineIndex;
     calculateFlexLine(
       node,
       ownerDirection,
-      ownerWidth,
-      mainAxisOwnerSize,
+      childBoundsOwnerWidth,
+      childBoundsMainAxisOwnerSize,
       availableInnerWidth,
       availableInnerMainDim,
       layoutChildren,
@@ -2107,8 +2118,8 @@ function calculateLayoutImpl(
         mainAxis,
         crossAxis,
         direction,
-        ownerWidth,
-        mainAxisOwnerSize,
+        childBoundsOwnerWidth,
+        childBoundsMainAxisOwnerSize,
         availableInnerMainDim,
         availableInnerCrossDim,
         availableInnerWidth,
