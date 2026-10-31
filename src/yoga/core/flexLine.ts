@@ -10,6 +10,7 @@
 
 import { boundAxisWithinMinAndMax, resolveDirection } from "#/yoga/core/helpers.ts";
 import type { Node } from "#/yoga/core/node.ts";
+import { inexactEquals } from "#/yoga/core/numeric.ts";
 import { Direction, Display, PositionType, Wrap } from "#/yoga/generated/YGEnums.ts";
 
 export interface FlexLineRunningLayout {
@@ -125,15 +126,23 @@ export function calculateFlexLine(
       ownerWidth,
     );
 
+    const requiredMainDim =
+      sizeConsumedIncludingMinConstraint +
+      flexBasisWithMinAndMaxConstraints +
+      childMarginMainAxis +
+      childLeadingGapMainAxis;
+
     // If this is a multi-line flow and this item pushes us over the available
     // size, we've hit the end of the current line. Break out of the loop and
     // lay out the current line.
+    //
+    // The overflow test is tolerant of the same epsilon the measurement cache
+    // uses when it decides a cached measurement "still fits" (see
+    // oldSizeIsMaxContentAndStillFits in cache.ts), so a basis that only
+    // overflows by rounding noise doesn't break the line.
     if (
-      sizeConsumedIncludingMinConstraint +
-        flexBasisWithMinAndMaxConstraints +
-        childMarginMainAxis +
-        childLeadingGapMainAxis >
-        availableInnerMainDim &&
+      requiredMainDim > availableInnerMainDim &&
+      !inexactEquals(requiredMainDim, availableInnerMainDim) &&
       isNodeFlexWrap &&
       itemsInFlow.length > 0
     ) {

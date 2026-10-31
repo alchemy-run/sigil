@@ -4,7 +4,11 @@
 import { expect } from "vite-plus/test";
 
 import { defineBackendTest } from "./backends/defineBackendTest.ts";
-import { getMeasureCounter, getMeasureCounterMin } from "./tools/MeasureCounter.ts";
+import {
+  getMeasureCounter,
+  getMeasureCounterMax,
+  getMeasureCounterMin,
+} from "./tools/MeasureCounter.ts";
 
 defineBackendTest("remeasure_with_same_exact_width_larger_than_needed_height", ({ Yoga }) => {
   const root = Yoga.Node.create();
@@ -94,3 +98,44 @@ defineBackendTest(
     expect(measureCounter.get()).toBe(1);
   },
 );
+
+defineBackendTest("keep_cached_measurement_when_owner_resizes_without_percentages", ({ Yoga }) => {
+  const root = Yoga.Node.create();
+  root.setWidth(100);
+
+  const measureCounter = getMeasureCounterMax();
+
+  const root_child0 = Yoga.Node.create();
+  root_child0.setMeasureFunc(measureCounter.inc);
+  root_child0.setWidth(50);
+  root.insertChild(root_child0, 0);
+
+  root.calculateLayout(undefined, undefined, Yoga.DIRECTION_LTR);
+  const measuresBeforeResize = measureCounter.get();
+
+  root.setWidth(200);
+  root.calculateLayout(undefined, undefined, Yoga.DIRECTION_LTR);
+  expect(measureCounter.get()).toBe(measuresBeforeResize);
+});
+
+defineBackendTest("remeasure_when_owner_resizes_with_percent_padding", ({ Yoga }) => {
+  const root = Yoga.Node.create();
+  root.setWidth(100);
+
+  const measureCounter = getMeasureCounterMax();
+
+  const root_child0 = Yoga.Node.create();
+  root_child0.setMeasureFunc(measureCounter.inc);
+  root_child0.setWidth(50);
+  root_child0.setPaddingPercent(Yoga.EDGE_TOP, 10);
+  root.insertChild(root_child0, 0);
+
+  root.calculateLayout(undefined, undefined, Yoga.DIRECTION_LTR);
+  expect(root_child0.getComputedPadding(Yoga.EDGE_TOP)).toBe(10);
+  const measuresBeforeResize = measureCounter.get();
+
+  root.setWidth(200);
+  root.calculateLayout(undefined, undefined, Yoga.DIRECTION_LTR);
+  expect(root_child0.getComputedPadding(Yoga.EDGE_TOP)).toBe(20);
+  expect(measureCounter.get()).toBeGreaterThan(measuresBeforeResize);
+});

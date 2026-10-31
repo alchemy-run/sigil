@@ -17,6 +17,9 @@ export class CachedMeasurement {
   computedWidth = -1;
   computedHeight = -1;
 
+  ownerWidth = -1;
+  ownerHeight = -1;
+
   equals(measurement: CachedMeasurement): boolean {
     let isEqual =
       this.widthSizingMode === measurement.widthSizingMode &&
@@ -34,6 +37,12 @@ export class CachedMeasurement {
     if (!isUndefined(this.computedHeight) || !isUndefined(measurement.computedHeight)) {
       isEqual = isEqual && this.computedHeight === measurement.computedHeight;
     }
+    if (!isUndefined(this.ownerWidth) || !isUndefined(measurement.ownerWidth)) {
+      isEqual = isEqual && this.ownerWidth === measurement.ownerWidth;
+    }
+    if (!isUndefined(this.ownerHeight) || !isUndefined(measurement.ownerHeight)) {
+      isEqual = isEqual && this.ownerHeight === measurement.ownerHeight;
+    }
 
     return isEqual;
   }
@@ -50,6 +59,15 @@ export class LayoutResults {
   // Per-flex-item floor along the main axis derived from CSS Flexbox §4.5
   // automatic minimum sizing. NaN means "no auto-min applies."
   computedAutoMinMainSize = NaN;
+
+  // Memoized min-content sizes for §4.5, indexed by dimension and valid only
+  // during layout generation `minContentGeneration`. A leaf stores its measured
+  // min-content without padding and border, which doesn't depend on the owner.
+  // A container stores its full min-content, which depends on
+  // `minContentOwnerWidth` through percentage padding and margins.
+  minContentGeneration: [number, number] = [0, 0];
+  minContentOwnerWidth: [number, number] = [NaN, NaN];
+  minContent: [number, number] = [NaN, NaN];
 
   // Instead of recomputing the entire layout every single time, we cache some
   // information to break early when nothing changed

@@ -207,11 +207,11 @@ index b3a82e1a..dcc1807f 100644
  }
  
 diff --git a/yoga/YGConfig.h b/yoga/YGConfig.h
-index 12f6e204..4c2b33c1 100644
+index 215eab6d..f46e2f6d 100644
 --- a/yoga/YGConfig.h
 +++ b/yoga/YGConfig.h
 @@ -64,16 +64,16 @@ YG_EXPORT bool YGConfigGetUseWebDefaults(YGConfigConstRef config);
-  * nearst point. `pointScaleFactor` controls the density of the grid used for
+  * nearest point. `pointScaleFactor` controls the density of the grid used for
   * layout rounding (e.g. to round to the closest display pixel).
   *
 - * May be set to 0.0f to avoid rounding the layout results.
@@ -525,10 +525,10 @@ index bddf2193..dc328952 100644
  
  YG_EXTERN_C_END
 diff --git a/yoga/YGNodeStyle.cpp b/yoga/YGNodeStyle.cpp
-index e43a38e6..6a75d766 100644
+index 86da8ddf..c739c232 100644
 --- a/yoga/YGNodeStyle.cpp
 +++ b/yoga/YGNodeStyle.cpp
-@@ -159,34 +159,34 @@ YGDisplay YGNodeStyleGetDisplay(const YGNodeConstRef node) {
+@@ -168,34 +168,34 @@ YGDisplay YGNodeStyleGetDisplay(const YGNodeConstRef node) {
    return unscopedEnum(resolveRef(node)->style().display());
  }
  
@@ -569,7 +569,7 @@ index e43a38e6..6a75d766 100644
    const auto node = resolveRef(nodeRef);
    return node->style().flexShrink().isUndefined()
        ? (node->getConfig()->useWebDefaults() ? Style::WebDefaultFlexShrink
-@@ -194,14 +194,14 @@ float YGNodeStyleGetFlexShrink(const YGNodeConstRef nodeRef) {
+@@ -203,14 +203,14 @@ float YGNodeStyleGetFlexShrink(const YGNodeConstRef nodeRef) {
        : node->style().flexShrink().unwrap();
  }
  
@@ -586,7 +586,7 @@ index e43a38e6..6a75d766 100644
    updateStyle<&Style::flexBasis, &Style::setFlexBasis>(
        node, StyleSizeLength::percent(flexBasisPercent));
  }
-@@ -230,12 +230,12 @@ YGValue YGNodeStyleGetFlexBasis(const YGNodeConstRef node) {
+@@ -239,12 +239,12 @@ YGValue YGNodeStyleGetFlexBasis(const YGNodeConstRef node) {
    return (YGValue)resolveRef(node)->style().flexBasis();
  }
  
@@ -601,7 +601,7 @@ index e43a38e6..6a75d766 100644
    updateStyle<&Style::position, &Style::setPosition>(
        node, scopedEnum(edge), StyleLength::percent(percent));
  }
-@@ -249,12 +249,12 @@ YGValue YGNodeStyleGetPosition(YGNodeConstRef node, YGEdge edge) {
+@@ -258,12 +258,12 @@ YGValue YGNodeStyleGetPosition(YGNodeConstRef node, YGEdge edge) {
    return (YGValue)resolveRef(node)->style().position(scopedEnum(edge));
  }
  
@@ -616,7 +616,7 @@ index e43a38e6..6a75d766 100644
    updateStyle<&Style::margin, &Style::setMargin>(
        node, scopedEnum(edge), StyleLength::percent(percent));
  }
-@@ -268,12 +268,12 @@ YGValue YGNodeStyleGetMargin(YGNodeConstRef node, YGEdge edge) {
+@@ -277,12 +277,12 @@ YGValue YGNodeStyleGetMargin(YGNodeConstRef node, YGEdge edge) {
    return (YGValue)resolveRef(node)->style().margin(scopedEnum(edge));
  }
  
@@ -631,7 +631,7 @@ index e43a38e6..6a75d766 100644
    updateStyle<&Style::padding, &Style::setPadding>(
        node, scopedEnum(edge), StyleLength::percent(percent));
  }
-@@ -285,12 +285,12 @@ YGValue YGNodeStyleGetPadding(YGNodeConstRef node, YGEdge edge) {
+@@ -294,12 +294,12 @@ YGValue YGNodeStyleGetPadding(YGNodeConstRef node, YGEdge edge) {
  void YGNodeStyleSetBorder(
      const YGNodeRef node,
      const YGEdge edge,
@@ -646,7 +646,7 @@ index e43a38e6..6a75d766 100644
    auto border = resolveRef(node)->style().border(scopedEnum(edge));
    if (border.isUndefined() || border.isAuto()) {
      return YGUndefined;
-@@ -302,12 +302,12 @@ float YGNodeStyleGetBorder(const YGNodeConstRef node, const YGEdge edge) {
+@@ -311,12 +311,12 @@ float YGNodeStyleGetBorder(const YGNodeConstRef node, const YGEdge edge) {
  void YGNodeStyleSetGap(
      const YGNodeRef node,
      const YGGutter gutter,
@@ -661,7 +661,7 @@ index e43a38e6..6a75d766 100644
    updateStyle<&Style::gap, &Style::setGap>(
        node, scopedEnum(gutter), StyleLength::percent(percent));
  }
-@@ -316,12 +316,12 @@ YGValue YGNodeStyleGetGap(const YGNodeConstRef node, const YGGutter gutter) {
+@@ -325,12 +325,12 @@ YGValue YGNodeStyleGetGap(const YGNodeConstRef node, const YGGutter gutter) {
    return (YGValue)resolveRef(node)->style().gap(scopedEnum(gutter));
  }
  
@@ -676,7 +676,7 @@ index e43a38e6..6a75d766 100644
    const FloatOptional op = resolveRef(node)->style().aspectRatio();
    return op.isUndefined() ? YGUndefined : op.unwrap();
  }
-@@ -335,12 +335,12 @@ YGBoxSizing YGNodeStyleGetBoxSizing(const YGNodeConstRef node) {
+@@ -344,12 +344,12 @@ YGBoxSizing YGNodeStyleGetBoxSizing(const YGNodeConstRef node) {
    return unscopedEnum(resolveRef(node)->style().boxSizing());
  }
  
@@ -691,7 +691,7 @@ index e43a38e6..6a75d766 100644
    updateStyle<&Style::dimension, &Style::setDimension>(
        node, Dimension::Width, StyleSizeLength::percent(percent));
  }
-@@ -369,12 +369,12 @@ YGValue YGNodeStyleGetWidth(YGNodeConstRef node) {
+@@ -378,12 +378,12 @@ YGValue YGNodeStyleGetWidth(YGNodeConstRef node) {
    return (YGValue)resolveRef(node)->style().dimension(Dimension::Width);
  }
  
@@ -706,7 +706,7 @@ index e43a38e6..6a75d766 100644
    updateStyle<&Style::dimension, &Style::setDimension>(
        node, Dimension::Height, StyleSizeLength::percent(percent));
  }
-@@ -403,12 +403,12 @@ YGValue YGNodeStyleGetHeight(YGNodeConstRef node) {
+@@ -412,12 +412,12 @@ YGValue YGNodeStyleGetHeight(YGNodeConstRef node) {
    return (YGValue)resolveRef(node)->style().dimension(Dimension::Height);
  }
  
@@ -721,7 +721,7 @@ index e43a38e6..6a75d766 100644
    updateStyle<&Style::minDimension, &Style::setMinDimension>(
        node, Dimension::Width, StyleSizeLength::percent(minWidth));
  }
-@@ -432,14 +432,14 @@ YGValue YGNodeStyleGetMinWidth(const YGNodeConstRef node) {
+@@ -441,14 +441,14 @@ YGValue YGNodeStyleGetMinWidth(const YGNodeConstRef node) {
    return (YGValue)resolveRef(node)->style().minDimension(Dimension::Width);
  }
  
@@ -738,7 +738,7 @@ index e43a38e6..6a75d766 100644
    updateStyle<&Style::minDimension, &Style::setMinDimension>(
        node, Dimension::Height, StyleSizeLength::percent(minHeight));
  }
-@@ -463,12 +463,12 @@ YGValue YGNodeStyleGetMinHeight(const YGNodeConstRef node) {
+@@ -472,12 +472,12 @@ YGValue YGNodeStyleGetMinHeight(const YGNodeConstRef node) {
    return (YGValue)resolveRef(node)->style().minDimension(Dimension::Height);
  }
  
@@ -753,7 +753,7 @@ index e43a38e6..6a75d766 100644
    updateStyle<&Style::maxDimension, &Style::setMaxDimension>(
        node, Dimension::Width, StyleSizeLength::percent(maxWidth));
  }
-@@ -492,14 +492,14 @@ YGValue YGNodeStyleGetMaxWidth(const YGNodeConstRef node) {
+@@ -501,14 +501,14 @@ YGValue YGNodeStyleGetMaxWidth(const YGNodeConstRef node) {
    return (YGValue)resolveRef(node)->style().maxDimension(Dimension::Width);
  }
  
@@ -770,7 +770,7 @@ index e43a38e6..6a75d766 100644
    updateStyle<&Style::maxDimension, &Style::setMaxDimension>(
        node, Dimension::Height, StyleSizeLength::percent(maxHeight));
  }
-@@ -609,7 +609,7 @@ int32_t YGNodeStyleGetGridRowEnd(YGNodeConstRef node) {
+@@ -618,7 +618,7 @@ int32_t YGNodeStyleGetGridRowEnd(YGNodeConstRef node) {
  
  namespace {
  
@@ -779,7 +779,7 @@ index e43a38e6..6a75d766 100644
    switch (type) {
      case YGGridTrackTypePoints:
        return GridTrackSize::length(value);
-@@ -627,7 +627,7 @@ GridTrackSize gridTrackSizeFromTypeAndValue(YGGridTrackType type, float value) {
+@@ -636,7 +636,7 @@ GridTrackSize gridTrackSizeFromTypeAndValue(YGGridTrackType type, float value) {
  
  StyleSizeLength styleSizeLengthFromTypeAndValue(
      YGGridTrackType type,
@@ -788,7 +788,7 @@ index e43a38e6..6a75d766 100644
    switch (type) {
      case YGGridTrackTypePoints:
        return StyleSizeLength::points(value);
-@@ -656,7 +656,7 @@ void YGNodeStyleSetGridTemplateColumn(
+@@ -665,7 +665,7 @@ void YGNodeStyleSetGridTemplateColumn(
      YGNodeRef node,
      size_t index,
      YGGridTrackType type,
@@ -797,7 +797,7 @@ index e43a38e6..6a75d766 100644
    resolveRef(node)->style().setGridTemplateColumnAt(
        index, gridTrackSizeFromTypeAndValue(type, value));
    resolveRef(node)->markDirtyAndPropagate();
-@@ -666,9 +666,9 @@ void YGNodeStyleSetGridTemplateColumnMinMax(
+@@ -675,9 +675,9 @@ void YGNodeStyleSetGridTemplateColumnMinMax(
      YGNodeRef node,
      size_t index,
      YGGridTrackType minType,
@@ -809,7 +809,7 @@ index e43a38e6..6a75d766 100644
    resolveRef(node)->style().setGridTemplateColumnAt(
        index,
        GridTrackSize::minmax(
-@@ -688,7 +688,7 @@ void YGNodeStyleSetGridTemplateRow(
+@@ -697,7 +697,7 @@ void YGNodeStyleSetGridTemplateRow(
      YGNodeRef node,
      size_t index,
      YGGridTrackType type,
@@ -818,7 +818,7 @@ index e43a38e6..6a75d766 100644
    resolveRef(node)->style().setGridTemplateRowAt(
        index, gridTrackSizeFromTypeAndValue(type, value));
    resolveRef(node)->markDirtyAndPropagate();
-@@ -698,9 +698,9 @@ void YGNodeStyleSetGridTemplateRowMinMax(
+@@ -707,9 +707,9 @@ void YGNodeStyleSetGridTemplateRowMinMax(
      YGNodeRef node,
      size_t index,
      YGGridTrackType minType,
@@ -830,7 +830,7 @@ index e43a38e6..6a75d766 100644
    resolveRef(node)->style().setGridTemplateRowAt(
        index,
        GridTrackSize::minmax(
-@@ -720,7 +720,7 @@ void YGNodeStyleSetGridAutoColumn(
+@@ -729,7 +729,7 @@ void YGNodeStyleSetGridAutoColumn(
      YGNodeRef node,
      size_t index,
      YGGridTrackType type,
@@ -839,7 +839,7 @@ index e43a38e6..6a75d766 100644
    resolveRef(node)->style().setGridAutoColumnAt(
        index, gridTrackSizeFromTypeAndValue(type, value));
    resolveRef(node)->markDirtyAndPropagate();
-@@ -730,9 +730,9 @@ void YGNodeStyleSetGridAutoColumnMinMax(
+@@ -739,9 +739,9 @@ void YGNodeStyleSetGridAutoColumnMinMax(
      YGNodeRef node,
      size_t index,
      YGGridTrackType minType,
@@ -851,7 +851,7 @@ index e43a38e6..6a75d766 100644
    resolveRef(node)->style().setGridAutoColumnAt(
        index,
        GridTrackSize::minmax(
-@@ -752,7 +752,7 @@ void YGNodeStyleSetGridAutoRow(
+@@ -761,7 +761,7 @@ void YGNodeStyleSetGridAutoRow(
      YGNodeRef node,
      size_t index,
      YGGridTrackType type,
@@ -860,7 +860,7 @@ index e43a38e6..6a75d766 100644
    resolveRef(node)->style().setGridAutoRowAt(
        index, gridTrackSizeFromTypeAndValue(type, value));
    resolveRef(node)->markDirtyAndPropagate();
-@@ -762,9 +762,9 @@ void YGNodeStyleSetGridAutoRowMinMax(
+@@ -771,9 +771,9 @@ void YGNodeStyleSetGridAutoRowMinMax(
      YGNodeRef node,
      size_t index,
      YGGridTrackType minType,
@@ -1152,7 +1152,7 @@ index 13813522..34f8b84c 100644
  YG_EXTERN_C_END
  
 diff --git a/yoga/algorithm/AbsoluteLayout.cpp b/yoga/algorithm/AbsoluteLayout.cpp
-index a7d15773..ac403ff0 100644
+index 8b0873a5..0de4cd2a 100644
 --- a/yoga/algorithm/AbsoluteLayout.cpp
 +++ b/yoga/algorithm/AbsoluteLayout.cpp
 @@ -18,8 +18,8 @@ static inline void setFlexStartLayoutPosition(
@@ -1591,7 +1591,7 @@ index f8857eaf..ecfe2493 100644
  
  } // namespace facebook::yoga
 diff --git a/yoga/algorithm/CalculateLayout.cpp b/yoga/algorithm/CalculateLayout.cpp
-index 89fbe3cb..9f4b2837 100644
+index 192a6af7..1095c2d1 100644
 --- a/yoga/algorithm/CalculateLayout.cpp
 +++ b/yoga/algorithm/CalculateLayout.cpp
 @@ -86,7 +86,7 @@ static bool isInColumnStretchScrollSubtree(const yoga::Node* const node) {
@@ -1869,39 +1869,42 @@ index 89fbe3cb..9f4b2837 100644
            // There is already a flexible child, or this flexible child doesn't
            // have flexGrow and flexShrink, abort
            singleFlexChild = nullptr;
-@@ -853,12 +853,12 @@ static float computeFlexBasisForChildren(
- // would invoke). Roughly equivalent to FlexLayout's dedicated
- // `computeMinContentSize` cost: one measure call per leaf + linear walk
- // per container.
+@@ -856,12 +856,12 @@ static float computeFlexBasisForChildren(
+ // (see `LayoutResults::minContent`): each leaf's measure callback runs at
+ // most once per axis per layout, and each container is walked once per
+ // distinct `ownerWidth`.
 -static float computeMinContentMainSize(
 +static double computeMinContentMainSize(
      yoga::Node* const node,
      const FlexDirection requestedAxis,
      const Direction ownerDirection,
 -    const float ownerWidth,
--    const float ownerHeight) {
+-    const float ownerHeight,
 +    const double ownerWidth,
-+    const double ownerHeight) {
++    const double ownerHeight,
+     const uint32_t generationCount) {
    const bool wantRow = isRow(requestedAxis);
  
-   // 1. Static value wins for any node (leaf or container). Short-circuits
-@@ -879,18 +879,18 @@ static float computeMinContentMainSize(
-     // answer with longest-word width.
-     const YGSize size = node->hasMinContentMeasureFunc()
-         ? node->measureMinContent(
--              wantRow ? 0.0f : YGUndefined,
-+              wantRow ? 0.0 : YGUndefined,
-               wantRow ? MeasureMode::AtMost : MeasureMode::Undefined,
--              wantRow ? YGUndefined : 0.0f,
-+              wantRow ? YGUndefined : 0.0,
-               wantRow ? MeasureMode::Undefined : MeasureMode::AtMost)
-         : node->measure(
--              wantRow ? 0.0f : YGUndefined,
-+              wantRow ? 0.0 : YGUndefined,
-               wantRow ? MeasureMode::AtMost : MeasureMode::Undefined,
--              wantRow ? YGUndefined : 0.0f,
-+              wantRow ? YGUndefined : 0.0,
-               wantRow ? MeasureMode::Undefined : MeasureMode::AtMost);
+@@ -887,21 +887,21 @@ static float computeMinContentMainSize(
+       // answer with longest-word width.
+       const YGSize size = node->hasMinContentMeasureFunc()
+           ? node->measureMinContent(
+-                wantRow ? 0.0f : YGUndefined,
++                wantRow ? 0.0 : YGUndefined,
+                 wantRow ? MeasureMode::AtMost : MeasureMode::Undefined,
+-                wantRow ? YGUndefined : 0.0f,
++                wantRow ? YGUndefined : 0.0,
+                 wantRow ? MeasureMode::Undefined : MeasureMode::AtMost)
+           : node->measure(
+-                wantRow ? 0.0f : YGUndefined,
++                wantRow ? 0.0 : YGUndefined,
+                 wantRow ? MeasureMode::AtMost : MeasureMode::Undefined,
+-                wantRow ? YGUndefined : 0.0f,
++                wantRow ? YGUndefined : 0.0,
+                 wantRow ? MeasureMode::Undefined : MeasureMode::AtMost);
+       layout.minContent[axisIndex] = wantRow ? size.width : size.height;
+       layout.minContentGeneration[axisIndex] = generationCount;
+     }
      // Add the leaf's own padding and border, like the container branch below.
      const Direction leafDirection = node->resolveDirection(ownerDirection);
 -    const float paddingAndBorder =
@@ -1909,7 +1912,7 @@ index 89fbe3cb..9f4b2837 100644
          node->style().computeFlexStartPaddingAndBorder(
              requestedAxis, leafDirection, ownerWidth) +
          node->style().computeFlexEndPaddingAndBorder(
-@@ -899,7 +899,7 @@ static float computeMinContentMainSize(
+@@ -910,7 +910,7 @@ static float computeMinContentMainSize(
    }
  
    if (node->getChildCount() == 0) {
@@ -1917,8 +1920,8 @@ index 89fbe3cb..9f4b2837 100644
 +    return 0.0;
    }
  
-   const Direction direction = node->resolveDirection(ownerDirection);
-@@ -908,8 +908,8 @@ static float computeMinContentMainSize(
+   if (layout.minContentGeneration[axisIndex] == generationCount &&
+@@ -924,8 +924,8 @@ static float computeMinContentMainSize(
    const FlexDirection nodeCrossAxis =
        resolveCrossDirection(nodeMainAxis, direction);
  
@@ -1929,45 +1932,51 @@ index 89fbe3cb..9f4b2837 100644
  
    for (size_t i = 0; i < node->getChildCount(); i++) {
      auto* const child = node->getChild(i);
-@@ -918,11 +918,11 @@ static float computeMinContentMainSize(
+@@ -934,7 +934,7 @@ static float computeMinContentMainSize(
        continue;
      }
  
 -    float childMain = computeMinContentMainSize(
 +    double childMain = computeMinContentMainSize(
-         child, nodeMainAxis, direction, ownerWidth, ownerHeight);
+         child,
+         nodeMainAxis,
+         direction,
+@@ -943,7 +943,7 @@ static float computeMinContentMainSize(
+         generationCount);
      childMain += child->style().computeMarginForAxis(nodeMainAxis, ownerWidth);
  
 -    float childCross = computeMinContentMainSize(
 +    double childCross = computeMinContentMainSize(
-         child, nodeCrossAxis, direction, ownerWidth, ownerHeight);
-     childCross +=
-         child->style().computeMarginForAxis(nodeCrossAxis, ownerWidth);
-@@ -941,8 +941,8 @@ static float computeMinContentMainSize(
+         child,
+         nodeCrossAxis,
+         direction,
+@@ -967,9 +967,9 @@ static float computeMinContentMainSize(
            nodeCrossAxis, direction, ownerWidth);
  
    const bool nodeMainIsRow = isRow(nodeMainAxis);
 -  const float widthMin = nodeMainIsRow ? mainTotal : crossMax;
 -  const float heightMin = nodeMainIsRow ? crossMax : mainTotal;
+-  const float minContent = wantRow ? widthMin : heightMin;
 +  const double widthMin = nodeMainIsRow ? mainTotal : crossMax;
 +  const double heightMin = nodeMainIsRow ? crossMax : mainTotal;
-   return wantRow ? widthMin : heightMin;
- }
- 
-@@ -960,9 +960,9 @@ static FloatOptional computeAutoMinMainSize(
++  const double minContent = wantRow ? widthMin : heightMin;
+   layout.minContent[axisIndex] = minContent;
+   layout.minContentOwnerWidth[axisIndex] = ownerWidth;
+   layout.minContentGeneration[axisIndex] = generationCount;
+@@ -990,9 +990,9 @@ static FloatOptional computeAutoMinMainSize(
      yoga::Node* const child,
      const FlexDirection mainAxis,
      const Direction direction,
 -    const float ownerMainAxisSize,
 -    const float ownerWidth,
--    const float ownerHeight) {
+-    const float ownerHeight,
 +    const double ownerMainAxisSize,
 +    const double ownerWidth,
-+    const double ownerHeight) {
++    const double ownerHeight,
+     const uint32_t generationCount) {
    if (child->hasErrata(Errata::MinSizeUndefinedInsteadOfAuto)) {
      return FloatOptional{};
-   }
-@@ -978,7 +978,7 @@ static FloatOptional computeAutoMinMainSize(
+@@ -1009,7 +1009,7 @@ static FloatOptional computeAutoMinMainSize(
    // auto-min = 0 (let scroll/clip handle overflow rather than enforce a
    // content-based minimum).
    if (child->style().overflow() != Overflow::Visible) {
@@ -1976,7 +1985,7 @@ index 89fbe3cb..9f4b2837 100644
    }
  
    const Dimension mainDim = dimension(mainAxis);
-@@ -994,12 +994,12 @@ static FloatOptional computeAutoMinMainSize(
+@@ -1025,12 +1025,12 @@ static FloatOptional computeAutoMinMainSize(
    FloatOptional transferredMain;
    const FloatOptional aspectRatio = child->style().aspectRatio();
    if (aspectRatio.isDefined()) {
@@ -1992,7 +2001,7 @@ index 89fbe3cb..9f4b2837 100644
        transferredMain = FloatOptional{
            isMainAxisRow ? crossValue * ratio : crossValue / ratio};
      }
-@@ -1031,8 +1031,8 @@ static FloatOptional computeAutoMinMainSize(
+@@ -1062,8 +1062,8 @@ static FloatOptional computeAutoMinMainSize(
      floor = maxMain;
    }
  
@@ -2003,7 +2012,7 @@ index 89fbe3cb..9f4b2837 100644
    }
    return floor;
  }
-@@ -1041,14 +1041,14 @@ static FloatOptional computeAutoMinMainSize(
+@@ -1072,14 +1072,14 @@ static FloatOptional computeAutoMinMainSize(
  // `computedAutoMinMainSize`, applied on the main axis only. Used inside
  // the flex-shrink distribution to honor CSS §4.5 auto-min while preserving
  // the existing min/max/padding-and-border clamping.
@@ -2023,7 +2032,7 @@ index 89fbe3cb..9f4b2837 100644
    const FloatOptional autoMin = child->getLayout().computedAutoMinMainSize;
    if (autoMin.isDefined() && bounded < autoMin.unwrap()) {
      bounded = autoMin.unwrap();
-@@ -1060,28 +1060,28 @@ static float boundAxisWithAutoMin(
+@@ -1091,28 +1091,28 @@ static float boundAxisWithAutoMin(
  // of the flex items abide the min and max constraints. At the end of this
  // function the child nodes would have proper size. Prior using this function
  // please ensure that distributeFreeSpaceFirstPass is called.
@@ -2063,7 +2072,7 @@ index 89fbe3cb..9f4b2837 100644
    const bool isMainAxisRow = isRow(mainAxis);
    const bool isNodeFlexWrap = node->style().flexWrap() != Wrap::NoWrap;
  
-@@ -1094,7 +1094,7 @@ static float distributeFreeSpaceSecondPass(
+@@ -1125,7 +1125,7 @@ static float distributeFreeSpaceSecondPass(
                           mainAxisOwnerSize,
                           ownerWidth)
                           .unwrap();
@@ -2072,16 +2081,29 @@ index 89fbe3cb..9f4b2837 100644
  
      if (yoga::isDefined(flexLine.layout.remainingFreeSpace) &&
          flexLine.layout.remainingFreeSpace < 0) {
-@@ -1102,7 +1102,7 @@ static float distributeFreeSpaceSecondPass(
+@@ -1133,7 +1133,7 @@ static float distributeFreeSpaceSecondPass(
            -currentLineChild->resolveFlexShrink() * childFlexBasis;
        // Is this child able to shrink?
        if (flexShrinkScaledFactor != 0) {
 -        float childSize = YGUndefined;
 +        double childSize = YGUndefined;
  
+         // Use a relative epsilon guard instead of exact equality: after the
+         // first pass removes all constrained items,
+@@ -1143,10 +1143,10 @@ static float distributeFreeSpaceSecondPass(
+         // A positive total is always such a residual: with non-negative
+         // flexShrink a real total is never positive
+         // (https://github.com/react/yoga/issues/2038).
+-        const float shrinkFactorMagnitude =
++        const double shrinkFactorMagnitude =
+             std::abs(flexLine.layout.totalFlexShrinkScaledFactors);
          if (yoga::isDefined(flexLine.layout.totalFlexShrinkScaledFactors) &&
-             flexLine.layout.totalFlexShrinkScaledFactors == 0) {
-@@ -1143,13 +1143,13 @@ static float distributeFreeSpaceSecondPass(
+-            (shrinkFactorMagnitude < 1e-6f ||
++            (shrinkFactorMagnitude < 1e-6 ||
+              flexLine.layout.totalFlexShrinkScaledFactors > 0)) {
+           childSize = childFlexBasis + flexShrinkScaledFactor;
+         } else {
+@@ -1185,13 +1185,13 @@ static float distributeFreeSpaceSecondPass(
  
      deltaFreeSpace += updatedMainSize - childFlexBasis;
  
@@ -2099,7 +2121,7 @@ index 89fbe3cb..9f4b2837 100644
      SizingMode childCrossSizingMode;
      SizingMode childMainSizingMode = SizingMode::StretchFit;
  
-@@ -1223,8 +1223,8 @@ static float distributeFreeSpaceSecondPass(
+@@ -1265,8 +1265,8 @@ static float distributeFreeSpaceSecondPass(
              crossAxis, direction) &&
          !currentLineChild->style().flexEndMarginIsAuto(crossAxis, direction);
  
@@ -2110,7 +2132,7 @@ index 89fbe3cb..9f4b2837 100644
  
      const SizingMode childWidthSizingMode =
          isMainAxisRow ? childMainSizingMode : childCrossSizingMode;
-@@ -1263,18 +1263,18 @@ static void distributeFreeSpaceFirstPass(
+@@ -1306,15 +1306,15 @@ static void distributeFreeSpaceFirstPass(
      FlexLine& flexLine,
      const Direction direction,
      const FlexDirection mainAxis,
@@ -2133,13 +2155,26 @@ index 89fbe3cb..9f4b2837 100644
 +  double boundMainSize = 0;
 +  double deltaFreeSpace = 0;
  
+   // The first pass performs a single distribution of the free space over all
+   // of the line's flexible items, so every item's tentative size must be
+@@ -1330,13 +1330,13 @@ static void distributeFreeSpaceFirstPass(
+   // default.
+   const bool useRunningTotals =
+       node->hasErrata(Errata::FlexFirstPassUsesRunningTotals);
+-  const float originalTotalFlexGrowFactors =
++  const double originalTotalFlexGrowFactors =
+       flexLine.layout.totalFlexGrowFactors;
+-  const float originalTotalFlexShrinkScaledFactors =
++  const double originalTotalFlexShrinkScaledFactors =
+       flexLine.layout.totalFlexShrinkScaledFactors;
+ 
    for (auto currentLineChild : flexLine.itemsInFlow) {
 -    float childFlexBasis = boundAxisWithinMinAndMax(
 +    double childFlexBasis = boundAxisWithinMinAndMax(
                                 currentLineChild,
                                 direction,
                                 mainAxis,
-@@ -1374,19 +1374,19 @@ static void resolveFlexibleLength(
+@@ -1439,19 +1439,19 @@ static void resolveFlexibleLength(
      const FlexDirection mainAxis,
      const FlexDirection crossAxis,
      const Direction direction,
@@ -2166,7 +2201,7 @@ index 89fbe3cb..9f4b2837 100644
  
    // CSS Flexbox §4.5: compute each item's automatic minimum main-axis size
    // up front so the bounding helpers below can floor shrunk values.
-@@ -1421,7 +1421,7 @@ static void resolveFlexibleLength(
+@@ -1488,7 +1488,7 @@ static void resolveFlexibleLength(
        availableInnerWidth);
  
    // Second pass: resolve the sizes of the flexible items
@@ -2175,7 +2210,7 @@ index 89fbe3cb..9f4b2837 100644
        flexLine,
        node,
        mainAxis,
-@@ -1451,22 +1451,22 @@ static void justifyMainAxis(
+@@ -1518,22 +1518,22 @@ static void justifyMainAxis(
      const Direction direction,
      const SizingMode sizingModeMainDim,
      const SizingMode sizingModeCrossDim,
@@ -2206,7 +2241,7 @@ index 89fbe3cb..9f4b2837 100644
        node->style().computeGapForAxis(mainAxis, availableInnerMainDim);
    // If we are using "at most" rules in the main axis, make sure that
    // remainingFreeSpace is 0 when min main dimension is not given
-@@ -1484,16 +1484,16 @@ static void justifyMainAxis(
+@@ -1551,16 +1551,16 @@ static void justifyMainAxis(
  
        // `minAvailableMainDim` denotes minimum available space in which child
        // can be laid out, it will exclude space consumed by padding and border.
@@ -2226,7 +2261,7 @@ index 89fbe3cb..9f4b2837 100644
      } else {
        flexLine.layout.remainingFreeSpace = 0;
      }
-@@ -1502,8 +1502,8 @@ static void justifyMainAxis(
+@@ -1569,8 +1569,8 @@ static void justifyMainAxis(
    // In order to position the elements in the main axis, we have two controls.
    // The space between the beginning and the first element and the space between
    // each two elements.
@@ -2237,7 +2272,7 @@ index 89fbe3cb..9f4b2837 100644
    const Justify justifyContent = flexLine.layout.remainingFreeSpace >= 0
        ? node->style().justifyContent()
        : fallbackAlignment(node->style().justifyContent());
-@@ -1527,19 +1527,19 @@ static void justifyMainAxis(
+@@ -1594,19 +1594,19 @@ static void justifyMainAxis(
        case Justify::SpaceBetween:
          if (flexLine.itemsInFlow.size() > 1) {
            betweenMainDim += flexLine.layout.remainingFreeSpace /
@@ -2261,7 +2296,7 @@ index 89fbe3cb..9f4b2837 100644
          betweenMainDim += leadingMainDim * 2;
          break;
        case Justify::FlexStart:
-@@ -1550,15 +1550,15 @@ static void justifyMainAxis(
+@@ -1617,15 +1617,15 @@ static void justifyMainAxis(
    flexLine.layout.mainDim = leadingPaddingAndBorderMain + leadingMainDim;
    flexLine.layout.crossDim = 0;
  
@@ -2281,7 +2316,7 @@ index 89fbe3cb..9f4b2837 100644
      }
  
      if (performLayout) {
-@@ -1573,9 +1573,9 @@ static void justifyMainAxis(
+@@ -1640,9 +1640,9 @@ static void justifyMainAxis(
      }
  
      if (child->style().flexEndMarginIsAuto(mainAxis, direction) &&
@@ -2293,7 +2328,7 @@ index 89fbe3cb..9f4b2837 100644
      }
      bool canSkipFlex =
          !performLayout && sizingModeCrossDim == SizingMode::StretchFit;
-@@ -1603,10 +1603,10 @@ static void justifyMainAxis(
+@@ -1670,10 +1670,10 @@ static void justifyMainAxis(
        if (isNodeBaselineLayout) {
          // If the child is baseline aligned then the cross dimension is
          // calculated by adding maxAscent and maxDescent from the baseline.
@@ -2306,7 +2341,7 @@ index 89fbe3cb..9f4b2837 100644
              child->getLayout().measuredDimension(Dimension::Height) +
              child->style().computeMarginForAxis(
                  FlexDirection::Column, availableInnerWidth) -
-@@ -1692,13 +1692,13 @@ static void justifyMainAxis(
+@@ -1759,13 +1759,13 @@ static void justifyMainAxis(
  //
  static void calculateLayoutImpl(
      yoga::Node* const node,
@@ -2324,7 +2359,7 @@ index 89fbe3cb..9f4b2837 100644
      const bool performLayout,
      const LayoutPassReason reason,
      LayoutData& layoutMarkerData,
-@@ -1741,21 +1741,21 @@ static void calculateLayoutImpl(
+@@ -1808,21 +1808,21 @@ static void calculateLayoutImpl(
    const auto endEdge =
        direction == Direction::LTR ? PhysicalEdge::Right : PhysicalEdge::Left;
  
@@ -2352,7 +2387,7 @@ index 89fbe3cb..9f4b2837 100644
  
    node->setLayoutBorder(
        node->style().computeInlineStartBorder(flexRowDirection, direction),
-@@ -1859,14 +1859,14 @@ static void calculateLayoutImpl(
+@@ -1926,14 +1926,14 @@ static void calculateLayoutImpl(
    const bool isMainAxisRow = isRow(mainAxis);
    const bool isNodeFlexWrap = node->style().flexWrap() != Wrap::NoWrap;
  
@@ -2372,7 +2407,7 @@ index 89fbe3cb..9f4b2837 100644
        node->style().computeFlexStartPaddingAndBorder(
            crossAxis, direction, ownerWidth);
  
-@@ -1875,14 +1875,14 @@ static void calculateLayoutImpl(
+@@ -1942,14 +1942,14 @@ static void calculateLayoutImpl(
    SizingMode sizingModeCrossDim =
        isMainAxisRow ? heightSizingMode : widthSizingMode;
  
@@ -2390,7 +2425,7 @@ index 89fbe3cb..9f4b2837 100644
        node,
        direction,
        Dimension::Width,
-@@ -1890,7 +1890,7 @@ static void calculateLayoutImpl(
+@@ -1957,7 +1957,7 @@ static void calculateLayoutImpl(
        paddingAndBorderAxisRow,
        ownerWidth,
        ownerWidth);
@@ -2399,7 +2434,7 @@ index 89fbe3cb..9f4b2837 100644
        node,
        direction,
        Dimension::Height,
-@@ -1899,15 +1899,15 @@ static void calculateLayoutImpl(
+@@ -1966,15 +1966,15 @@ static void calculateLayoutImpl(
        ownerHeight,
        ownerWidth);
  
@@ -2418,7 +2453,7 @@ index 89fbe3cb..9f4b2837 100644
    totalMainDim += computeFlexBasisForChildren(
        node,
        availableInnerWidth,
-@@ -1926,7 +1926,7 @@ static void calculateLayoutImpl(
+@@ -1993,7 +1993,7 @@ static void calculateLayoutImpl(
    if (childCount > 1) {
      totalMainDim +=
          node->style().computeGapForAxis(mainAxis, availableInnerMainDim) *
@@ -2427,7 +2462,7 @@ index 89fbe3cb..9f4b2837 100644
    }
  
    const bool mainAxisOverflows =
-@@ -1947,13 +1947,13 @@ static void calculateLayoutImpl(
+@@ -2014,13 +2014,13 @@ static void calculateLayoutImpl(
    size_t lineCount = 0;
  
    // Accumulated cross dimensions of all lines so far.
@@ -2444,7 +2479,7 @@ index 89fbe3cb..9f4b2837 100644
    for (; startOfLineIterator != node->getLayoutChildren().end(); lineCount++) {
      auto flexLine = calculateFlexLine(
          node,
-@@ -1980,34 +1980,34 @@ static void calculateLayoutImpl(
+@@ -2047,34 +2047,34 @@ static void calculateLayoutImpl(
      // violate min and max
      if (sizingModeMainDim != SizingMode::StretchFit) {
        const auto& style = node->style();
@@ -2485,7 +2520,7 @@ index 89fbe3cb..9f4b2837 100644
            isMainAxisRow ? maxInnerWidth : maxInnerHeight;
  
        if (yoga::isDefined(minInnerMainDim) &&
-@@ -2094,7 +2094,7 @@ static void calculateLayoutImpl(
+@@ -2161,7 +2161,7 @@ static void calculateLayoutImpl(
          availableInnerWidth,
          performLayout);
  
@@ -2494,7 +2529,7 @@ index 89fbe3cb..9f4b2837 100644
      if (sizingModeCrossDim == SizingMode::MaxContent ||
          sizingModeCrossDim == SizingMode::FitContent) {
        // Compute the cross axis from the max cross dimension of the children.
-@@ -2134,7 +2134,7 @@ static void calculateLayoutImpl(
+@@ -2201,7 +2201,7 @@ static void calculateLayoutImpl(
      // We can skip child alignment if we're just measuring the container.
      if (performLayout) {
        for (auto child : flexLine.itemsInFlow) {
@@ -2503,7 +2538,7 @@ index 89fbe3cb..9f4b2837 100644
  
          // For a relative children, we're either using alignItems (owner) or
          // alignSelf (child) in order to determine the position in the cross
-@@ -2151,10 +2151,10 @@ static void calculateLayoutImpl(
+@@ -2218,10 +2218,10 @@ static void calculateLayoutImpl(
            // no need to stretch.
            if (!child->hasDefiniteLength(
                    dimension(crossAxis), availableInnerCrossDim)) {
@@ -2516,7 +2551,7 @@ index 89fbe3cb..9f4b2837 100644
                  ? child->style().computeMarginForAxis(
                        crossAxis, availableInnerWidth) +
                      (isMainAxisRow
-@@ -2184,9 +2184,9 @@ static void calculateLayoutImpl(
+@@ -2251,9 +2251,9 @@ static void calculateLayoutImpl(
                  &childCrossSizingMode,
                  &childCrossSize);
  
@@ -2528,7 +2563,7 @@ index 89fbe3cb..9f4b2837 100644
                  !isMainAxisRow ? childMainSize : childCrossSize;
  
              auto alignContent = node->style().alignContent();
-@@ -2219,17 +2219,17 @@ static void calculateLayoutImpl(
+@@ -2286,17 +2286,17 @@ static void calculateLayoutImpl(
                  generationCount);
            }
          } else {
@@ -2549,7 +2584,7 @@ index 89fbe3cb..9f4b2837 100644
            } else if (alignItem == Align::FlexStart) {
              // No-Op
            } else if (alignItem == Align::Center) {
-@@ -2246,7 +2246,7 @@ static void calculateLayoutImpl(
+@@ -2313,7 +2313,7 @@ static void calculateLayoutImpl(
        }
      }
  
@@ -2558,7 +2593,7 @@ index 89fbe3cb..9f4b2837 100644
      totalLineCrossDim += flexLine.layout.crossDim + appliedCrossGap;
      maxLineMainDim =
          yoga::maxOrDefined(maxLineMainDim, flexLine.layout.mainDim);
-@@ -2255,11 +2255,11 @@ static void calculateLayoutImpl(
+@@ -2322,11 +2322,11 @@ static void calculateLayoutImpl(
    // STEP 8: MULTI-LINE CONTENT ALIGNMENT
    // currentLead stores the size of the cross dim
    if (performLayout && (isNodeFlexWrap || isBaselineLayout(node))) {
@@ -2574,7 +2609,7 @@ index 89fbe3cb..9f4b2837 100644
          ? availableInnerCrossDim + paddingAndBorderAxisCross
          : node->hasDefiniteLength(dimension(crossAxis), crossAxisOwnerSize)
          ? node->getResolvedDimension(
-@@ -2270,7 +2270,7 @@ static void calculateLayoutImpl(
+@@ -2337,7 +2337,7 @@ static void calculateLayoutImpl(
                .unwrap()
          : totalLineCrossDim + paddingAndBorderAxisCross;
  
@@ -2583,7 +2618,7 @@ index 89fbe3cb..9f4b2837 100644
                                      node,
                                      crossAxis,
                                      direction,
-@@ -2279,7 +2279,7 @@ static void calculateLayoutImpl(
+@@ -2346,7 +2346,7 @@ static void calculateLayoutImpl(
                                      ownerWidth) -
          paddingAndBorderAxisCross;
  
@@ -2592,7 +2627,7 @@ index 89fbe3cb..9f4b2837 100644
  
      const auto alignContent = remainingAlignContentDim >= 0
          ? node->style().alignContent()
-@@ -2298,23 +2298,23 @@ static void calculateLayoutImpl(
+@@ -2365,23 +2365,23 @@ static void calculateLayoutImpl(
          break;
        case Align::Stretch:
          extraSpacePerLine =
@@ -2622,7 +2657,7 @@ index 89fbe3cb..9f4b2837 100644
          }
          break;
        case Align::Auto:
-@@ -2329,9 +2329,9 @@ static void calculateLayoutImpl(
+@@ -2396,9 +2396,9 @@ static void calculateLayoutImpl(
        auto iterator = startIterator;
  
        // compute the line's height and find the endIndex
@@ -2635,7 +2670,7 @@ index 89fbe3cb..9f4b2837 100644
        for (; iterator != node->getLayoutChildren().end(); iterator++) {
          const auto child = *iterator;
          if (child->style().display() == Display::None) {
-@@ -2349,10 +2349,10 @@ static void calculateLayoutImpl(
+@@ -2416,10 +2416,10 @@ static void calculateLayoutImpl(
                          crossAxis, availableInnerWidth));
            }
            if (resolveChildAlignment(node, child) == Align::Baseline) {
@@ -2648,7 +2683,7 @@ index 89fbe3cb..9f4b2837 100644
                  child->getLayout().measuredDimension(Dimension::Height) +
                  child->style().computeMarginForAxis(
                      FlexDirection::Column, availableInnerWidth) -
-@@ -2400,7 +2400,7 @@ static void calculateLayoutImpl(
+@@ -2467,7 +2467,7 @@ static void calculateLayoutImpl(
                break;
              }
              case Align::Center: {
@@ -2657,7 +2692,7 @@ index 89fbe3cb..9f4b2837 100644
                    child->getLayout().measuredDimension(dimension(crossAxis));
  
                child->setLayoutPosition(
-@@ -2419,13 +2419,13 @@ static void calculateLayoutImpl(
+@@ -2486,13 +2486,13 @@ static void calculateLayoutImpl(
                // measured with the owners height yet.
                if (!child->hasDefiniteLength(
                        dimension(crossAxis), availableInnerCrossDim)) {
@@ -2673,7 +2708,7 @@ index 89fbe3cb..9f4b2837 100644
                      ? (child->getLayout().measuredDimension(Dimension::Height) +
                         child->style().computeMarginForAxis(
                             crossAxis, availableInnerWidth))
-@@ -2625,8 +2625,8 @@ static void calculateLayoutImpl(
+@@ -2692,8 +2692,8 @@ static void calculateLayoutImpl(
            layoutMarkerData,
            depth,
            generationCount,
@@ -2684,8 +2719,19 @@ index 89fbe3cb..9f4b2837 100644
            availableInnerWidth,
            availableInnerHeight);
      }
-@@ -2643,18 +2643,25 @@ static void calculateLayoutImpl(
- //
+@@ -2713,8 +2713,8 @@ static void calculateLayoutImpl(
+ static bool isCachedForOwnerSize(
+     const yoga::Node* const node,
+     const CachedMeasurement& cachedMeasurement,
+-    const float ownerWidth,
+-    const float ownerHeight) {
++    const double ownerWidth,
++    const double ownerHeight) {
+   return (!node->style().resolvesAgainstOwnerWidth() ||
+           yoga::inexactEquals(cachedMeasurement.ownerWidth, ownerWidth)) &&
+       (!node->style().resolvesAgainstOwnerHeight() ||
+@@ -2723,18 +2723,25 @@ static bool isCachedForOwnerSize(
+ 
  bool calculateLayoutInternal(
      yoga::Node* const node,
 -    const float availableWidth,
@@ -2716,7 +2762,7 @@ index 89fbe3cb..9f4b2837 100644
    LayoutResults* layout = &node->getLayout();
  
    depth++;
-@@ -2686,9 +2693,9 @@ bool calculateLayoutInternal(
+@@ -2768,9 +2775,9 @@ bool calculateLayoutInternal(
    // they are the most expensive to measure, so it's worth avoiding redundant
    // measurements if at all possible.
    if (node->hasMeasureFunc()) {
@@ -2728,7 +2774,7 @@ index 89fbe3cb..9f4b2837 100644
          node->style().computeMarginForAxis(FlexDirection::Column, ownerWidth);
  
      // First, try to use the layout cache.
-@@ -2841,8 +2848,8 @@ bool calculateLayoutInternal(
+@@ -2933,8 +2940,8 @@ bool calculateLayoutInternal(
  
  void calculateLayout(
      yoga::Node* const node,
@@ -2739,7 +2785,7 @@ index 89fbe3cb..9f4b2837 100644
      const Direction ownerDirection) {
    Event::publish<Event::LayoutPassStart>(node);
    LayoutData markerData = {};
-@@ -2854,7 +2861,7 @@ void calculateLayout(
+@@ -2946,7 +2953,7 @@ void calculateLayout(
        gCurrentGenerationCount.fetch_add(1, std::memory_order_relaxed) + 1;
    node->processDimensions();
    const Direction direction = node->resolveDirection(ownerDirection);
@@ -2748,7 +2794,7 @@ index 89fbe3cb..9f4b2837 100644
    SizingMode widthSizingMode = SizingMode::MaxContent;
    const auto& style = node->style();
    if (node->hasDefiniteLength(Dimension::Width, ownerWidth)) {
-@@ -2882,7 +2889,7 @@ void calculateLayout(
+@@ -2974,7 +2981,7 @@ void calculateLayout(
                                                 : SizingMode::StretchFit;
    }
  
@@ -2757,7 +2803,7 @@ index 89fbe3cb..9f4b2837 100644
    SizingMode heightSizingMode = SizingMode::MaxContent;
    if (node->hasDefiniteLength(Dimension::Height, ownerHeight)) {
      height =
-@@ -2928,7 +2935,7 @@ void calculateLayout(
+@@ -3020,7 +3027,7 @@ void calculateLayout(
            0, // tree root
            generationCount)) {
      node->setPosition(node->getLayout().direction(), ownerWidth, ownerHeight);
@@ -2825,10 +2871,10 @@ index 0cc7c678..98945e07 100644
  void zeroOutLayoutRecursively(yoga::Node* const node);
  
 diff --git a/yoga/algorithm/FlexLine.cpp b/yoga/algorithm/FlexLine.cpp
-index dc0a300a..bbc91ab5 100644
+index ab92b8ef..fc74b4d7 100644
 --- a/yoga/algorithm/FlexLine.cpp
 +++ b/yoga/algorithm/FlexLine.cpp
-@@ -16,27 +16,27 @@ namespace facebook::yoga {
+@@ -17,27 +17,27 @@ namespace facebook::yoga {
  FlexLine calculateFlexLine(
      yoga::Node* const node,
      const Direction ownerDirection,
@@ -2865,7 +2911,7 @@ index dc0a300a..bbc91ab5 100644
        node->style().computeGapForAxis(mainAxis, availableInnerMainDim);
  
    const auto childrenEnd = node->getLayoutChildren().end();
-@@ -60,11 +60,11 @@ FlexLine calculateFlexLine(
+@@ -61,11 +61,11 @@ FlexLine calculateFlexLine(
      }
  
      child->setLineIndex(lineCount);
@@ -2881,8 +2927,17 @@ index dc0a300a..bbc91ab5 100644
          boundAxisWithinMinAndMax(
              child,
              direction,
+@@ -75,7 +75,7 @@ FlexLine calculateFlexLine(
+             ownerWidth)
+             .unwrap();
+ 
+-    const float requiredMainDim = sizeConsumedIncludingMinConstraint +
++    const double requiredMainDim = sizeConsumedIncludingMinConstraint +
+         flexBasisWithMinAndMaxConstraints + childMarginMainAxis +
+         childLeadingGapMainAxis;
+ 
 diff --git a/yoga/algorithm/FlexLine.h b/yoga/algorithm/FlexLine.h
-index 3f2ef2f1..d89eb5f6 100644
+index 89983ab9..24ce52c5 100644
 --- a/yoga/algorithm/FlexLine.h
 +++ b/yoga/algorithm/FlexLine.h
 @@ -17,24 +17,24 @@ namespace facebook::yoga {
@@ -2940,27 +2995,78 @@ index 3f2ef2f1..d89eb5f6 100644
      size_t lineCount);
  
 diff --git a/yoga/algorithm/PixelGrid.cpp b/yoga/algorithm/PixelGrid.cpp
-index 61de2be2..c048dfd3 100644
+index 73f74821..6baa782c 100644
 --- a/yoga/algorithm/PixelGrid.cpp
 +++ b/yoga/algorithm/PixelGrid.cpp
-@@ -12,7 +12,7 @@
+@@ -14,9 +14,7 @@
  
  namespace facebook::yoga {
  
--float roundValueToPixelGrid(
+-namespace {
+-
+-double roundValueToPixelGridDouble(
 +double roundValueToPixelGrid(
      const double value,
      const double pointScaleFactor,
      const bool forceCeil,
-@@ -59,7 +59,7 @@ float roundValueToPixelGrid(
+@@ -70,18 +68,7 @@ double roundValueToPixelGridDouble(
    }
    return (std::isnan(scaledValue) || std::isnan(pointScaleFactor))
        ? YGUndefined
--      : (float)(scaledValue / pointScaleFactor);
+-      : scaledValue / pointScaleFactor;
+-}
+-
+-} // namespace
+-
+-float roundValueToPixelGrid(
+-    const double value,
+-    const double pointScaleFactor,
+-    const bool forceCeil,
+-    const bool forceFloor) {
+-  return static_cast<float>(roundValueToPixelGridDouble(
+-      value, pointScaleFactor, forceCeil, forceFloor));
 +      : (double)(scaledValue / pointScaleFactor);
  }
  
  void roundLayoutResultsToPixelGrid(
+@@ -131,14 +118,14 @@ void roundLayoutResultsToPixelGrid(
+     node->getLayout().setDimension(
+         Dimension::Width,
+         textRounding && !hasFractionalWidth
+-            ? static_cast<float>(round(scaledNodeWidth) / pointScaleFactor)
+-            : static_cast<float>(
+-                  roundValueToPixelGridDouble(
++            ? static_cast<double>(round(scaledNodeWidth) / pointScaleFactor)
++            : static_cast<double>(
++                  roundValueToPixelGrid(
+                       absoluteNodeRight,
+                       pointScaleFactor,
+                       textRounding,
+                       false) -
+-                  roundValueToPixelGridDouble(
++                  roundValueToPixelGrid(
+                       absoluteNodeLeft,
+                       pointScaleFactor,
+                       false,
+@@ -147,14 +134,14 @@ void roundLayoutResultsToPixelGrid(
+     node->getLayout().setDimension(
+         Dimension::Height,
+         textRounding && !hasFractionalHeight
+-            ? static_cast<float>(round(scaledNodeHeight) / pointScaleFactor)
+-            : static_cast<float>(
+-                  roundValueToPixelGridDouble(
++            ? static_cast<double>(round(scaledNodeHeight) / pointScaleFactor)
++            : static_cast<double>(
++                  roundValueToPixelGrid(
+                       absoluteNodeBottom,
+                       pointScaleFactor,
+                       textRounding,
+                       false) -
+-                  roundValueToPixelGridDouble(
++                  roundValueToPixelGrid(
+                       absoluteNodeTop, pointScaleFactor, false, textRounding)));
+   }
+ 
 diff --git a/yoga/algorithm/PixelGrid.h b/yoga/algorithm/PixelGrid.h
 index f3bf79f9..4a1bb65f 100644
 --- a/yoga/algorithm/PixelGrid.h
@@ -2990,7 +3096,7 @@ index 84d00edb..02d4e3b7 100644
      const yoga::Node* const containingNode,
      const yoga::Node* const node) {
 diff --git a/yoga/config/Config.cpp b/yoga/config/Config.cpp
-index 0f5fb019..63cbac43 100644
+index c589a9c4..760d466a 100644
 --- a/yoga/config/Config.cpp
 +++ b/yoga/config/Config.cpp
 @@ -74,14 +74,14 @@ bool Config::hasErrata(Errata errata) const {
@@ -3011,7 +3117,7 @@ index 0f5fb019..63cbac43 100644
  }
  
 diff --git a/yoga/config/Config.h b/yoga/config/Config.h
-index 2f829fbd..fb75b1c4 100644
+index 95f63e87..fbfe8826 100644
 --- a/yoga/config/Config.h
 +++ b/yoga/config/Config.h
 @@ -47,8 +47,8 @@ class YG_EXPORT Config : public ::YGConfig {
@@ -3025,10 +3131,10 @@ index 2f829fbd..fb75b1c4 100644
  
    void setContext(void* context);
    void* getContext() const;
-@@ -77,7 +77,7 @@ class YG_EXPORT Config : public ::YGConfig {
-   uint32_t version_ = 0;
+@@ -89,7 +89,7 @@ class YG_EXPORT Config : public ::YGConfig {
    ExperimentalFeatureSet experimentalFeatures_{};
-   Errata errata_ = Errata::MinSizeUndefinedInsteadOfAuto;
+   Errata errata_ = Errata::MinSizeUndefinedInsteadOfAuto |
+       Errata::FlexFirstPassUsesRunningTotals;
 -  float pointScaleFactor_ = 1.0f;
 +  double pointScaleFactor_ = 1.0;
    void* context_ = nullptr;
@@ -3056,10 +3162,10 @@ index 0d032240..792aca51 100644
  };
  
 diff --git a/yoga/node/CachedMeasurement.h b/yoga/node/CachedMeasurement.h
-index 9c76280a..50717186 100644
+index 4cee330f..1ed25a54 100644
 --- a/yoga/node/CachedMeasurement.h
 +++ b/yoga/node/CachedMeasurement.h
-@@ -17,13 +17,13 @@
+@@ -17,16 +17,16 @@
  namespace facebook::yoga {
  
  struct CachedMeasurement {
@@ -3075,13 +3181,29 @@ index 9c76280a..50717186 100644
 +  double computedWidth{-1};
 +  double computedHeight{-1};
  
+-  float ownerWidth{-1};
+-  float ownerHeight{-1};
++  double ownerWidth{-1};
++  double ownerHeight{-1};
+ 
    bool operator==(CachedMeasurement measurement) const {
      bool isEqual = widthSizingMode == measurement.widthSizingMode &&
 diff --git a/yoga/node/LayoutResults.h b/yoga/node/LayoutResults.h
-index 24d353f5..07869440 100644
+index 5a0111eb..2ccd33b3 100644
 --- a/yoga/node/LayoutResults.h
 +++ b/yoga/node/LayoutResults.h
-@@ -62,59 +62,59 @@ struct LayoutResults {
+@@ -41,8 +41,8 @@ struct LayoutResults {
+   // A container stores its full min-content, which depends on
+   // `minContentOwnerWidth` through percentage padding and margins.
+   std::array<uint32_t, 2> minContentGeneration = {};
+-  std::array<float, 2> minContentOwnerWidth = {{YGUndefined, YGUndefined}};
+-  std::array<float, 2> minContent = {{YGUndefined, YGUndefined}};
++  std::array<double, 2> minContentOwnerWidth = {{YGUndefined, YGUndefined}};
++  std::array<double, 2> minContent = {{YGUndefined, YGUndefined}};
+ 
+   // Instead of recomputing the entire layout every single time, we cache some
+   // information to break early when nothing changed
+@@ -71,59 +71,59 @@ struct LayoutResults {
      hadOverflow_ = hadOverflow;
    }
  
@@ -3155,7 +3277,7 @@ index 24d353f5..07869440 100644
      padding_[yoga::to_underlying(physicalEdge)] = dimension;
    }
  
-@@ -124,13 +124,13 @@ struct LayoutResults {
+@@ -133,13 +133,13 @@ struct LayoutResults {
    Direction direction_ : bitCount<Direction>() = Direction::Inherit;
    bool hadOverflow_ : 1 = false;
  
@@ -3177,7 +3299,7 @@ index 24d353f5..07869440 100644
  
  } // namespace facebook::yoga
 diff --git a/yoga/node/Node.cpp b/yoga/node/Node.cpp
-index 692d33d9..014a44b0 100644
+index 161c1900..70c7047e 100644
 --- a/yoga/node/Node.cpp
 +++ b/yoga/node/Node.cpp
 @@ -55,9 +55,9 @@ Node::Node(Node&& node) noexcept
@@ -3316,7 +3438,7 @@ index 692d33d9..014a44b0 100644
 -    const float ownerHeight) {
 +    const double ownerWidth,
 +    const double ownerHeight) {
-   /* Root nodes should be always layouted as LTR, so we don't return negative
+   /* Root nodes should always be laid out as LTR, so we don't return negative
     * values. */
    const Direction directionRespectingRoot =
 @@ -326,11 +326,11 @@ void Node::setPosition(
@@ -3612,10 +3734,10 @@ index 2a2bafb5..e1a7de96 100644
          .minSizingFunction = StyleSizeLength::percent(percentage),
          .maxSizingFunction = StyleSizeLength::percent(percentage)};
 diff --git a/yoga/style/Style.h b/yoga/style/Style.h
-index a06bd246..52a19654 100644
+index 9ce453b7..c11b6ff9 100644
 --- a/yoga/style/Style.h
 +++ b/yoga/style/Style.h
-@@ -42,9 +42,9 @@ class YG_EXPORT Style {
+@@ -44,9 +44,9 @@ class YG_EXPORT Style {
    using Length = StyleLength;
    using SizeLength = StyleSizeLength;
  
@@ -3628,7 +3750,7 @@ index a06bd246..52a19654 100644
  
    Direction direction() const {
      return direction_;
-@@ -292,8 +292,8 @@ class YG_EXPORT Style {
+@@ -294,8 +294,8 @@ class YG_EXPORT Style {
    FloatOptional resolvedMinDimension(
        Direction direction,
        Dimension axis,
@@ -3639,7 +3761,7 @@ index a06bd246..52a19654 100644
      const auto handle = minDimensions_[yoga::to_underlying(axis)];
      if (handle.isUndefined()) {
        return FloatOptional{};
-@@ -321,8 +321,8 @@ class YG_EXPORT Style {
+@@ -323,8 +323,8 @@ class YG_EXPORT Style {
    FloatOptional resolvedMaxDimension(
        Direction direction,
        Dimension axis,
@@ -3650,7 +3772,7 @@ index a06bd246..52a19654 100644
      const auto handle = maxDimensions_[yoga::to_underlying(axis)];
      if (handle.isUndefined()) {
        return FloatOptional{};
-@@ -348,7 +348,7 @@ class YG_EXPORT Style {
+@@ -366,7 +366,7 @@ class YG_EXPORT Style {
      // see https://drafts.csswg.org/css-sizing-4/#valdef-aspect-ratio-ratio
      pool_.store(
          aspectRatio_,
@@ -3659,7 +3781,7 @@ index a06bd246..52a19654 100644
    }
  
    BoxSizing boxSizing() const {
-@@ -413,186 +413,186 @@ class YG_EXPORT Style {
+@@ -431,186 +431,186 @@ class YG_EXPORT Style {
      return computePosition(inlineEndEdge(axis, direction), direction).isAuto();
    }
  
@@ -3904,7 +4026,7 @@ index a06bd246..52a19654 100644
      FlexDirection flexDirectionForDimension = dimension == Dimension::Width
          ? FlexDirection::Row
          : FlexDirection::Column;
-@@ -603,27 +603,27 @@ class YG_EXPORT Style {
+@@ -621,27 +621,27 @@ class YG_EXPORT Style {
                 flexDirectionForDimension, direction, widthSize);
    }
  
@@ -3938,7 +4060,7 @@ index a06bd246..52a19654 100644
    }
  
    bool flexStartMarginIsAuto(FlexDirection axis, Direction direction) const {
-@@ -886,13 +886,13 @@ class YG_EXPORT Style {
+@@ -907,13 +907,13 @@ class YG_EXPORT Style {
     * StyleLength/StyleSizeLength object on the stack during hot-path overhead
     * calculations.
     */

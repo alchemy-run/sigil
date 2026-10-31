@@ -18,29 +18,31 @@ export function roundValueToPixelGrid(
     return value === 0 ? 0 : value;
   }
   let scaledValue = value * pointScaleFactor;
-  // We want to calculate `fractial` such that `floor(scaledValue) = scaledValue
-  // - fractial`. For negative values, adding 1 to fmod's result gives us this.
-  let fractial = scaledValue % 1.0;
-  if (fractial < 0) {
-    ++fractial;
+  // We want to calculate `fractional` such that `floor(scaledValue) =
+  // scaledValue - fractional`. JS `%` is fmod, which upstream computes as the
+  // bit-identical `copysign(x - trunc(x), x)`. For negative values, adding 1
+  // to fmod's result gives us this.
+  let fractional = scaledValue % 1.0;
+  if (fractional < 0) {
+    ++fractional;
   }
   // The epsilon comparisons below are the inexactEquals checks from the C++
-  // inlined for the known ranges (fractial is in [0, 1) or NaN; NaN falls
+  // inlined for the known ranges (fractional is in [0, 1) or NaN; NaN falls
   // through every comparison to the final +0 branch).
-  if (fractial < 0.0001) {
+  if (fractional < 0.0001) {
     // First we check if the value is already rounded
-    scaledValue = scaledValue - fractial;
-  } else if (fractial - 1.0 > -0.0001) {
-    scaledValue = scaledValue - fractial + 1.0;
+    scaledValue = scaledValue - fractional;
+  } else if (fractional - 1.0 > -0.0001) {
+    scaledValue = scaledValue - fractional + 1.0;
   } else if (forceCeil) {
     // Next we check if we need to use forced rounding
-    scaledValue = scaledValue - fractial + 1.0;
+    scaledValue = scaledValue - fractional + 1.0;
   } else if (forceFloor) {
-    scaledValue = scaledValue - fractial;
+    scaledValue = scaledValue - fractional;
   } else {
     // Finally we just round the value (half-up, with the 0.5 comparison
     // itself subject to the epsilon).
-    scaledValue = scaledValue - fractial + (fractial - 0.5 > -0.0001 ? 1.0 : 0.0);
+    scaledValue = scaledValue - fractional + (fractional - 0.5 > -0.0001 ? 1.0 : 0.0);
   }
   return Number.isNaN(scaledValue) || Number.isNaN(pointScaleFactor)
     ? NaN
@@ -112,22 +114,18 @@ export function roundLayoutResultsToPixelGrid(
 
     node.layout.setDimension(
       Dimension.Width,
-      roundValueToPixelGrid(
-        absoluteNodeRight,
-        pointScaleFactor,
-        textRounding && hasFractionalWidth,
-        textRounding && !hasFractionalWidth,
-      ) - roundValueToPixelGrid(absoluteNodeLeft, pointScaleFactor, false, textRounding),
+      textRounding && !hasFractionalWidth
+        ? Math.round(scaledNodeWidth) / pointScaleFactor
+        : roundValueToPixelGrid(absoluteNodeRight, pointScaleFactor, textRounding, false) -
+            roundValueToPixelGrid(absoluteNodeLeft, pointScaleFactor, false, textRounding),
     );
 
     node.layout.setDimension(
       Dimension.Height,
-      roundValueToPixelGrid(
-        absoluteNodeBottom,
-        pointScaleFactor,
-        textRounding && hasFractionalHeight,
-        textRounding && !hasFractionalHeight,
-      ) - roundValueToPixelGrid(absoluteNodeTop, pointScaleFactor, false, textRounding),
+      textRounding && !hasFractionalHeight
+        ? Math.round(scaledNodeHeight) / pointScaleFactor
+        : roundValueToPixelGrid(absoluteNodeBottom, pointScaleFactor, textRounding, false) -
+            roundValueToPixelGrid(absoluteNodeTop, pointScaleFactor, false, textRounding),
     );
   }
 
@@ -138,6 +136,9 @@ export function roundLayoutResultsToPixelGrid(
 // avoid the function-call overhead for clean subtrees.
 function roundChildren(node: Node, absoluteNodeLeft: number, absoluteNodeTop: number): void {
   for (const child of node.children) {
+    if (child.owner !== node) {
+      continue;
+    }
     const childLayout = child.layout;
     if (
       childLayout.roundingDirty ||

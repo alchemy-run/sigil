@@ -35,6 +35,15 @@ defineBackendTest("copy_style_modified_same", ({ Yoga }) => {
   expect(() => target.copyStyle(source)).not.toThrow();
 });
 
+defineBackendTest("copy_style_box_sizing", ({ Yoga }) => {
+  const node0 = Yoga.Node.create();
+  const node1 = Yoga.Node.create();
+  node1.setBoxSizing(Yoga.BOX_SIZING_CONTENT_BOX);
+
+  node0.copyStyle(node1);
+  expect(node0.getBoxSizing()).toBe(Yoga.BOX_SIZING_CONTENT_BOX);
+});
+
 defineBackendTest("initialise_flexShrink_flexGrow", ({ Yoga }) => {
   const node = Yoga.Node.create();
   node.setFlexShrink(1);

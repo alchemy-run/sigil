@@ -19,7 +19,7 @@ defineBackendTest("dont_cache_computed_flex_basis_between_layouts", ({ Yoga }) =
   expect(child.getComputedHeight()).toBe(100);
 });
 
-defineBackendTest("recalculate_resolvedDimonsion_onchange", ({ Yoga }) => {
+defineBackendTest("recalculate_resolvedDimension_onchange", ({ Yoga }) => {
   const root = Yoga.Node.create();
   const child = Yoga.Node.create();
   child.setMinHeight(10);
@@ -228,4 +228,68 @@ defineBackendTest("has_new_layout_flag_set_static", ({ Yoga }) => {
   expect(root_child0.hasNewLayout()).toBe(true);
   expect(root_child0_child0.hasNewLayout()).toBe(true);
   expect(root_child0_child0_child0.hasNewLayout()).toBe(true);
+});
+
+defineBackendTest("percent_padding_follows_owner_size_on_relayout", ({ Yoga }) => {
+  const config = Yoga.Config.create();
+
+  const root = Yoga.Node.create(config);
+  root.setWidth(100);
+
+  const root_child0 = Yoga.Node.create(config);
+  root_child0.setWidth(50);
+  root_child0.setPaddingPercent(Yoga.EDGE_LEFT, 50);
+  root.insertChild(root_child0, 0);
+
+  root.calculateLayout(undefined, undefined, Yoga.DIRECTION_LTR);
+  expect(root_child0.getComputedPadding(Yoga.EDGE_LEFT)).toBe(50);
+
+  root.setWidth(60);
+  root.calculateLayout(undefined, undefined, Yoga.DIRECTION_LTR);
+  expect(root_child0.getComputedPadding(Yoga.EDGE_LEFT)).toBe(30);
+});
+
+defineBackendTest("percent_min_width_follows_owner_size_on_relayout", ({ Yoga }) => {
+  const config = Yoga.Config.create();
+
+  const root = Yoga.Node.create(config);
+  root.setWidth(100);
+
+  const root_child0 = Yoga.Node.create(config);
+  root_child0.setWidth(50);
+  root_child0.setMinWidthPercent(100);
+  root.insertChild(root_child0, 0);
+
+  const root_child0_child0 = Yoga.Node.create(config);
+  root_child0_child0.setHeight(10);
+  root_child0.insertChild(root_child0_child0, 0);
+
+  root.calculateLayout(undefined, undefined, Yoga.DIRECTION_LTR);
+  expect(root_child0.getComputedWidth()).toBe(100);
+  expect(root_child0_child0.getComputedWidth()).toBe(100);
+
+  root.setWidth(200);
+  root.calculateLayout(undefined, undefined, Yoga.DIRECTION_LTR);
+  expect(root_child0.getComputedWidth()).toBe(200);
+  expect(root_child0_child0.getComputedWidth()).toBe(200);
+});
+
+defineBackendTest("percent_min_height_follows_owner_size_on_relayout", ({ Yoga }) => {
+  const config = Yoga.Config.create();
+
+  const root = Yoga.Node.create(config);
+  root.setFlexDirection(Yoga.FLEX_DIRECTION_ROW);
+  root.setHeight(100);
+
+  const root_child0 = Yoga.Node.create(config);
+  root_child0.setHeight(50);
+  root_child0.setMinHeightPercent(100);
+  root.insertChild(root_child0, 0);
+
+  root.calculateLayout(undefined, undefined, Yoga.DIRECTION_LTR);
+  expect(root_child0.getComputedHeight()).toBe(100);
+
+  root.setHeight(200);
+  root.calculateLayout(undefined, undefined, Yoga.DIRECTION_LTR);
+  expect(root_child0.getComputedHeight()).toBe(200);
 });

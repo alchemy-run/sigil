@@ -37,6 +37,10 @@ function undefinedLengths(count: number): StyleLength[] {
   return Array.from<StyleLength>({ length: count }).fill(StyleLength.undefined());
 }
 
+function anyIsPercent(lengths: StyleLength[] | null): boolean {
+  return lengths !== null && lengths.some((length) => length.isPercent());
+}
+
 // Physical-edge resolution results for one edge collection: the resolved
 // StyleLength per [direction * 4 + physicalEdge], plus parallel primitive
 // unit/value views for allocation-free numeric resolution.
@@ -330,6 +334,27 @@ export class Style {
   }
   setBoxSizing(value: BoxSizing): void {
     this.boxSizing_ = value;
+  }
+
+  // Percentage margins and paddings resolve against the owner's width on both
+  // axes, and a percentage size or size bound against the owner's size on its
+  // own axis.
+  resolvesAgainstOwnerWidth(): boolean {
+    return (
+      anyIsPercent(this.margin_) ||
+      anyIsPercent(this.padding_) ||
+      this.dimensions_[Dimension.Width]!.isPercent() ||
+      this.dimensions_[2 + Dimension.Width]!.isPercent() ||
+      this.dimensions_[4 + Dimension.Width]!.isPercent()
+    );
+  }
+
+  resolvesAgainstOwnerHeight(): boolean {
+    return (
+      this.dimensions_[Dimension.Height]!.isPercent() ||
+      this.dimensions_[2 + Dimension.Height]!.isPercent() ||
+      this.dimensions_[4 + Dimension.Height]!.isPercent()
+    );
   }
 
   horizontalInsetsDefined(): boolean {

@@ -227,3 +227,27 @@ defineBackendTest("dirty_parent_when_subtree_freed_recursive", ({ Yoga }) => {
 
   expect(root.isDirty()).toBe(true);
 });
+
+defineBackendTest("dirty_propagation_through_child_set_to_display_contents", ({ Yoga }) => {
+  const root = Yoga.Node.create();
+  root.setWidth(100);
+  root.setHeight(100);
+
+  const child = Yoga.Node.create();
+  root.insertChild(child, 0);
+
+  const grandchild = Yoga.Node.create();
+  grandchild.setWidth(10);
+  grandchild.setHeight(10);
+  child.insertChild(grandchild, 0);
+
+  child.setDisplay(Yoga.DISPLAY_CONTENTS);
+  root.calculateLayout(undefined, undefined, Yoga.DIRECTION_LTR);
+  expect(child.isDirty()).toBe(false);
+
+  grandchild.setWidth(20);
+  expect(root.isDirty()).toBe(true);
+
+  root.calculateLayout(undefined, undefined, Yoga.DIRECTION_LTR);
+  expect(grandchild.getComputedWidth()).toBe(20);
+});

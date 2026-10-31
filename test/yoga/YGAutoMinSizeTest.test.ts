@@ -43,7 +43,7 @@ function makeWebConfig(Yoga: Yoga, useAutoMinSize: boolean): Config {
   // automatic minimum sizing.
   if (useAutoMinSize) {
     const errata = config.getErrata();
-    config.setErrata(errata & ~Yoga.ERRATA_MIN_SIZE_UNDEFINED_INSTEAD_OF_AUTO);
+    config.setErrata(errata & (Yoga.ERRATA_ALL ^ Yoga.ERRATA_MIN_SIZE_UNDEFINED_INSTEAD_OF_AUTO));
   }
   return config;
 }
@@ -336,13 +336,63 @@ defineBackendTest("overflow_hidden_disables_auto_min", ({ Yoga }) => {
   expect(text.getComputedWidth()).toBe(10);
 });
 
+// A container's min-content depends on the owner width it is probed with,
+// through percentage padding, and each ancestor probes with its own inner
+// width. The memo must not hand one ancestor's result to another.
+//
+// Upstream also installs a min-content measure func on the leaf; the JS API has
+// no equivalent, so the leaf's min-content comes from the regular measure
+// func, which reports the same kWordWidth floor.
+defineBackendTest("container_min_content_memo_respects_owner_width", ({ Yoga }) => {
+  const config = makeWebConfig(Yoga, /*useAutoMinSize=*/ true);
+  const root = Yoga.Node.create(config);
+  root.setFlexDirection(Yoga.FLEX_DIRECTION_ROW);
+  root.setWidth(200);
+  root.setHeight(50);
+
+  const outer = Yoga.Node.create(config);
+  outer.setFlexDirection(Yoga.FLEX_DIRECTION_ROW);
+  outer.setFlexBasis(300);
+  root.insertChild(outer, 0);
+
+  const rootSpacer = Yoga.Node.create(config);
+  rootSpacer.setWidth(150);
+  rootSpacer.setFlexShrink(0);
+  root.insertChild(rootSpacer, 1);
+
+  const inner = Yoga.Node.create(config);
+  inner.setFlexDirection(Yoga.FLEX_DIRECTION_COLUMN);
+  inner.setPaddingPercent(Yoga.EDGE_LEFT, 10);
+  inner.setPaddingPercent(Yoga.EDGE_RIGHT, 10);
+  outer.insertChild(inner, 0);
+
+  const leaf = Yoga.Node.create(config);
+  leaf.setMeasureFunc(measureWordWrappingText);
+  inner.insertChild(leaf, 0);
+
+  const outerSpacer = Yoga.Node.create(config);
+  outerSpacer.setWidth(20);
+  outerSpacer.setFlexShrink(0);
+  outer.insertChild(outerSpacer, 1);
+
+  root.calculateLayout(undefined, undefined, Yoga.DIRECTION_LTR);
+
+  // Root probes inner against 200: 30 + 2 * 20 = 70, flooring outer at 70.
+  expect(outer.getComputedWidth()).toBe(70);
+  // Outer probes inner against 70: 30 + 2 * 7 = 44, so inner takes the 50
+  // left beside the spacer. Reusing the root's 70 would give 70.
+  expect(inner.getComputedWidth()).toBe(50);
+});
+
 // Errata smoke test: default config carries the legacy bit; clearing it
 // enables auto-min, setting it back disables.
 defineBackendTest("errata_bit_round_trips", ({ Yoga }) => {
   const config = Yoga.Config.create();
   expect(config.getErrata() & Yoga.ERRATA_MIN_SIZE_UNDEFINED_INSTEAD_OF_AUTO).not.toBe(0);
 
-  config.setErrata(config.getErrata() & ~Yoga.ERRATA_MIN_SIZE_UNDEFINED_INSTEAD_OF_AUTO);
+  config.setErrata(
+    config.getErrata() & (Yoga.ERRATA_ALL ^ Yoga.ERRATA_MIN_SIZE_UNDEFINED_INSTEAD_OF_AUTO),
+  );
   expect(config.getErrata() & Yoga.ERRATA_MIN_SIZE_UNDEFINED_INSTEAD_OF_AUTO).toBe(0);
 
   config.setErrata(config.getErrata() | Yoga.ERRATA_MIN_SIZE_UNDEFINED_INSTEAD_OF_AUTO);

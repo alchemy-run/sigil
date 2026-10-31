@@ -888,6 +888,11 @@ function computeFlexBasisForChildren(
 // Returns the min-content size of `node` along `requestedAxis`, used by CSS
 // Flexbox §4.5 automatic minimum sizing. See CalculateLayout.cpp for the full
 // description of the algorithm.
+//
+// Results are memoized per node and axis for the current layout generation
+// (see `LayoutResults.minContent`): each leaf's measure callback runs at most
+// once per axis per layout, and each container is walked once per distinct
+// `ownerWidth`.
 function computeMinContentMainSize(
   node: Node,
   requestedAxis: FlexDirection,
@@ -895,28 +900,43 @@ function computeMinContentMainSize(
   ownerWidth: number,
   // oxlint-disable-next-line oxc/only-used-in-recursion -- kept for call-site parity with upstream Yoga
   ownerHeight: number,
+  generationCount: number,
 ): number {
   const wantRow = isRow(requestedAxis);
 
+  const layout = node.layout;
+  const axisIndex = dimension(requestedAxis);
+
   if (node.hasMeasureFunc()) {
-    // Fall back to the regular measure function with `AtMost 0`, which text
-    // measurers naturally answer with longest-word width.
-    const size = node.measure(
-      wantRow ? 0 : NaN,
-      wantRow ? MeasureMode.AtMost : MeasureMode.Undefined,
-      wantRow ? NaN : 0,
-      wantRow ? MeasureMode.Undefined : MeasureMode.AtMost,
-    );
+    if (layout.minContentGeneration[axisIndex] !== generationCount) {
+      // Fall back to the regular measure function with `AtMost 0`, which text
+      // measurers naturally answer with longest-word width.
+      const size = node.measure(
+        wantRow ? 0 : NaN,
+        wantRow ? MeasureMode.AtMost : MeasureMode.Undefined,
+        wantRow ? NaN : 0,
+        wantRow ? MeasureMode.Undefined : MeasureMode.AtMost,
+      );
+      layout.minContent[axisIndex] = wantRow ? size.width : size.height;
+      layout.minContentGeneration[axisIndex] = generationCount;
+    }
     // Add the leaf's own padding and border, like the container branch below.
     const leafDirection = node.resolveDirection(ownerDirection);
     const paddingAndBorder =
       node.style.computeFlexStartPaddingAndBorder(requestedAxis, leafDirection, ownerWidth) +
       node.style.computeFlexEndPaddingAndBorder(requestedAxis, leafDirection, ownerWidth);
-    return (wantRow ? size.width : size.height) + paddingAndBorder;
+    return layout.minContent[axisIndex] + paddingAndBorder;
   }
 
   if (node.getChildCount() === 0) {
     return 0;
+  }
+
+  if (
+    layout.minContentGeneration[axisIndex] === generationCount &&
+    inexactEquals(layout.minContentOwnerWidth[axisIndex], ownerWidth)
+  ) {
+    return layout.minContent[axisIndex];
   }
 
   const direction = node.resolveDirection(ownerDirection);
@@ -941,6 +961,7 @@ function computeMinContentMainSize(
       direction,
       ownerWidth,
       ownerHeight,
+      generationCount,
     );
     childMain += child.style.computeMarginForAxis(nodeMainAxis, ownerWidth);
 
@@ -950,6 +971,7 @@ function computeMinContentMainSize(
       direction,
       ownerWidth,
       ownerHeight,
+      generationCount,
     );
     childCross += child.style.computeMarginForAxis(nodeCrossAxis, ownerWidth);
 
@@ -967,7 +989,11 @@ function computeMinContentMainSize(
   const nodeMainIsRow = isRow(nodeMainAxis);
   const widthMin = nodeMainIsRow ? mainTotal : crossMax;
   const heightMin = nodeMainIsRow ? crossMax : mainTotal;
-  return wantRow ? widthMin : heightMin;
+  const minContent = wantRow ? widthMin : heightMin;
+  layout.minContent[axisIndex] = minContent;
+  layout.minContentOwnerWidth[axisIndex] = ownerWidth;
+  layout.minContentGeneration[axisIndex] = generationCount;
+  return minContent;
 }
 
 // Computes the CSS Flexbox §4.5 automatic minimum main-axis size for `child`.
@@ -981,6 +1007,7 @@ function computeAutoMinMainSize(
   ownerMainAxisSize: number,
   ownerWidth: number,
   ownerHeight: number,
+  generationCount: number,
 ): number {
   if (child.hasErrata(Errata.MinSizeUndefinedInsteadOfAuto)) {
     return NaN;
@@ -1030,6 +1057,7 @@ function computeAutoMinMainSize(
     direction,
     ownerWidth,
     ownerHeight,
+    generationCount,
   );
 
   // Combine per §4.5: floor = min(content, specified) when specified is
@@ -1128,9 +1156,18 @@ function distributeFreeSpaceSecondPass(
       if (flexShrinkScaledFactor !== 0) {
         let childSize = NaN;
 
+        // Use a relative epsilon guard instead of exact equality: after the
+        // first pass removes all constrained items,
+        // totalFlexShrinkScaledFactors may be near-zero rather than exactly 0
+        // due to floating-point cancellation. Dividing by a near-zero value
+        // produces a gigantic childSize that overwhelms the min/max clamp.
+        // A positive total is always such a residual: with non-negative
+        // flexShrink a real total is never positive
+        // (https://github.com/react/yoga/issues/2038).
+        const shrinkFactorMagnitude = Math.abs(flexLine.layout.totalFlexShrinkScaledFactors);
         if (
           isDefined(flexLine.layout.totalFlexShrinkScaledFactors) &&
-          flexLine.layout.totalFlexShrinkScaledFactors === 0
+          (shrinkFactorMagnitude < 1e-6 || flexLine.layout.totalFlexShrinkScaledFactors > 0)
         ) {
           childSize = childFlexBasis + flexShrinkScaledFactor;
         } else {
@@ -1293,9 +1330,10 @@ function distributeFreeSpaceSecondPass(
 }
 
 // It distributes the free space to the flexible items. For those flexible
-// items whose min and max constraints are triggered, those flex item's clamped
+// items whose min and max constraints are triggered, that flex item's clamped
 // size is removed from the remaining free space.
 function distributeFreeSpaceFirstPass(
+  node: Node,
   flexLine: FlexLine,
   direction: Direction,
   mainAxis: FlexDirection,
@@ -1309,6 +1347,22 @@ function distributeFreeSpaceFirstPass(
   let baseMainSize = 0;
   let boundMainSize = 0;
   let deltaFreeSpace = 0;
+
+  // The first pass performs a single distribution of the free space over all
+  // of the line's flexible items, so every item's tentative size must be
+  // computed against the *original* totals. The totals are still reduced as
+  // items get frozen below (so the second pass can redistribute), but those
+  // reduced values must not feed back into the fair-share calculation for the
+  // remaining items: doing so inflates their tentative size and can freeze
+  // items that should still be able to grow/shrink (see
+  // https://github.com/react/yoga/issues/2006).
+  //
+  // Dividing by the running totals is the pre-fix behavior, preserved for
+  // existing layouts behind an errata bit that is set on new configs by
+  // default.
+  const useRunningTotals = node.hasErrata(Errata.FlexFirstPassUsesRunningTotals);
+  const originalTotalFlexGrowFactors = flexLine.layout.totalFlexGrowFactors;
+  const originalTotalFlexShrinkScaledFactors = flexLine.layout.totalFlexShrinkScaledFactors;
 
   for (const currentLineChild of flexLine.itemsInFlow) {
     const childFlexBasis = boundAxisWithinMinAndMax(
@@ -1327,7 +1381,10 @@ function distributeFreeSpaceFirstPass(
       if (isDefined(flexShrinkScaledFactor) && flexShrinkScaledFactor !== 0) {
         baseMainSize =
           childFlexBasis +
-          (flexLine.layout.remainingFreeSpace / flexLine.layout.totalFlexShrinkScaledFactors) *
+          (flexLine.layout.remainingFreeSpace /
+            (useRunningTotals
+              ? flexLine.layout.totalFlexShrinkScaledFactors
+              : originalTotalFlexShrinkScaledFactors)) *
             flexShrinkScaledFactor;
         boundMainSize = boundAxisWithAutoMin(
           currentLineChild,
@@ -1357,7 +1414,10 @@ function distributeFreeSpaceFirstPass(
       if (isDefined(flexGrowFactor) && flexGrowFactor !== 0) {
         baseMainSize =
           childFlexBasis +
-          (flexLine.layout.remainingFreeSpace / flexLine.layout.totalFlexGrowFactors) *
+          (flexLine.layout.remainingFreeSpace /
+            (useRunningTotals
+              ? flexLine.layout.totalFlexGrowFactors
+              : originalTotalFlexGrowFactors)) *
             flexGrowFactor;
         boundMainSize = boundAxis(
           currentLineChild,
@@ -1435,6 +1495,7 @@ function resolveFlexibleLength(
         mainAxisOwnerSize,
         availableInnerWidth,
         availableInnerHeight,
+        generationCount,
       );
     }
   } else {
@@ -1445,6 +1506,7 @@ function resolveFlexibleLength(
 
   // First pass: detect the flex items whose min/max constraints trigger
   distributeFreeSpaceFirstPass(
+    node,
     flexLine,
     direction,
     mainAxis,
@@ -2646,6 +2708,22 @@ function calculateLayoutImpl(
 //  Input parameters are the same as calculateLayoutImpl (see above)
 //  Return parameter is true if layout was performed, false if skipped
 //
+// A cached result holds only for the owner size it was computed against when
+// the node's style resolves a percentage against that size.
+function isCachedForOwnerSize(
+  node: Node,
+  cachedMeasurement: CachedMeasurement,
+  ownerWidth: number,
+  ownerHeight: number,
+): boolean {
+  return (
+    (!node.style.resolvesAgainstOwnerWidth() ||
+      inexactEquals(cachedMeasurement.ownerWidth, ownerWidth)) &&
+    (!node.style.resolvesAgainstOwnerHeight() ||
+      inexactEquals(cachedMeasurement.ownerHeight, ownerHeight))
+  );
+}
+
 export function calculateLayoutInternal(
   node: Node,
   availableWidth: number,
@@ -2691,6 +2769,8 @@ export function calculateLayoutInternal(
     layout.cachedLayout.heightSizingMode = SizingMode.MaxContent;
     layout.cachedLayout.computedWidth = -1;
     layout.cachedLayout.computedHeight = -1;
+    layout.cachedLayout.ownerWidth = -1;
+    layout.cachedLayout.ownerHeight = -1;
   }
 
   let cachedResults: CachedMeasurement | null = null;
@@ -2723,7 +2803,8 @@ export function calculateLayoutInternal(
         marginAxisRow,
         marginAxisColumn,
         node.config,
-      )
+      ) &&
+      isCachedForOwnerSize(node, layout.cachedLayout, ownerWidth, ownerHeight)
     ) {
       cachedResults = layout.cachedLayout;
     } else {
@@ -2744,7 +2825,8 @@ export function calculateLayoutInternal(
             marginAxisRow,
             marginAxisColumn,
             node.config,
-          )
+          ) &&
+          isCachedForOwnerSize(node, layout.cachedMeasurements[i]!, ownerWidth, ownerHeight)
         ) {
           cachedResults = layout.cachedMeasurements[i]!;
           break;
@@ -2756,7 +2838,8 @@ export function calculateLayoutInternal(
       inexactEquals(layout.cachedLayout.availableWidth, availableWidth) &&
       inexactEquals(layout.cachedLayout.availableHeight, availableHeight) &&
       layout.cachedLayout.widthSizingMode === widthSizingMode &&
-      layout.cachedLayout.heightSizingMode === heightSizingMode
+      layout.cachedLayout.heightSizingMode === heightSizingMode &&
+      isCachedForOwnerSize(node, layout.cachedLayout, ownerWidth, ownerHeight)
     ) {
       cachedResults = layout.cachedLayout;
     }
@@ -2766,7 +2849,8 @@ export function calculateLayoutInternal(
         inexactEquals(layout.cachedMeasurements[i]!.availableWidth, availableWidth) &&
         inexactEquals(layout.cachedMeasurements[i]!.availableHeight, availableHeight) &&
         layout.cachedMeasurements[i]!.widthSizingMode === widthSizingMode &&
-        layout.cachedMeasurements[i]!.heightSizingMode === heightSizingMode
+        layout.cachedMeasurements[i]!.heightSizingMode === heightSizingMode &&
+        isCachedForOwnerSize(node, layout.cachedMeasurements[i]!, ownerWidth, ownerHeight)
       ) {
         cachedResults = layout.cachedMeasurements[i]!;
         break;
@@ -2830,6 +2914,8 @@ export function calculateLayoutInternal(
       newCacheEntry.heightSizingMode = heightSizingMode;
       newCacheEntry.computedWidth = layout.measuredDimension(Dimension.Width);
       newCacheEntry.computedHeight = layout.measuredDimension(Dimension.Height);
+      newCacheEntry.ownerWidth = ownerWidth;
+      newCacheEntry.ownerHeight = ownerHeight;
     }
   }
 

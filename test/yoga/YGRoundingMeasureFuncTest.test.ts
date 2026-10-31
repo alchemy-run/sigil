@@ -45,7 +45,7 @@ defineBackendTest("rounding_feature_with_custom_measure_func_ceil", ({ Yoga }) =
 });
 
 defineBackendTest(
-  "rounding_feature_with_custom_measure_and_fractial_matching_scale",
+  "rounding_feature_with_custom_measure_and_fractional_matching_scale",
   ({ Yoga }) => {
     const config = Yoga.Config.create();
     config.setPointScaleFactor(2);
@@ -63,3 +63,38 @@ defineBackendTest(
     });
   },
 );
+
+// Regression test for https://github.com/react/yoga/issues/749
+defineBackendTest("rounding_feature_with_custom_measure_keeps_whole_pixel_size", ({ Yoga }) => {
+  const config = Yoga.Config.create();
+  config.setPointScaleFactor(3);
+
+  const root = Yoga.Node.create(config);
+  root.setAlignItems(Yoga.ALIGN_FLEX_START);
+  root.setPadding(Yoga.EDGE_LEFT, 163.666641);
+
+  const root_child0 = Yoga.Node.create(config);
+  root_child0.setMeasureFunc(() => ({ width: 54.666656, height: 20 }));
+  root.insertChild(root_child0, 0);
+
+  root.calculateLayout(undefined, undefined, Yoga.DIRECTION_LTR);
+
+  expect(root_child0.getComputedWidth()).toBeCloseTo(164 / 3, 5);
+});
+
+defineBackendTest("rounding_feature_with_custom_measure_keeps_whole_pixel_height", ({ Yoga }) => {
+  const config = Yoga.Config.create();
+  config.setPointScaleFactor(3);
+
+  const root = Yoga.Node.create(config);
+  root.setAlignItems(Yoga.ALIGN_FLEX_START);
+  root.setPadding(Yoga.EDGE_TOP, 163.666641);
+
+  const root_child0 = Yoga.Node.create(config);
+  root_child0.setMeasureFunc(() => ({ width: 20, height: 54.666656 }));
+  root.insertChild(root_child0, 0);
+
+  root.calculateLayout(undefined, undefined, Yoga.DIRECTION_LTR);
+
+  expect(root_child0.getComputedHeight()).toBeCloseTo(164 / 3, 5);
+});
