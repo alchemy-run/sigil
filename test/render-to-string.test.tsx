@@ -1,14 +1,44 @@
+import vm from "node:vm";
+
 import React, { useEffect, useLayoutEffect, useState } from "react";
 import { expect, test } from "vite-plus/test";
 
 import { chalk } from "#/ansi/chalk.ts";
-import { Box, Text, Static, Transform, Newline, Spacer, renderToString } from "#/index.ts";
+import {
+  Box,
+  Text,
+  Static,
+  Transform,
+  Newline,
+  Spacer,
+  renderToString,
+  useWindowSize,
+} from "#/index.ts";
 
 // ── Basic rendering ─────────────────────────────────────
 
 test("render simple text", () => {
   const output = renderToString(<Text>Hello World</Text>);
   expect(output).toBe("Hello World");
+});
+
+test("skip Static content inside a hidden ancestor", () => {
+  const output = renderToString(
+    <>
+      <Box display="none">
+        <Static items={["Hidden"]}>
+          {(item) => (
+            <Box key={item} borderStyle="single">
+              <Text>{item}</Text>
+            </Box>
+          )}
+        </Static>
+      </Box>
+      <Text>Visible</Text>
+    </>,
+  );
+
+  expect(output).toBe("Visible");
 });
 
 test("render text with variable", () => {
@@ -200,6 +230,29 @@ test("custom columns option", () => {
 
 // ── Components ──────────────────────────────────────────
 
+function WindowSize(): React.JSX.Element {
+  const { columns, rows } = useWindowSize();
+
+  return (
+    <Box flexDirection="column">
+      <Text>{`${columns}x${rows}`}</Text>
+      <Text>{"-".repeat(columns)}</Text>
+    </Box>
+  );
+}
+
+test("useWindowSize reports the columns option", () => {
+  const output = renderToString(<WindowSize />, { columns: 20 });
+
+  expect(output).toBe(`20x24\n${"-".repeat(20)}`);
+});
+
+test("useWindowSize reports 80 columns by default", () => {
+  const output = renderToString(<WindowSize />);
+
+  expect(output).toBe(`80x24\n${"-".repeat(80)}`);
+});
+
 test("render Transform component", () => {
   const output = renderToString(
     <Transform transform={(text) => text.toUpperCase()}>
@@ -221,6 +274,16 @@ test("render Static component with items", () => {
   );
 
   expect(output).toBe("A\nB\nC\nDynamic");
+});
+
+test("Static preserves its margins and all items", () => {
+  const output = renderToString(
+    <Static items={["A", "B"]} style={{ marginTop: 1, marginBottom: 1, marginLeft: 2 }}>
+      {(item) => <Text key={item}>{item}</Text>}
+    </Static>,
+  );
+
+  expect(output).toBe("\n  A\n  B\n");
 });
 
 test("render static-only output has no trailing newline", () => {
@@ -298,12 +361,76 @@ test("runs effect cleanup on teardown", () => {
 
 // ── Error handling ──────────────────────────────────────
 
+test("runs effect cleanup when a transform throws", () => {
+  const error = new Error("Transform failed");
+  let setupCount = 0;
+  let cleanupCount = 0;
+  function Test() {
+    useLayoutEffect(() => {
+      setupCount++;
+      return () => {
+        cleanupCount++;
+      };
+    }, []);
+
+    return (
+      <Transform
+        transform={() => {
+          throw error;
+        }}
+      >
+        <Text>Hello</Text>
+      </Transform>
+    );
+  }
+
+  let caughtError: unknown;
+  try {
+    renderToString(<Test />);
+  } catch (error_) {
+    caughtError = error_;
+  }
+
+  expect(caughtError).toBe(error);
+  expect(setupCount).toBe(1);
+  expect(cleanupCount).toBe(1);
+  expect(renderToString(<Text>Still works</Text>)).toBe("Still works");
+});
+
 test("component that throws propagates the error", () => {
   function Broken(): React.JSX.Element {
     throw new Error("Component error");
   }
 
   expect(() => renderToString(<Broken />)).toThrow("Component error");
+});
+
+test("preserves component errors from another realm", () => {
+  const error = vm.runInNewContext('new TypeError("Invalid configuration")') as Error;
+
+  function Broken(): React.JSX.Element {
+    throw error;
+  }
+
+  let caughtError: unknown;
+  try {
+    renderToString(<Broken />);
+  } catch (error_) {
+    caughtError = error_;
+  }
+
+  expect(caughtError).toBe(error);
+  expect(renderToString(<Text>Still works</Text>)).toBe("Still works");
+});
+
+test("component that throws undefined does not silently return empty output", () => {
+  function Broken(): React.JSX.Element {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error
+    throw undefined;
+  }
+
+  expect(() => renderToString(<Broken />)).toThrow("undefined");
+  expect(renderToString(<Text>Still works</Text>)).toBe("Still works");
 });
 
 test("text outside Text component throws", () => {

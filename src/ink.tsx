@@ -12,6 +12,7 @@ import { wrapAnsi } from "#/ansi/wrap.ts";
 import { accessibilityContext as AccessibilityContext } from "#/components/AccessibilityContext.ts";
 import { App } from "#/components/App.tsx";
 import { type TerminalSuspension } from "#/components/AppContext.ts";
+import { RootNodeContext } from "#/components/RootNodeContext.ts";
 import { TerminalOscContext } from "#/components/TerminalOscContext.ts";
 import type { CursorPosition } from "#/cursor-position.ts";
 import * as dom from "#/dom.ts";
@@ -24,7 +25,7 @@ import {
   detectKittySupport,
 } from "#/kitty-keyboard.ts";
 import { patchConsole, patchStreamWrite } from "#/patch-console.ts";
-import { reconciler } from "#/reconciler.ts";
+import { connectToDevTools, reconciler } from "#/reconciler.ts";
 import { renderFrame } from "#/render-frame.ts";
 import { Screen } from "#/screen/screen.ts";
 import { signalExit } from "#/signal-exit.ts";
@@ -251,7 +252,7 @@ export type Options = {
 
 	Note: Reusing the same stdout across multiple `render()` calls without unmounting is unsupported. Call `unmount()` first if you need to change this option or create a fresh instance.
 
-	@default true (false if in CI or `stdout.isTTY` is falsy)
+	Default: `true` (`false` if in CI or `stdout.isTTY` is falsy)
 
 	@see {@link RenderOptions.interactive}
 	*/
@@ -443,6 +444,8 @@ export const createInk = (options: Options): Ink => {
 
   // @ts-expect-error outdated types
   if (isSigilDev) reconciler.injectIntoDevTools();
+  // The open DevTools socket keeps the process alive, so it's released on unmount.
+  const disconnectFromDevTools = isSigilDev ? (connectToDevTools?.() ?? noop) : noop;
 
   if (options.patchConsole) installConsolePatch();
 
@@ -652,15 +655,20 @@ export const createInk = (options: Options): Ink => {
         : rendered.accessibleText === ""
           ? 0
           : rendered.accessibleText.split("\n").length;
-    const staticBody =
-      rendered.staticAccessibleText ??
-      (rendered.staticScreen ? terminal.encode(rendered.staticScreen) : "");
-    const staticOutput = staticBody ? `${staticBody}\n` : "";
+    // Every static row counts, a single blank one included, so empty encoded text still gets its newline.
+    const staticOutput =
+      rendered.staticAccessibleText === undefined
+        ? rendered.staticScreen && rendered.staticScreen.height > 0
+          ? `${terminal.encode(rendered.staticScreen)}\n`
+          : ""
+        : rendered.staticAccessibleText
+          ? `${rendered.staticAccessibleText}\n`
+          : "";
 
     options.onRender?.({ renderTime: performance.now() - startTime });
 
     // If <Static> output isn't empty, it means new children have been added to it
-    const hasStaticOutput = staticOutput && staticOutput !== "\n";
+    const hasStaticOutput = staticOutput !== "";
 
     if (options.debug) {
       if (hasStaticOutput) {
@@ -695,6 +703,8 @@ export const createInk = (options: Options): Ink => {
         // We need to erase the main output before writing new static output
         const erase = lastOutputHeight > 0 ? ansiEscapes.eraseLines(lastOutputHeight) : "";
         options.stdout.write(erase + staticOutput);
+        // Kept so resume can replay it into a fresh alternate screen buffer.
+        fullStaticOutput += staticOutput;
         // After erasing, the last output is gone, so we should reset its height
         lastOutputHeight = 0;
       }
@@ -766,7 +776,7 @@ export const createInk = (options: Options): Ink => {
             onSuspendTerminal={suspendTerminal}
             onRegisterInputControl={registerInputControl}
           >
-            {node}
+            <RootNodeContext.Provider value={rootNode}>{node}</RootNodeContext.Provider>
           </App>
         </TerminalOscContext.Provider>
       </AccessibilityContext.Provider>
@@ -948,6 +958,7 @@ export const createInk = (options: Options): Ink => {
       kittyProtocolEnabled = false;
 
       instances.delete(captureTargets?.stdout ?? options.stdout);
+      disconnectFromDevTools();
 
       // Ensure all queued writes have been processed before resolving the
       // exit promise. Queue an empty write as a barrier — its callback fires
@@ -1416,7 +1427,11 @@ export const createInk = (options: Options): Ink => {
 
     if (canWriteToStdout) {
       if (terminal.alternateScreen) {
-        writeBestEffort(options.stdout, ansiEscapes.enterAlternativeScreen);
+        // Re-entering the alternate screen gives an empty buffer with no scrollback behind it, and the forced redraw below only carries new <Static> items. Replay the accumulated static output ahead of it. The debug redraw writes fullStaticOutput itself, so skip the replay there.
+        writeBestEffort(
+          options.stdout,
+          ansiEscapes.enterAlternativeScreen + (options.debug ? "" : fullStaticOutput),
+        );
       }
 
       if (kittyProtocolEnabled && kittyFlags) {

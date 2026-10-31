@@ -63,6 +63,8 @@ export type DOMElement = {
   };
 
   // Internal properties
+  // Set while Suspense hides the node, independent of its own `display` style.
+  isHidden?: boolean;
   isStaticDirty?: boolean;
   staticNode?: DOMElement;
   // Tracks the previous commit's `staticNode` so the reconciler can detect identity changes (mount, unmount, key-driven remount) and reset `fullStaticOutput`.
@@ -266,6 +268,19 @@ const markNodeAsDirty = (node?: DOMNode): void => {
   // Mark closest Yoga node as dirty to measure text dimensions again
   const yogaNode = findClosestYogaNode(node);
   yogaNode?.markDirty();
+};
+
+export const setNodeHidden = (node: DOMElement, isHidden: boolean): void => {
+  node.isHidden = isHidden;
+  // Unhiding restores the node's own `display`, not an unconditional flex.
+  node.yogaNode?.setDisplay(
+    isHidden || node.style.display === "none" ? Yoga.DISPLAY_NONE : Yoga.DISPLAY_FLEX,
+  );
+
+  // Virtual text has no Yoga node; its parent text must be remeasured instead.
+  if (node.nodeName === "ink-virtual-text") {
+    markNodeAsDirty(node);
+  }
 };
 
 export const setTextNodeValue = (node: TextNode, text: string): void => {

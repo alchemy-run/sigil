@@ -1,7 +1,8 @@
 import { setImmediate } from "node:timers/promises";
+import vm from "node:vm";
 
 import { useEffect } from "react";
-import { expect, test } from "vite-plus/test";
+import { expect, onTestFinished, test } from "vite-plus/test";
 
 import { stripAnsi } from "#/ansi/strip.ts";
 import { render, useStdin, Text } from "#/index.ts";
@@ -37,17 +38,17 @@ test("catch and display error", () => {
     "
       ERROR  Oh no
 
-     test/errors.test.tsx:26:11
+     test/errors.test.tsx:27:11
 
-     23:   const stdout = createStdout();
-     24:
-     25:   const Test = () => {
-     26:     throw new Error("Oh no");
-     27:   };
-     28:
-     29:   render(<Test />, { stdout });
+     24:   const stdout = createStdout();
+     25:
+     26:   const Test = () => {
+     27:     throw new Error("Oh no");
+     28:   };
+     29:
+     30:   render(<Test />, { stdout });
 
-     - Test (test/errors.test.tsx:26:11)"
+     - Test (test/errors.test.tsx:27:11)"
   `);
 });
 
@@ -148,4 +149,71 @@ test("clean up raw mode when error is thrown", async () => {
   expect(setRawModeCalls.includes(false), "Raw mode should have been disabled on cleanup").toBe(
     true,
   );
+});
+
+test("display thrown strings and reject waitUntilExit with the original message", async () => {
+  const stdout = createStdout();
+
+  function Test(): React.JSX.Element {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error
+    throw "Unable to load configuration";
+  }
+
+  const app = render(<Test />, { stdout });
+  onTestFinished(() => {
+    app.unmount();
+  });
+  await expect(app.waitUntilExit()).rejects.toThrow("Unable to load configuration");
+
+  const output = stripAnsi(stdout.getWrites().join(""));
+  expect(output).toContain("ERROR");
+  expect(output).toContain("Unable to load configuration");
+});
+
+test("display thrown undefined and reject waitUntilExit", async () => {
+  const stdout = createStdout();
+
+  function Test(): React.JSX.Element {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error
+    throw undefined;
+  }
+
+  const app = render(<Test />, { stdout });
+  onTestFinished(() => {
+    app.unmount();
+  });
+  await expect(app.waitUntilExit()).rejects.toThrow("undefined");
+
+  const output = stripAnsi(stdout.getWrites().join(""));
+  expect(output).toContain("ERROR  undefined");
+});
+
+test("waitUntilExit preserves the original component error", async () => {
+  const stdout = createStdout();
+  const error = new Error("Original component error");
+
+  function Test(): React.JSX.Element {
+    throw error;
+  }
+
+  const app = render(<Test />, { stdout });
+  onTestFinished(() => {
+    app.unmount();
+  });
+  await expect(app.waitUntilExit()).rejects.toBe(error);
+});
+
+test("waitUntilExit preserves a component error from another realm", async () => {
+  const stdout = createStdout();
+  const error = vm.runInNewContext('new Error("Cross-realm component error")') as Error;
+
+  function Test(): React.JSX.Element {
+    throw error;
+  }
+
+  const app = render(<Test />, { stdout });
+  onTestFinished(() => {
+    app.unmount();
+  });
+  await expect(app.waitUntilExit()).rejects.toBe(error);
 });

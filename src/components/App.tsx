@@ -66,6 +66,20 @@ type Focusable = {
   readonly isActive: boolean;
 };
 
+// Components sharing a custom ID are indistinguishable to focus, so navigation treats each ID as one slot at its first registration.
+const uniqueFocusables = (focusables: Focusable[]): Focusable[] => {
+  const seenIds = new Set<string>();
+
+  return focusables.filter((focusable) => {
+    if (seenIds.has(focusable.id)) {
+      return false;
+    }
+
+    seenIds.add(focusable.id);
+    return true;
+  });
+};
+
 // Root component for all Ink apps
 // It renders stdin and stdout contexts, so that children can access them if needed
 // It also handles Ctrl+C exiting and cursor visibility
@@ -86,13 +100,10 @@ export function App({
   renderThrottleMs,
   terminalInput,
 }: Props): React.ReactNode {
-  const [isFocusEnabled, setIsFocusEnabled] = useState(true);
+  const isFocusEnabledRef = useRef(true);
   const [activeFocusId, setActiveFocusId] = useState<string | undefined>(undefined);
-  // Focusables array is managed internally via setFocusables callback pattern
-  // eslint-disable-next-line react/hook-use-state
-  const [, setFocusables] = useState<Focusable[]>([]);
-  // Track focusables count for tab navigation check (avoids stale closure)
-  const focusablesCountRef = useRef(0);
+  // The registry is not rendered. Keep it current without nesting state updates, so focus changes are queued in call order.
+  const focusablesRef = useRef<Focusable[]>([]);
   const animationSubscribersRef = useRef(
     new Map<(currentTime: number) => void, AnimationSubscriber>(),
   );
@@ -101,6 +112,8 @@ export function App({
   // raw mode until all components don't need it anymore
   const rawModeEnabledCount = useRef(0);
   const pendingDisableRawModeRef = useRef(false);
+  // Set while suspendTerminal() has handed input to a child process. Input hooks that change while it is set only update the ref counts; resumeInput restores the modes that still have an owner.
+  const isInputPausedRef = useRef(false);
   // Count how many components enabled bracketed paste mode
   const bracketedPasteModeEnabledCount = useRef(0);
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -264,11 +277,11 @@ export function App({
       }
 
       // Reset focus when there's an active focused component on Esc
-      if (input === escape && isFocusEnabled) {
+      if (input === escape && isFocusEnabledRef.current) {
         setActiveFocusId(undefined);
       }
     },
-    [exitOnCtrlC, handleExit, isFocusEnabled],
+    [exitOnCtrlC, handleExit],
   );
 
   const emitInput = useCallback(
@@ -352,12 +365,14 @@ export function App({
           const isRawModeAlreadyEnabled = pendingDisableRawModeRef.current;
           pendingDisableRawModeRef.current = false;
 
-          if (!isRawModeAlreadyEnabled) {
-            rawModeStdin.ref?.();
-            rawModeStdin.setRawMode(true);
-          }
+          if (!isInputPausedRef.current) {
+            if (!isRawModeAlreadyEnabled) {
+              rawModeStdin.ref?.();
+              rawModeStdin.setRawMode(true);
+            }
 
-          attachReadableListener();
+            attachReadableListener();
+          }
         }
 
         rawModeEnabledCount.current++;
@@ -369,6 +384,11 @@ export function App({
       }
 
       if (--rawModeEnabledCount.current === 0) {
+        // Nothing to release while suspended: pauseInput already did.
+        if (isInputPausedRef.current) {
+          return;
+        }
+
         // Stop owning input immediately so pending parser state cannot leak into
         // a replacement `useInput` component mounted in the same React update.
         clearInputState();
@@ -480,7 +500,7 @@ export function App({
       }
 
       if (isEnabled) {
-        if (bracketedPasteModeEnabledCount.current === 0) {
+        if (bracketedPasteModeEnabledCount.current === 0 && !isInputPausedRef.current) {
           stdout.write(ansiEscapes.enableBracketedPaste);
         }
 
@@ -492,58 +512,53 @@ export function App({
         return;
       }
 
-      if (--bracketedPasteModeEnabledCount.current === 0) {
+      if (--bracketedPasteModeEnabledCount.current === 0 && !isInputPausedRef.current) {
         stdout.write(ansiEscapes.disableBracketedPaste);
       }
     },
     [stdout],
   );
 
-  // Remembers which input modes were active so resumeInput can reinstate exactly
-  // those after a terminal suspension, without touching the ref counts (the React
-  // components still "own" raw mode/bracketed paste across the suspension).
-  const suspendedInputStateRef = useRef({
-    rawMode: false,
-    bracketedPaste: false,
-  });
-
+  // Pausing and resuming leave the ref counts untouched: the React components
+  // still "own" raw mode/bracketed paste across the suspension.
   const pauseInput = useCallback((): void => {
-    const wasRawMode = isRawModeSupported && rawModeEnabledCount.current > 0;
-    const wasBracketedPaste = bracketedPasteModeEnabledCount.current > 0;
-    suspendedInputStateRef.current = {
-      rawMode: wasRawMode,
-      bracketedPaste: wasBracketedPaste,
-    };
+    isInputPausedRef.current = true;
 
-    if (wasBracketedPaste && stdout.isTTY) {
+    if (bracketedPasteModeEnabledCount.current > 0 && stdout.isTTY) {
       try {
         stdout.write(ansiEscapes.disableBracketedPaste);
       } catch {}
     }
 
-    if (wasRawMode) {
+    // A queued raw-mode disable (last input hook released this commit) has not run yet, so raw mode is still on. Disable it now, before the child owns the terminal, and cancel the microtask.
+    if (
+      isRawModeSupported &&
+      (rawModeEnabledCount.current > 0 || pendingDisableRawModeRef.current)
+    ) {
+      pendingDisableRawModeRef.current = false;
       rawModeStdin?.setRawMode(false);
       rawModeStdin?.unref?.();
       clearInputState();
     }
   }, [isRawModeSupported, rawModeStdin, stdout, clearInputState]);
 
+  // Hooks may have changed while suspended, so restore only the modes that still have an owner.
   const resumeInput = useCallback((): void => {
-    const { rawMode, bracketedPaste } = suspendedInputStateRef.current;
+    isInputPausedRef.current = false;
 
-    if (rawMode) {
+    if (isRawModeSupported && rawModeEnabledCount.current > 0) {
       rawModeStdin?.setEncoding("utf8");
       rawModeStdin?.ref?.();
       rawModeStdin?.setRawMode(true);
       attachReadableListener();
     }
 
-    if (bracketedPaste && stdout.isTTY) {
+    if (bracketedPasteModeEnabledCount.current > 0 && stdout.isTTY) {
       try {
         stdout.write(ansiEscapes.enableBracketedPaste);
       } catch {}
     }
-  }, [rawModeStdin, stdout, attachReadableListener]);
+  }, [isRawModeSupported, rawModeStdin, stdout, attachReadableListener]);
 
   // Register input pause/resume in an insertion effect: it runs before every
   // passive effect (parent and child), so a child that calls suspendTerminal()
@@ -599,33 +614,29 @@ export function App({
   );
 
   const focusNext = useCallback((): void => {
-    setFocusables((currentFocusables) => {
-      setActiveFocusId((currentActiveFocusId) => {
-        const firstFocusableId = currentFocusables.find((focusable) => focusable.isActive)?.id;
-        const nextFocusableId = findNextFocusable(currentFocusables, currentActiveFocusId);
+    const currentFocusables = uniqueFocusables(focusablesRef.current);
+    setActiveFocusId((currentActiveFocusId) => {
+      const firstFocusableId = currentFocusables.find((focusable) => focusable.isActive)?.id;
+      const nextFocusableId = findNextFocusable(currentFocusables, currentActiveFocusId);
 
-        return nextFocusableId ?? firstFocusableId;
-      });
-      return currentFocusables;
+      return nextFocusableId ?? firstFocusableId;
     });
   }, [findNextFocusable]);
 
   const focusPrevious = useCallback((): void => {
-    setFocusables((currentFocusables) => {
-      setActiveFocusId((currentActiveFocusId) => {
-        const lastFocusableId = currentFocusables.findLast((focusable) => focusable.isActive)?.id;
-        const previousFocusableId = findPreviousFocusable(currentFocusables, currentActiveFocusId);
+    const currentFocusables = uniqueFocusables(focusablesRef.current);
+    setActiveFocusId((currentActiveFocusId) => {
+      const lastFocusableId = currentFocusables.findLast((focusable) => focusable.isActive)?.id;
+      const previousFocusableId = findPreviousFocusable(currentFocusables, currentActiveFocusId);
 
-        return previousFocusableId ?? lastFocusableId;
-      });
-      return currentFocusables;
+      return previousFocusableId ?? lastFocusableId;
     });
   }, [findPreviousFocusable]);
 
   // Handle tab navigation via effect that subscribes to input events
   useEffect(() => {
     const handleTabNavigation = (input: string): void => {
-      if (!isFocusEnabled || focusablesCountRef.current === 0) return;
+      if (!isFocusEnabledRef.current || focusablesRef.current.length === 0) return;
 
       if (input === tab) {
         focusNext();
@@ -642,106 +653,56 @@ export function App({
     return () => {
       emitter.off("input", handleTabNavigation);
     };
-  }, [isFocusEnabled, focusNext, focusPrevious]);
+  }, [focusNext, focusPrevious]);
 
   const enableFocus = useCallback((): void => {
-    setIsFocusEnabled(true);
+    isFocusEnabledRef.current = true;
   }, []);
 
   const disableFocus = useCallback((): void => {
-    setIsFocusEnabled(false);
+    isFocusEnabledRef.current = false;
+    setActiveFocusId(undefined);
   }, []);
 
   const focus = useCallback((id: string): void => {
-    setFocusables((currentFocusables) => {
-      const hasFocusableId = currentFocusables.some((focusable) => focusable?.id === id);
+    const hasFocusableId = focusablesRef.current.some(
+      (focusable) => focusable.id === id && focusable.isActive,
+    );
 
-      if (hasFocusableId) {
-        setActiveFocusId(id);
-      }
-
-      return currentFocusables;
-    });
+    if (hasFocusableId) {
+      setActiveFocusId(id);
+    }
   }, []);
 
   const addFocusable = useCallback((id: string, { autoFocus }: { autoFocus: boolean }): void => {
-    setFocusables((currentFocusables) => {
-      focusablesCountRef.current = currentFocusables.length + 1;
+    focusablesRef.current = [...focusablesRef.current, { id, isActive: true }];
 
-      return [
-        ...currentFocusables,
-        {
-          id,
-          isActive: true,
-        },
-      ];
-    });
-
-    if (autoFocus) {
-      setActiveFocusId((currentActiveFocusId) => {
-        if (!currentActiveFocusId) {
-          return id;
-        }
-
-        return currentActiveFocusId;
-      });
+    if (autoFocus && isFocusEnabledRef.current) {
+      setActiveFocusId((currentActiveFocusId) => currentActiveFocusId ?? id);
     }
   }, []);
 
   const removeFocusable = useCallback((id: string): void => {
-    setActiveFocusId((currentActiveFocusId) => {
-      if (currentActiveFocusId === id) {
-        return;
-      }
+    setActiveFocusId((currentActiveFocusId) =>
+      currentActiveFocusId === id ? undefined : currentActiveFocusId,
+    );
 
-      return currentActiveFocusId;
-    });
-
-    setFocusables((currentFocusables) => {
-      const filtered = currentFocusables.filter((focusable) => {
-        return focusable.id !== id;
-      });
-      focusablesCountRef.current = filtered.length;
-
-      return filtered;
-    });
+    focusablesRef.current = focusablesRef.current.filter((focusable) => focusable.id !== id);
   }, []);
 
   const activateFocusable = useCallback((id: string): void => {
-    setFocusables((currentFocusables) =>
-      currentFocusables.map((focusable) => {
-        if (focusable.id !== id) {
-          return focusable;
-        }
-
-        return {
-          id,
-          isActive: true,
-        };
-      }),
+    focusablesRef.current = focusablesRef.current.map((focusable) =>
+      focusable.id === id ? { id, isActive: true } : focusable,
     );
   }, []);
 
   const deactivateFocusable = useCallback((id: string): void => {
-    setActiveFocusId((currentActiveFocusId) => {
-      if (currentActiveFocusId === id) {
-        return;
-      }
+    setActiveFocusId((currentActiveFocusId) =>
+      currentActiveFocusId === id ? undefined : currentActiveFocusId,
+    );
 
-      return currentActiveFocusId;
-    });
-
-    setFocusables((currentFocusables) =>
-      currentFocusables.map((focusable) => {
-        if (focusable.id !== id) {
-          return focusable;
-        }
-
-        return {
-          id,
-          isActive: false,
-        };
-      }),
+    focusablesRef.current = focusablesRef.current.map((focusable) =>
+      focusable.id === id ? { id, isActive: false } : focusable,
     );
   }, []);
 

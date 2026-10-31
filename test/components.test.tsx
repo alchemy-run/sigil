@@ -453,6 +453,37 @@ test("static output", () => {
   expect(output).toBe("A\nB\nC\n\n\nX");
 });
 
+test("static padding is not emitted again when there are no new items", () => {
+  const stdout = createStdout();
+  const initialItems = ["A"];
+  function Test({
+    status,
+    items = initialItems,
+  }: {
+    readonly status: string;
+    readonly items?: string[];
+  }) {
+    return (
+      <>
+        <Static items={items} style={{ padding: 1 }}>
+          {(item) => <Text key={item}>{item}</Text>}
+        </Static>
+        <Text>{status}</Text>
+      </>
+    );
+  }
+
+  const app = render(<Test status="Waiting" />, { stdout, debug: true });
+  onTestFinished(() => {
+    app.unmount();
+  });
+  expect(stdout.get()).toBe("\n A\n\nWaiting");
+  app.rerender(<Test status="Ready" />);
+  expect(stdout.get()).toBe("\n A\n\nReady");
+  app.rerender(<Test status="Done" items={["A", "B"]} />);
+  expect(stdout.get()).toBe("\n A\n\n\n B\n\nDone");
+});
+
 test("skip previous output when rendering new static output", () => {
   const stdout = createStdout();
 

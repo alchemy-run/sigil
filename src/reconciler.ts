@@ -12,6 +12,7 @@ import {
   emitLayoutListeners,
   setStyle,
   setTextNodeValue,
+  setNodeHidden,
   createNode,
   setAttribute,
   type DOMNodeAttribute,
@@ -23,7 +24,6 @@ import { isSigilDev } from "#/env.ts";
 import type { SemanticTextStyle } from "#/semantic-text-style.ts";
 import { styles as applyStyles, type Styles } from "#/styles.ts";
 import { type AnsiTransformer } from "#/transform-adapter.ts";
-import { Yoga } from "#/yoga/index.ts";
 
 import pkg from "../package.json" with { type: "json" };
 
@@ -31,11 +31,17 @@ import pkg from "../package.json" with { type: "json" };
 // accidentally breaking other third-party code.
 // See https://github.com/vadimdemedes/ink/issues/384
 // See https://github.com/vadimdemedes/ink/issues/648
+let connectToDevToolsIfLoaded: (() => () => void) | undefined;
 if (isSigilDev) {
   // Intentionally no warning when the package is missing.
   // SIGIL_DEV may be set for other reasons; devtools is opt-in via installing the package.
-  await import("#/devtools.ts").catch(() => {});
+  ({ connectToDevTools: connectToDevToolsIfLoaded } = await import("#/devtools.ts").catch(() => ({
+    connectToDevTools: undefined,
+  })));
 }
+
+// Set when SIGIL_DEV is on and `react-devtools-core` is installed.
+export const connectToDevTools = connectToDevToolsIfLoaded;
 
 type AnyObject = Record<string, unknown>;
 
@@ -124,6 +130,25 @@ const clearStaticNodeIfContained = (
   }
 };
 
+const findStaticNode = (node: DOMElement): DOMElement | undefined => {
+  if (node.internal_static) {
+    return node;
+  }
+
+  for (const child of node.childNodes) {
+    if (child.nodeName === "#text") {
+      continue;
+    }
+
+    const staticNode = findStaticNode(child);
+    if (staticNode) {
+      return staticNode;
+    }
+  }
+
+  return undefined;
+};
+
 type Props = Record<string, unknown>;
 
 type HostContext = {
@@ -178,8 +203,22 @@ const viewTransitionHostConfig = {
   cancelViewTransitionName() {},
   cancelRootViewTransitionName() {},
   restoreRootViewTransitionName() {},
-  createFragmentInstance: (fiber: unknown) => ({ fiber }),
+  // Fragment refs have no meaning in a terminal. Returning null makes a `<Fragment ref>` resolve to null instead of crashing inside React, and keeps React from calling the other fragment-instance hooks.
+  createFragmentInstance: () => null,
   updateFragmentInstanceFiber() {},
+  // Terminal host instances have no asynchronous resources to wait for on updates.
+  maySuspendCommitOnUpdate: () => false,
+  maySuspendCommitInSyncRender: () => false,
+  getSuspendedCommitReason: () => null,
+  bindToConsole(methodName: string, args: unknown[]) {
+    // Replay React's captured console calls without browser-specific badge styling.
+    const method: unknown = Reflect.get(console, methodName);
+    return () => {
+      if (typeof method === "function") {
+        Reflect.apply(method, console, args);
+      }
+    };
+  },
 };
 
 export const reconciler = createReconciler<
@@ -205,6 +244,13 @@ export const reconciler = createReconciler<
   preparePortalMount: () => null,
   clearContainer: () => false,
   resetAfterCommit(rootNode) {
+    // Save the <Static> reference from the committed tree so rendering can access it directly. createInstance also runs for abandoned transitions and must not replace the committed reference.
+    const staticNode = findStaticNode(rootNode);
+    rootNode.staticNode = staticNode;
+    if (staticNode !== rootNode.previousStaticNode) {
+      rootNode.isStaticDirty = true;
+    }
+
     if (typeof rootNode.onComputeLayout === "function") {
       rootNode.onComputeLayout();
     }
@@ -248,7 +294,7 @@ export const reconciler = createReconciler<
     return { isInsideText };
   },
   shouldSetTextContent: () => false,
-  createInstance(originalType, newProps, rootNode, hostContext) {
+  createInstance(originalType, newProps, _rootNode, hostContext) {
     if (hostContext.isInsideText && originalType === "ink-box") {
       throw new Error(`<Box> can't be nested inside <Text> component`);
     }
@@ -293,11 +339,6 @@ export const reconciler = createReconciler<
 
       if (key === "internal_static") {
         node.internal_static = true;
-        rootNode.isStaticDirty = true;
-
-        // Save reference to <Static> node to skip traversal of entire
-        // node tree to find it
-        rootNode.staticNode = node;
         continue;
       }
 
@@ -322,10 +363,10 @@ export const reconciler = createReconciler<
   },
   getPublicInstance: (instance) => instance,
   hideInstance(node) {
-    node.yogaNode?.setDisplay(Yoga.DISPLAY_NONE);
+    setNodeHidden(node, true);
   },
   unhideInstance(node) {
-    node.yogaNode?.setDisplay(Yoga.DISPLAY_FLEX);
+    setNodeHidden(node, false);
   },
   appendInitialChild: appendChildNode,
   appendChild: appendChildNode,

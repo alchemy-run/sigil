@@ -1,8 +1,24 @@
 import { expect, test } from "vite-plus/test";
 
-import { Box, Text } from "#/index.ts";
+import { Box, Static, Text } from "#/index.ts";
 
 import { renderToString } from "./helpers/render-to-string.ts";
+
+test("omit Static content inside a hidden ancestor from screen-reader output", () => {
+  const output = renderToString(
+    <>
+      <Box display="none">
+        <Box>
+          <Static items={["Hidden"]}>{(item) => <Text key={item}>{item}</Text>}</Static>
+        </Box>
+      </Box>
+      <Text>Visible</Text>
+    </>,
+    { isScreenReaderEnabled: true },
+  );
+
+  expect(output).toBe("Visible");
+});
 
 test("render text for screen readers", () => {
   const output = renderToString(

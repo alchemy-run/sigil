@@ -1,11 +1,12 @@
 import { setTimeout as delay } from "node:timers/promises";
 
 import React, { useRef, useState } from "react";
-import { expect, test } from "vite-plus/test";
+import { expect, onTestFinished, test } from "vite-plus/test";
 
 import { stripAnsi } from "#/ansi/strip.ts";
 import { Box, Text, render, useBoxMetrics, type DOMElement } from "#/index.ts";
 
+import { act } from "./helpers/act.ts";
 import createStdout from "./helpers/create-stdout.ts";
 
 test("returns correct size on first render", async () => {
@@ -493,3 +494,57 @@ test("resets metrics when tracked element unmounts", async () => {
 
   expect(stripAnsi(stdout.get())).toContain("Metrics: 0,0,0,0,false");
 });
+
+for (const concurrent of [false, true]) {
+  test(`tracks a box mounted by child state - concurrent=${concurrent}`, async () => {
+    const stdout = createStdout();
+    let setChildVisible!: (visible: boolean) => void;
+
+    function Child({
+      boxRef,
+    }: {
+      // eslint-disable-next-line @typescript-eslint/no-restricted-types
+      readonly boxRef: React.RefObject<DOMElement | null>;
+    }) {
+      const [isVisible, setIsVisible] = useState(false);
+      setChildVisible = setIsVisible;
+      return isVisible ? (
+        <Box ref={boxRef} width={10}>
+          <Text>Tracked</Text>
+        </Box>
+      ) : null;
+    }
+
+    function Parent() {
+      const ref = useRef<DOMElement>(null);
+      const { width, hasMeasured } = useBoxMetrics(ref);
+      return (
+        <Box flexDirection="column">
+          <Child boxRef={ref} />
+          <Text>
+            {width}:{String(hasMeasured)}
+          </Text>
+        </Box>
+      );
+    }
+
+    let instance!: ReturnType<typeof render>;
+    await act(async () => {
+      instance = render(<Parent />, { stdout, debug: true, concurrent });
+    });
+    onTestFinished(() => {
+      instance.unmount();
+    });
+    expect(stdout.get()).toBe("0:false");
+
+    await act(async () => {
+      setChildVisible(true);
+    });
+    expect(stdout.get()).toBe("Tracked\n10:true");
+
+    await act(async () => {
+      setChildVisible(false);
+    });
+    expect(stdout.get()).toBe("0:false");
+  });
+}

@@ -20,6 +20,10 @@ export const squashTextNodes = (node: DOMElement): string => {
     if (childNode.nodeName === "#text") {
       nodeText = childNode.nodeValue;
     } else {
+      if (childNode.isHidden) {
+        continue;
+      }
+
       if (childNode.nodeName === "ink-text" || childNode.nodeName === "ink-virtual-text") {
         nodeText = squashTextNodes(childNode);
       }

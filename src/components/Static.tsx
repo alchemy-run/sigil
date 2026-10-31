@@ -48,8 +48,10 @@ export function Static<T>(props: Props<T>) {
       position: "absolute",
       flexDirection: "column",
       ...customStyle,
+      // Hide the container once every item is emitted so its padding/margins aren't painted again.
+      display: itemsToRender.length > 0 ? (customStyle?.display ?? "flex") : "none",
     }),
-    [customStyle],
+    [customStyle, itemsToRender.length],
   );
 
   return (

@@ -1,10 +1,44 @@
-import { Suspense } from "react";
-import { expect, test } from "vite-plus/test";
+import React, { Suspense, startTransition } from "react";
+import { expect, onTestFinished, test } from "vite-plus/test";
 
 import { chalk } from "#/ansi/chalk.ts";
 import { Box, Text, render } from "#/index.ts";
 
+import { act } from "./helpers/act.ts";
 import createStdout from "./helpers/create-stdout.ts";
+import { renderAsync } from "./helpers/test-renderer.ts";
+
+test("fragment refs remain unsupported while their children render and update", async () => {
+  const ref = React.createRef<React.FragmentInstance>();
+  const frame = (text: string) => (
+    // eslint-disable-next-line react/jsx-no-useless-fragment -- The fragment ref is the subject of this test.
+    <React.Fragment ref={ref}>
+      <Text>{text}</Text>
+    </React.Fragment>
+  );
+  const { getOutput, rerenderAsync, unmount } = await renderAsync(frame("first"));
+  onTestFinished(() => {
+    unmount();
+  });
+  expect(getOutput()).toBe("first");
+  expect(ref.current).toBe(null);
+  await rerenderAsync(frame("second"));
+  expect(getOutput()).toBe("second");
+  expect(ref.current).toBe(null);
+});
+
+test("terminal host updates complete inside a transition", async () => {
+  const instance = await renderAsync(<Text>first</Text>);
+  onTestFinished(() => {
+    instance.unmount();
+  });
+  await act(async () => {
+    startTransition(() => {
+      instance.rerender(<Text>second</Text>);
+    });
+  });
+  expect(instance.getOutput()).toBe("second");
+});
 
 test("update child", () => {
   function Test({ update }: { readonly update?: boolean }) {
@@ -389,8 +423,6 @@ test("support suspense with concurrent mode", async () => {
     );
   }
 
-  const { act } = await import("./helpers/act.ts");
-
   await act(async () => {
     render(<Test />, {
       stdout,
@@ -409,4 +441,95 @@ test("support suspense with concurrent mode", async () => {
   });
 
   expect(stdout.write.mock.lastCall![0]).toBe("Hello Concurrent World");
+});
+test("Suspense hides nested text while showing its fallback", async () => {
+  const { promise, resolve: resolvePromise } = Promise.withResolvers<void>();
+  onTestFinished(() => {
+    resolvePromise();
+  });
+
+  function Suspendable({ pending }: { readonly pending: boolean }) {
+    if (pending) {
+      // eslint-disable-next-line @typescript-eslint/only-throw-error
+      throw promise;
+    }
+
+    return <Text>Ready</Text>;
+  }
+
+  function Example({
+    pending,
+    showFallback = true,
+  }: {
+    readonly pending: boolean;
+    readonly showFallback?: boolean;
+  }) {
+    return (
+      <Box>
+        <Text>
+          Status:{" "}
+          <Suspense fallback={showFallback ? <Text>Loading</Text> : null}>
+            <Suspendable pending={pending} />
+          </Suspense>
+        </Text>
+        <Text>!</Text>
+      </Box>
+    );
+  }
+
+  const { getOutput, rerenderAsync, unmount } = await renderAsync(<Example pending={false} />);
+  onTestFinished(() => {
+    unmount();
+  });
+  expect(getOutput()).toBe("Status: Ready!");
+
+  await rerenderAsync(<Example pending />);
+  expect(getOutput()).toBe("Status: Loading!");
+
+  await rerenderAsync(<Example pending={false} />);
+  expect(getOutput()).toBe("Status: Ready!");
+
+  await rerenderAsync(<Example pending showFallback={false} />);
+  expect(getOutput()).toBe("Status: !");
+
+  await rerenderAsync(<Example pending={false} showFallback={false} />);
+  expect(getOutput()).toBe("Status: Ready!");
+});
+test("resuming Suspense preserves display none", async () => {
+  const { promise, resolve: resolvePromise } = Promise.withResolvers<void>();
+  onTestFinished(() => {
+    resolvePromise();
+  });
+
+  function Suspendable({ pending }: { readonly pending: boolean }) {
+    if (pending) {
+      // eslint-disable-next-line @typescript-eslint/only-throw-error
+      throw promise;
+    }
+
+    return <Text>Visible</Text>;
+  }
+
+  function Test({ pending }: { readonly pending: boolean }) {
+    return (
+      <Suspense fallback={<Text>Loading</Text>}>
+        <Box display="none">
+          <Text>Hidden</Text>
+        </Box>
+        <Suspendable pending={pending} />
+      </Suspense>
+    );
+  }
+
+  const { getOutput, rerenderAsync, unmount } = await renderAsync(<Test pending={false} />);
+  onTestFinished(() => {
+    unmount();
+  });
+  expect(getOutput()).toBe("Visible");
+
+  await rerenderAsync(<Test pending />);
+  expect(getOutput()).toBe("Loading");
+
+  await rerenderAsync(<Test pending={false} />);
+  expect(getOutput()).toBe("Visible");
 });
