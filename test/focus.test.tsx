@@ -788,3 +788,51 @@ test("activeId resets to undefined when focused component unmounts", async () =>
   await delay(50);
   expect(capturedActiveId).toBe(undefined);
 });
+
+test("kitty-encoded Tab, Shift+Tab and Escape manage focus", async () => {
+  let manager: ReturnType<typeof useFocusManager> | undefined;
+  function Field({ id }: { readonly id: string }) {
+    useFocus({ id });
+    return <Text>{id}</Text>;
+  }
+  function Form() {
+    manager = useFocusManager();
+    return (
+      <Box>
+        <Field id="a" />
+        <Field id="b" />
+      </Box>
+    );
+  }
+
+  const stdout = createStdout();
+  const stdin = createStdin();
+  let instance: ReturnType<typeof render> | undefined;
+  await act(async () => {
+    instance = render(<Form />, {
+      stdout,
+      stdin,
+      debug: true,
+      concurrent: true,
+      kittyKeyboard: { mode: "enabled", flags: ["reportAllKeysAsEscapeCodes"] },
+    });
+  });
+  onTestFinished(() => instance?.unmount());
+
+  const send = async (input: string) => {
+    await act(async () => {
+      emitReadable(stdin, input);
+    });
+    return manager!.activeId;
+  };
+
+  expect(await send("\u001B[9u")).toBe("a");
+  expect(await send("\u001B[9u")).toBe("b");
+  // Releases and modified Tab don't navigate.
+  expect(await send("\u001B[9;1:3u")).toBe("b");
+  expect(await send("\u001B[9;5u")).toBe("b");
+  expect(await send("\u001B[9;2u")).toBe("a");
+  // A modified Escape doesn't clear focus; a bare one does.
+  expect(await send("\u001B[27;2u")).toBe("a");
+  expect(await send("\u001B[27u")).toBeUndefined();
+});

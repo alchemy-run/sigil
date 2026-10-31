@@ -1,6 +1,6 @@
 import { setTimeout as delay } from "node:timers/promises";
 
-import React from "react";
+import React, { useLayoutEffect } from "react";
 import { expect, test, describe } from "vite-plus/test";
 
 import { chalk } from "#/ansi/chalk.ts";
@@ -18,6 +18,7 @@ import {
   Route,
   Routes,
   useLocation,
+  useMatch,
   useNavigate,
   useNavigationStack,
   useParams,
@@ -150,6 +151,30 @@ describe("rendering", () => {
     );
 
     expect(output).toBe("Home");
+  });
+
+  test("a <Routes location> override reaches the matched routes' hooks", () => {
+    function Probe() {
+      const { pathname, search } = useLocation();
+      const match = useMatch("/preview");
+      const [searchParams] = useSearchParams();
+      return (
+        <Text>
+          {pathname}
+          {search} {match ? "match" : "none"} tab:{searchParams.get("tab")}
+        </Text>
+      );
+    }
+
+    const output = renderToString(
+      <MemoryRouter initialEntries={["/actual?tab=real"]}>
+        <Routes location="/preview?tab=draft">
+          <Route path="/preview" element={<Probe />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(output).toBe("/preview?tab=draft match tab:draft");
   });
 
   test("starts at the last initial entry", () => {
@@ -288,6 +313,29 @@ describe("navigation", () => {
     emitReadable(stdin, "a");
     await delay(50);
     expect(lastFrame()).toBe("About");
+  });
+
+  test("a navigation from a child's mount layout effect updates the location", async () => {
+    function RedirectOnMount() {
+      const navigate = useNavigate();
+      useLayoutEffect(() => {
+        navigate("/next");
+      }, [navigate]);
+      return null;
+    }
+
+    const { lastFrame } = renderApp(
+      <MemoryRouter>
+        <RedirectOnMount />
+        <Routes>
+          <Route path="/" element={<Text>Home</Text>} />
+          <Route path="/next" element={<Text>Next</Text>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await delay(50);
+    expect(lastFrame()).toBe("Next");
   });
 
   test("navigate(-1) goes back through the stack", async () => {
@@ -443,6 +491,32 @@ describe("useSearchParams", () => {
     emitReadable(stdin, "p");
     await delay(50);
     expect(lastFrame()).toBe("tab:posts");
+  });
+  test("clearing the params drops the defaults even when the search was already empty", async () => {
+    function Filters() {
+      const [searchParams, setSearchParams] = useSearchParams({ foo: "bar" });
+
+      useInput((input) => {
+        if (input === "c") {
+          setSearchParams({});
+        }
+      });
+
+      return <Text>params:{searchParams.toString()}</Text>;
+    }
+
+    const { stdin, lastFrame } = renderApp(
+      <MemoryRouter>
+        <Filters />
+      </MemoryRouter>,
+    );
+
+    await delay(50);
+    expect(lastFrame()).toBe("params:foo=bar");
+
+    emitReadable(stdin, "c");
+    await delay(50);
+    expect(lastFrame()).toBe("params:");
   });
 });
 

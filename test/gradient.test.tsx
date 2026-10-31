@@ -2,6 +2,7 @@ import { expect, test } from "vite-plus/test";
 
 import {
   darken,
+  interpolateColor,
   lighten,
   linearGradient,
   perimeterGradient,
@@ -152,4 +153,8 @@ test("lightens and darkens colors perceptually with clamped endpoints", () => {
   expect(lighten(color, 1)).toEqual(rgb(255, 255, 255));
   expect(darken(color, 0)).toEqual(color);
   expect(darken(color, 1)).toEqual(rgb(0, 0, 0));
+});
+
+test("hsv interpolation wraps hues across 0 degrees", () => {
+  expect(interpolateColor(rgb(255, 0, 0), rgb(255, 0, 255), 0.5, "hsv")).toEqual(rgb(255, 0, 128));
 });

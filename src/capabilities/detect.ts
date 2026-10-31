@@ -343,6 +343,10 @@ const forcedColorLevel = (): ColorSupportLevel | undefined => {
 Detects the color support level for a stream from the environment. Purely
 env-derived — the terminal query can upgrade this to truecolor when the
 terminal confirms it via XTGETTCAP.
+
+`FORCE_COLOR` wins over everything: `0`/`false` disables color, and any other
+value is a floor that detection can raise but never lower. Without it, a
+non-empty `NO_COLOR` disables color (https://no-color.org).
 */
 export function detectColorLevel(stream?: DetectStream): ColorSupportLevel {
   const forced = forcedColorLevel();
@@ -350,6 +354,17 @@ export function detectColorLevel(stream?: DetectStream): ColorSupportLevel {
     return 0;
   }
 
+  if (forced === undefined && env["NO_COLOR"]) {
+    return 0;
+  }
+
+  return Math.max(forced ?? 0, detectedColorLevel(stream, forced)) as ColorSupportLevel;
+}
+
+function detectedColorLevel(
+  stream: DetectStream | undefined,
+  forced: ColorSupportLevel | undefined,
+): ColorSupportLevel {
   // Azure DevOps pipelines are colorful but not TTYs; check before the
   // stream gate.
   if (env["TF_BUILD"] && env["AGENT_NAME"]) {
@@ -360,10 +375,8 @@ export function detectColorLevel(stream?: DetectStream): ColorSupportLevel {
     return 0;
   }
 
-  const minimum = forced ?? 0;
-
   if (env["TERM"] === "dumb") {
-    return minimum;
+    return 0;
   }
 
   if (isWindows) {
@@ -385,7 +398,7 @@ export function detectColorLevel(stream?: DetectStream): ColorSupportLevel {
       return 1;
     }
 
-    return minimum;
+    return 0;
   }
 
   if (env["TEAMCITY_VERSION"]) {
@@ -419,7 +432,7 @@ export function detectColorLevel(stream?: DetectStream): ColorSupportLevel {
     return 1;
   }
 
-  return minimum;
+  return 0;
 }
 
 /**

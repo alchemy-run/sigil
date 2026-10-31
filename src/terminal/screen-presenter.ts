@@ -165,6 +165,11 @@ export class ScreenPresenter {
     return rows + (this.#fullscreen ? 0 : 1);
   }
 
+  /** Forces the next frame to be rewritten in full, still erasing the one on screen. */
+  invalidate(): void {
+    this.#screen = undefined;
+  }
+
   reset(): void {
     this.#screen = undefined;
     this.#lineCount = 0;

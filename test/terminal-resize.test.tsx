@@ -1,7 +1,7 @@
 import { setTimeout as delay } from "node:timers/promises";
 
 import React, { useLayoutEffect } from "react";
-import { expect, onTestFinished, test, afterAll } from "vite-plus/test";
+import { expect, onTestFinished, test, afterAll, vi } from "vite-plus/test";
 
 import { stripAnsi } from "#/ansi/strip.ts";
 import { getCapabilities } from "#/capabilities/store.ts";
@@ -236,6 +236,62 @@ for (const isTty of [false, true]) {
     }
   });
 }
+
+test("the /dev/tty fallback opens one descriptor and still reads the current size", async () => {
+  const openSync = vi.fn(() => 99);
+  const size = { columns: 120, rows: 40 };
+  const construct = vi.fn();
+  class WriteStream {
+    columns = size.columns;
+    rows = size.rows;
+    constructor(fd: number) {
+      construct(fd);
+    }
+    _refreshSize() {
+      this.columns = size.columns;
+      this.rows = size.rows;
+    }
+  }
+  vi.resetModules();
+  vi.doMock("node:fs", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("node:fs")>()),
+    openSync,
+  }));
+  vi.doMock("node:tty", () => ({ WriteStream }));
+  const originalEnv = { COLUMNS: process.env.COLUMNS, LINES: process.env.LINES };
+  const originalSizes = [process.stdout, process.stderr].map(
+    (stream) => [stream, stream.columns, stream.rows] as const,
+  );
+  onTestFinished(() => {
+    vi.doUnmock("node:fs");
+    vi.doUnmock("node:tty");
+    vi.resetModules();
+    for (const [name, value] of Object.entries(originalEnv)) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+    for (const [stream, columns, rows] of originalSizes) {
+      stream.columns = columns;
+      stream.rows = rows;
+    }
+  });
+  delete process.env.COLUMNS;
+  delete process.env.LINES;
+  for (const [stream] of originalSizes) {
+    stream.columns = 0;
+    stream.rows = 0;
+  }
+
+  const { terminalSize } = await import("#/terminal-size.ts");
+  for (let index = 0; index < 20; index++) {
+    expect(terminalSize()).toEqual({ columns: 120, rows: 40 });
+  }
+  size.columns = 90;
+  expect(terminalSize()).toEqual({ columns: 90, rows: 40 });
+
+  expect(openSync).toHaveBeenCalledTimes(1);
+  expect(construct).toHaveBeenCalledTimes(1);
+});
 
 test("clear screen when terminal width decreases", async () => {
   const stdout = createStdout(100);

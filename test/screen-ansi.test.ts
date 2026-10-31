@@ -47,3 +47,27 @@ test("keeps combining sequences in one cell", () => {
 test("does not turn non-rendering controls into cells", () => {
   expect(cellsFromAnsi("\u001B]0;title\u0007A")).toHaveLength(1);
 });
+
+test("treats empty SGR parameters as a reset", () => {
+  const [, bare] = cellsFromAnsi("\u001B[31ma\u001B[mb");
+  const [, compound] = cellsFromAnsi("\u001B[31ma\u001B[;1mb");
+
+  expect(bare?.style.foreground).toBeUndefined();
+  expect(compound?.style).toMatchObject({ attributes: cellAttributes.bold });
+  expect(compound?.style.foreground).toBeUndefined();
+});
+
+test("keeps OSC 8 links open across an SGR reset", () => {
+  const cells = cellsFromAnsi("\u001B]8;;https://example.com\u0007a\u001B[0mb\u001B]8;;\u0007");
+
+  expect(cells.map((cell) => cell.hyperlink?.url)).toEqual([
+    "https://example.com",
+    "https://example.com",
+  ]);
+});
+
+test("resets underline color with SGR 59", () => {
+  const [, cell] = cellsFromAnsi("\u001B[58;5;196ma\u001B[59mb");
+
+  expect(cell?.style.underlineColor).toBeUndefined();
+});

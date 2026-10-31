@@ -4,7 +4,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { useState } from "react";
 import { onTestFinished, expect, test, vi } from "vite-plus/test";
 
-import { render, useApp, useInput } from "#/index.ts";
+import { render, useApp, useCapabilities, useInput } from "#/index.ts";
 import { resolveFlags } from "#/kitty-keyboard.ts";
 
 import { createStdin as createSyncStdin, emitReadable } from "./helpers/create-stdin.ts";
@@ -44,6 +44,32 @@ test("auto detection consumes responses without duplicating input", async () => 
   stdin.push("x\u001B[?0u");
   await delay(30);
   expect(inputs).toEqual(["x"]);
+  expect(stdout.getWrites()).toContain("\u001B[>1u");
+});
+
+test("auto detection completes when a capability query consumes the reply", async () => {
+  const stdin = createStdin();
+  const stdout = createStdout();
+  function Example() {
+    useInput(() => {});
+    useCapabilities();
+    return null;
+  }
+
+  const app = render(<Example />, {
+    stdin,
+    stdout,
+    interactive: true,
+    kittyKeyboard: { mode: "auto" },
+  });
+  onTestFinished(() => {
+    app.unmount();
+  });
+  await delay(30);
+  // The capability query owns stdin while it waits for device attributes, so
+  // it reads the kitty reply, not TerminalInput.
+  stdin.push("\u001B[?0u\u001B[?1;2c");
+  await delay(230);
   expect(stdout.getWrites()).toContain("\u001B[>1u");
 });
 

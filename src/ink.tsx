@@ -415,6 +415,11 @@ export const createInk = (options: Options): Ink => {
   // Where fullStaticOutput stood when the alternate screen was entered, so
   // leaving it can write the <Static> rows the main screen never saw.
   let staticOutputLengthAtAlternateScreen = 0;
+  // <Static> output from commits whose frame was skipped (suspended, or a
+  // resize still settling). Static only keeps new items in the tree for the
+  // commit that adds them, so they are captured now and written with the next
+  // frame instead of being lost.
+  let pendingStaticOutput = "";
 
   let exitResult: unknown;
   let unsubscribeBeforeExit: (() => void) | undefined;
@@ -623,6 +628,32 @@ export const createInk = (options: Options): Ink => {
   // Resets `fullStaticOutput` when the <Static> identity changes so stale items from a previous instance are not replayed on future rewrites.
   function handleStaticChange(): void {
     fullStaticOutput = "";
+    staticOutputLengthAtAlternateScreen = 0;
+  }
+
+  function renderCurrentFrame(): ReturnType<typeof renderFrame> {
+    return renderFrame(rootNode, isScreenReaderEnabled, {
+      colorProfile: terminal.colorProfile,
+      paintContext: {
+        appearance: capabilitiesStore.current.theme.appearance,
+        palette: capabilitiesStore.current.theme.palette,
+      },
+    });
+  }
+
+  function encodeStaticOutput(rendered: ReturnType<typeof renderFrame>): string {
+    // Every static row counts, a single blank one included, so empty encoded text still gets its newline.
+    if (rendered.staticAccessibleText !== undefined) {
+      return rendered.staticAccessibleText ? `${rendered.staticAccessibleText}\n` : "";
+    }
+    return rendered.staticScreen && rendered.staticScreen.height > 0
+      ? `${terminal.encode(rendered.staticScreen)}\n`
+      : "";
+  }
+
+  function captureSkippedStaticOutput(): void {
+    if (!rootNode.staticNode) return;
+    pendingStaticOutput += encodeStaticOutput(renderCurrentFrame());
   }
 
   function onRender(): void {
@@ -641,6 +672,7 @@ export const createInk = (options: Options): Ink => {
         nextRenderCommit = undefined;
       }
 
+      captureSkippedStaticOutput();
       return;
     }
 
@@ -653,6 +685,7 @@ export const createInk = (options: Options): Ink => {
         nextRenderCommit = undefined;
       }
 
+      captureSkippedStaticOutput();
       return;
     }
 
@@ -669,13 +702,7 @@ export const createInk = (options: Options): Ink => {
     }
 
     const startTime = performance.now();
-    const rendered = renderFrame(rootNode, isScreenReaderEnabled, {
-      colorProfile: terminal.colorProfile,
-      paintContext: {
-        appearance: capabilitiesStore.current.theme.appearance,
-        palette: capabilitiesStore.current.theme.palette,
-      },
-    });
+    const rendered = renderCurrentFrame();
     const screen = rendered.screen;
     const output = rendered.accessibleText ?? (screen ? terminal.encode(screen) : "");
     const outputHeight =
@@ -684,15 +711,8 @@ export const createInk = (options: Options): Ink => {
         : rendered.accessibleText === ""
           ? 0
           : rendered.accessibleText.split("\n").length;
-    // Every static row counts, a single blank one included, so empty encoded text still gets its newline.
-    const staticOutput =
-      rendered.staticAccessibleText === undefined
-        ? rendered.staticScreen && rendered.staticScreen.height > 0
-          ? `${terminal.encode(rendered.staticScreen)}\n`
-          : ""
-        : rendered.staticAccessibleText
-          ? `${rendered.staticAccessibleText}\n`
-          : "";
+    const staticOutput = pendingStaticOutput + encodeStaticOutput(rendered);
+    pendingStaticOutput = "";
 
     const renderTime = performance.now() - startTime;
     commitFrame(output, outputHeight, staticOutput, screen);
@@ -933,7 +953,8 @@ export const createInk = (options: Options): Ink => {
       // exists, as that can duplicate <Static> children output on exit (see issue #397).
       const shouldRenderFinalFrame =
         !renderScheduler.throttled ||
-        (!renderScheduler.pending && (fullStaticOutput === "" || isFrameClamped));
+        (!renderScheduler.pending &&
+          (fullStaticOutput === "" || isFrameClamped || pendingStaticOutput !== ""));
 
       if (shouldRenderFinalFrame) {
         calculateLayout();
@@ -1257,7 +1278,8 @@ export const createInk = (options: Options): Ink => {
     // Erase the live frame from the buffer being left. Entering, that keeps
     // the inline frame out of the main screen's history; leaving, the
     // alternate buffer is discarded anyway.
-    terminal.clearFrame();
+    if (isScreenReaderEnabled) accessiblePresenter!.clear();
+    else terminal.clearFrame();
     const missedStaticOutput = fullStaticOutput.slice(staticOutputLengthAtAlternateScreen);
     setAlternateScreen(next);
     // <Static> rows written while in the alternate screen belong in the main

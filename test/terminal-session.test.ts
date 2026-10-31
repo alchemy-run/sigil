@@ -8,6 +8,9 @@ import { createCell } from "#/screen/cell.ts";
 import { Screen } from "#/screen/screen.ts";
 import { TerminalSession } from "#/terminal/index.ts";
 
+import createStdout from "./helpers/create-stdout.ts";
+import { reconstructTerminalLines } from "./helpers/reconstruct-terminal.ts";
+
 const frame = (...lines: string[]): Screen => {
   const width = Math.max(0, ...lines.map((line) => line.length));
   const screen = new Screen(width, lines.length);
@@ -189,4 +192,22 @@ test("matches a reference model across cursor and mode transitions", () => {
   session.cleanup();
   for (const id of [...counts.keys()].reverse()) expectedWrites.push(`${id}-off`);
   expect(write.mock.calls.map(([value]) => value)).toEqual(expectedWrites);
+});
+
+test("a color profile change repaints without leaving the old frame behind", () => {
+  const stdout = createStdout(40, true, 10);
+  const session = new TerminalSession({
+    stdin: process.stdin,
+    stdout,
+    stderr: stdout,
+    colorPolicy: "none",
+  });
+  const screen = frame("X");
+  session.present(screen);
+  session.setColorPolicy("truecolor");
+  session.present(screen);
+  session.cleanup();
+
+  const lines = reconstructTerminalLines(stdout.getWrites().join("").replaceAll("\n", "\r\n"), 10);
+  expect(lines.filter(Boolean)).toEqual(["X"]);
 });

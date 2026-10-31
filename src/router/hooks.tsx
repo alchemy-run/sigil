@@ -265,7 +265,9 @@ export const useSearchParams = (
     }
 
     return params;
-  }, [location.search]);
+    // The defaults depend on whether the setter has been used: clearing them at
+    // a location whose search was already empty must still drop them.
+  }, [location.search, hasSetSearchParamsRef.current]);
 
   const navigate = useNavigate();
   const setSearchParams = useCallback<SetSearchParams>(
@@ -356,7 +358,7 @@ export const useRoutes = (
     );
   }
 
-  return renderMatches(
+  const renderedMatches = renderMatches(
     matches &&
       matches.map((match) => ({
         ...match,
@@ -369,6 +371,23 @@ export const useRoutes = (
       })),
     parentMatches,
   );
+
+  // An overridden location must reach the matched routes' own hooks
+  // (`useLocation`, `useMatch`, `useSearchParams`), not just the matching.
+  if (locationArg && renderedMatches) {
+    return (
+      <LocationContext.Provider
+        value={{
+          location: { pathname: "/", search: "", state: null, key: "default", ...location },
+          navigationType: "POP",
+        }}
+      >
+        {renderedMatches}
+      </LocationContext.Provider>
+    );
+  }
+
+  return renderedMatches;
 };
 
 function renderMatches(

@@ -91,7 +91,8 @@ export class TerminalSession {
         const profile = colorState(capabilities, this.#policy).effective;
         if (profile !== this.#profile) {
           this.#profile = profile;
-          this.#presenter.reset();
+          // Repaint in the new profile; the frame on screen still needs erasing.
+          this.#presenter.invalidate();
         }
         options.onCapabilitiesChange?.();
       },
@@ -158,7 +159,8 @@ export class TerminalSession {
     const profile = colorState(this.capabilities.current, policy).effective;
     if (profile !== this.#profile) {
       this.#profile = profile;
-      this.#presenter.reset();
+      // Repaint in the new profile; the frame on screen still needs erasing.
+      this.#presenter.invalidate();
     }
   }
 

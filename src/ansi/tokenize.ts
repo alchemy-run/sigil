@@ -60,6 +60,9 @@ for (const [start, end] of sgrCodes) {
   endCodesMap.set(foreground.ansi(start), foreground.ansi(end));
 }
 
+// Extended underline color (58) closes with 59, which the SGR map lacks.
+endCodesSet.add(`${ESC}[59m`);
+
 export function getLinkStartCode(url: string, params?: Record<string, string>): string {
   const paramsString = params
     ? Object.entries(params)
@@ -125,8 +128,8 @@ Splits compound SGR sequences like `\u001B[1;3;31m` into individual components.
 */
 function splitCompoundSgrSequences(code: string): string[] {
   if (!code.includes(";")) {
-    // Not a compound code
-    return [code];
+    // Not a compound code; a bare `ESC[m` means reset
+    return [code === `${ESC}[m` ? styles.reset.open : code];
   }
 
   const codeParts = code
@@ -152,8 +155,8 @@ function splitCompoundSgrSequences(code: string): string[] {
       }
     }
 
-    // Not a (valid) 8/24-bit color code, push as is
-    result.push(rawCode);
+    // Not a (valid) 8/24-bit color code, push as is; empty means reset
+    result.push(rawCode === "" ? "0" : rawCode);
   }
 
   return result.map((part) => `${ESC}[${part}m`);
@@ -275,8 +278,9 @@ export function reduceAnsiCodesIncremental(
 
   for (const code of newCodes) {
     if (code.code === styles.reset.open) {
-      // Reset code, disable all codes
-      result = [];
+      // Reset code, disable all SGR codes; hyperlinks are not graphic
+      // rendition, so they stay open
+      result = result.filter((existing) => existing.code.startsWith(linkCodePrefix));
     } else if (endCodesSet.has(code.code)) {
       // This is an end code, disable all matching start codes
       result = result.filter((existing) => existing.endCode !== code.code);
@@ -320,21 +324,26 @@ export function diffAnsiCodes(from: readonly AnsiCode[], to: readonly AnsiCode[]
   const startCodesInTo = new Set(to.map((code) => code.code));
   const startCodesInFrom = new Set(from.map((code) => code.code));
 
+  const removed = from.filter((code) => {
+    // Intensity codes (1m, 2m) can coexist (both end with 22m), so
+    // check the start codes for those to not miss a reset.
+    if (isIntensityCode(code)) {
+      return !startCodesInTo.has(code.code);
+    }
+
+    return !endCodesInTo.has(code.endCode);
+  });
+  // Undoing bold or dim emits 22m, which ends both, so any intensity code
+  // that remains in `to` has to be reopened.
+  const removesIntensity = removed.some(isIntensityCode);
+
   return [
     // Disable all styles in `from` that are removed in `to`; keep the rest.
-    ...undoAnsiCodes(
-      from.filter((code) => {
-        // Intensity codes (1m, 2m) can coexist (both end with 22m), so
-        // check the start codes for those to not miss a reset.
-        if (isIntensityCode(code)) {
-          return !startCodesInTo.has(code.code);
-        }
-
-        return !endCodesInTo.has(code.endCode);
-      }),
-    ),
+    ...undoAnsiCodes(removed),
     // Add all styles in `to` that don't exist in `from`
-    ...to.filter((code) => !startCodesInFrom.has(code.code)),
+    ...to.filter(
+      (code) => !startCodesInFrom.has(code.code) || (removesIntensity && isIntensityCode(code)),
+    ),
   ];
 }
 

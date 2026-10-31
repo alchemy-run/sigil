@@ -74,15 +74,23 @@ export function MemoryRouter({ initialEntries, initialIndex, children }: MemoryR
 
   // Navigation is a transition: if the destination screen suspends, the
   // current screen stays visible until it's ready.
-  useLayoutEffect(
-    () =>
-      history.listen(({ action, location }) => {
-        startTransition(() => {
-          setState({ action, location });
-        });
-      }),
-    [history],
-  );
+  useLayoutEffect(() => {
+    const unlisten = history.listen(({ action, location }) => {
+      startTransition(() => {
+        setState({ action, location });
+      });
+    });
+
+    // Child layout effects run before this one, so a navigation made while
+    // mounting already happened without us listening. Catch up to it.
+    setState((current) =>
+      current.location === history.location
+        ? current
+        : { action: history.action, location: history.location },
+    );
+
+    return unlisten;
+  }, [history]);
 
   const navigator = useMemo<Navigator>(
     () => ({

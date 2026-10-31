@@ -1028,8 +1028,10 @@ export class Node extends CoreNode {
   setNodeType(nodeType: NodeType): void {
     if (this.nodeType === nodeType) return;
     this.nodeType = nodeType;
-    // nodeType is a pixel-grid input.
+    // nodeType is a pixel-grid input, and rounding only runs when layout does
+    // work, so a fully cached tree would keep the old rounding.
     this.markLayoutWritten();
+    this.markDirtyAndPropagate();
   }
 
   getNodeType(): NodeType {

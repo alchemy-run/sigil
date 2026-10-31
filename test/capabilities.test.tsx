@@ -159,7 +159,14 @@ describe("detectCapabilities", () => {
 describe("detectColorLevel", () => {
   const stubColorCleanEnv = () => {
     stubCleanEnv();
-    for (const key of ["FORCE_COLOR", "CI", "COLORTERM", "TF_BUILD", "TEAMCITY_VERSION"]) {
+    for (const key of [
+      "FORCE_COLOR",
+      "NO_COLOR",
+      "CI",
+      "COLORTERM",
+      "TF_BUILD",
+      "TEAMCITY_VERSION",
+    ]) {
       vi.stubEnv(key, undefined);
     }
   };
@@ -201,6 +208,42 @@ describe("detectColorLevel", () => {
 
     vi.stubEnv("FORCE_COLOR", "2");
     expect(detectColorLevel({ isTTY: false })).toBe(3);
+  });
+
+  test("a non-empty NO_COLOR disables color unless FORCE_COLOR is set", () => {
+    stubColorCleanEnv();
+    vi.stubEnv("TERM", "xterm");
+    vi.stubEnv("NO_COLOR", "1");
+    expect(detectColorLevel({ isTTY: true })).toBe(0);
+
+    vi.stubEnv("NO_COLOR", "");
+    expect(detectColorLevel({ isTTY: true })).toBe(1);
+
+    vi.stubEnv("NO_COLOR", "1");
+    vi.stubEnv("FORCE_COLOR", "2");
+    expect(detectColorLevel({ isTTY: true })).toBe(2);
+  });
+
+  test("a forced level is a floor that detection can raise but not lower", () => {
+    if (process.platform === "win32") {
+      return;
+    }
+
+    stubColorCleanEnv();
+    vi.stubEnv("FORCE_COLOR", "3");
+    vi.stubEnv("TERM", "xterm");
+    expect(detectColorLevel({ isTTY: true })).toBe(3);
+
+    vi.stubEnv("TERM", "xterm-256color");
+    expect(detectColorLevel({ isTTY: true })).toBe(3);
+
+    vi.stubEnv("TEAMCITY_VERSION", "8.0.0");
+    expect(detectColorLevel({ isTTY: true })).toBe(3);
+
+    stubColorCleanEnv();
+    vi.stubEnv("FORCE_COLOR", "1");
+    vi.stubEnv("TERM", "xterm-kitty");
+    expect(detectColorLevel({ isTTY: true })).toBe(3);
   });
 });
 
@@ -977,4 +1020,18 @@ describe("in-band size reports", () => {
     for (const size of sizes) expect(size).toEqual({ columns: 120, rows: 40, source: "terminal" });
     unsubscribe();
   });
+});
+
+test("queryTerminal releases stdin when writing the query throws", async () => {
+  const stdin = new PassThrough();
+  const stdout = {
+    write() {
+      throw new Error("broken stdout");
+    },
+  };
+  await expect(queryTerminal(stdin as never, stdout as never, { timeout: 100 })).rejects.toThrow(
+    "broken stdout",
+  );
+  expect(stdin.listenerCount("data")).toBe(0);
+  expect(stdin.readableFlowing).toBe(false);
 });

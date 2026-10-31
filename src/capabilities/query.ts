@@ -528,7 +528,17 @@ export const queryTerminal = async (
     const timer = setTimeout(finish, timeout);
     stdin.resume();
 
-    stdout.write(buildQuery(palette, scope));
+    try {
+      stdout.write(buildQuery(palette, scope));
+    } catch (error) {
+      // Rejecting alone would leave the reader attached, swallowing input
+      // until the timeout.
+      done = true;
+      clearTimeout(timer);
+      stdin.pause();
+      stdin.removeListener("data", onData);
+      throw error;
+    }
   });
 
 // One query per terminal is enough — results are cached per stdout stream.

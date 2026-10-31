@@ -3,6 +3,7 @@
 // escape parser: characters keep their computed style lists, and the result
 // is re-emitted with minimal escape codes. A full-width character that would
 // be cut in half at either boundary is dropped, like `slice-ansi` does.
+import { stringWidth } from "#/ansi/string-width.ts";
 import {
   styledCharsFromTokens,
   styledCharsToString,
@@ -26,7 +27,9 @@ export function sliceAnsi(string: string, start: number, end?: number): string {
   let column = 0;
 
   for (const char of chars) {
-    const width = char.fullWidth ? 2 : 1;
+    // Measure like stringWidth so slices agree with truncation budgets
+    // (tabs, zero-width and combining characters are not 1 or 2 columns).
+    const width = stringWidth(char.value);
 
     if (column + width > sliceEnd) {
       break;

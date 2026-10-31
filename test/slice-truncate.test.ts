@@ -2,6 +2,7 @@ import { test, expect } from "vite-plus/test";
 
 import { sliceAnsi } from "#/ansi/slice.ts";
 import { stringWidth } from "#/ansi/string-width.ts";
+import { styledCharsFromTokens, styledCharsToString, tokenize } from "#/ansi/tokenize.ts";
 import { cliTruncate } from "#/ansi/truncate.ts";
 
 // The style tokenizer behind sliceAnsi shares its escape grammar with
@@ -43,4 +44,28 @@ test("sliceAnsi treats non-SGR CSI sequences as zero-width", () => {
 
 test("sliceAnsi drops an unterminated OSC tail instead of showing its payload", () => {
   expect(sliceAnsi("ok\u001B]0;title-with-no-terminator", 0, 10)).toBe("ok");
+});
+
+test("sliceAnsi measures graphemes like stringWidth", () => {
+  expect(sliceAnsi("a\u200Bb", 0, 2)).toBe("a\u200Bb");
+  expect(sliceAnsi("a\u0301b", 0, 2)).toBe("a\u0301b");
+
+  const tab = sliceAnsi("a\tb", 0, 2);
+  expect(stringWidth(tab)).toBeLessThanOrEqual(2);
+  expect(tab).toBe("a");
+});
+
+test("cliTruncate fits tabs within the budget", () => {
+  const truncated = cliTruncate("a\tbcd", 3);
+
+  expect(truncated).toBe("a…");
+  expect(stringWidth(truncated)).toBeLessThanOrEqual(3);
+});
+
+test("removing dim keeps bold open", () => {
+  const input = "\u001B[1m\u001B[2ma\u001B[22m\u001B[1mb";
+
+  expect(styledCharsToString(styledCharsFromTokens(tokenize(input)))).toBe(
+    "\u001B[1m\u001B[2ma\u001B[22m\u001B[1mb\u001B[22m",
+  );
 });

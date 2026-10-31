@@ -79,3 +79,58 @@ test("setAlternateScreen is ignored when the output is not an interactive TTY", 
   await instance.waitUntilRenderFlush();
   expect(stdout.getWrites().join("")).not.toContain(ansiEscapes.enterAlternativeScreen);
 });
+
+test("leaving the alternate screen writes a replaced <Static>'s output", async () => {
+  const stdout = createStdout(40, true, 10);
+  const tree = (key: string, items: string[]) => (
+    <Box flexDirection="column">
+      <Static key={key} items={items}>
+        {(item) => <Text key={item}>{item}</Text>}
+      </Static>
+      <Text>live</Text>
+    </Box>
+  );
+  const instance = render(tree("a", ["long original log"]), {
+    stdout,
+    interactive: true,
+    patchConsole: false,
+  });
+  onTestFinished(() => {
+    instance.unmount();
+  });
+  await instance.waitUntilRenderFlush();
+
+  instance.setAlternateScreen(true);
+  instance.rerender(tree("b", ["new"]));
+  await instance.waitUntilRenderFlush();
+  instance.setAlternateScreen(false);
+  await instance.waitUntilRenderFlush();
+
+  expect(mainScreenLines(stdout.getWrites().join(""))).toEqual([
+    "long original log",
+    "new",
+    "live",
+  ]);
+});
+
+test("setAlternateScreen erases screen-reader output from the main screen", async () => {
+  const stdout = createStdout(40, true, 10);
+  const instance = render(<Text>old</Text>, {
+    stdout,
+    interactive: true,
+    patchConsole: false,
+    isScreenReaderEnabled: true,
+  });
+  onTestFinished(() => {
+    instance.unmount();
+  });
+  await instance.waitUntilRenderFlush();
+
+  instance.setAlternateScreen(true);
+  instance.rerender(<Text>new</Text>);
+  await instance.waitUntilRenderFlush();
+  instance.setAlternateScreen(false);
+  await instance.waitUntilRenderFlush();
+
+  expect(mainScreenLines(stdout.getWrites().join(""))).toEqual(["new"]);
+});

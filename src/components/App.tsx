@@ -12,7 +12,7 @@ import React, {
 } from "react";
 
 import { cliCursor } from "#/ansi/cursor.ts";
-import { ansiEscapes, CSI, ESC } from "#/ansi/escapes.ts";
+import { ansiEscapes } from "#/ansi/escapes.ts";
 import {
   ensureTerminalQuery,
   getTerminalQueryPromise,
@@ -32,10 +32,6 @@ import { type CursorPosition } from "#/cursor-position.ts";
 import { parseKeypress } from "#/parse-keypress.ts";
 import { getRawModeStream, type OutputStream } from "#/stream.ts";
 import type { TerminalInput } from "#/terminal/input.ts";
-
-const tab = "\t";
-const shiftTab = `${CSI}Z`;
-const escape = ESC;
 
 type AnimationSubscriber = {
   readonly callback: (currentTime: number) => void;
@@ -282,8 +278,18 @@ export function App({
         return;
       }
 
-      // Reset focus when there's an active focused component on Esc
-      if (input === escape && isFocusEnabledRef.current) {
+      // Reset focus when there's an active focused component on a bare Esc,
+      // in legacy or kitty encoding.
+      if (
+        isFocusEnabledRef.current &&
+        key.name === "escape" &&
+        key.eventType !== "release" &&
+        !key.shift &&
+        !key.ctrl &&
+        !key.meta &&
+        key.super !== true &&
+        key.hyper !== true
+      ) {
         setActiveFocusId(undefined);
       }
     },
@@ -439,16 +445,17 @@ export function App({
       // flow to the query's own data listener instead of being parsed as key
       // presses. queryTerminal buffers real user input typed during the query
       // and unshifts it back; reattaching the readable listener delivers it.
-      //
-      // Note: if kitty keyboard auto-detection is in flight at the same time,
-      // both data listeners see the same bytes; that detector answers the same
-      // CSI ? u probe this query sends, so it converges to the same result.
       handleSetRawMode(true);
       detachReadableListener();
       try {
-        return await (refresh
+        const result = await (refresh
           ? refreshTerminalQuery(stdin, stdout)
           : ensureTerminalQuery(stdin, stdout));
+        // The query also sends the kitty keyboard probe (CSI ? u) and consumes
+        // its reply, which kitty auto-detection would otherwise read through
+        // TerminalInput. Hand the answer over so detection doesn't time out.
+        if (result?.kittyKeyboard) terminalInput.onKittyQueryResponse?.();
+        return result;
       } finally {
         // A slow terminal response may arrive after this renderer has been
         // replaced. Do not leave its reader attached to consume input meant
@@ -467,6 +474,7 @@ export function App({
       handleSetRawMode,
       detachReadableListener,
       attachReadableListener,
+      terminalInput,
     ],
   );
 
@@ -650,12 +658,23 @@ export function App({
     const handleTabNavigation = (input: string): void => {
       if (!isFocusEnabledRef.current || focusablesRef.current.length === 0) return;
 
-      if (input === tab) {
-        focusNext();
+      // Parse so kitty-encoded Tab/Shift+Tab navigate too.
+      const key = parseKeypress(input);
+      if (
+        key.name !== "tab" ||
+        key.eventType === "release" ||
+        key.ctrl ||
+        key.meta ||
+        key.super === true ||
+        key.hyper === true
+      ) {
+        return;
       }
 
-      if (input === shiftTab) {
+      if (key.shift) {
         focusPrevious();
+      } else {
+        focusNext();
       }
     };
 

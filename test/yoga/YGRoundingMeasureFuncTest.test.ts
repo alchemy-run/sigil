@@ -98,3 +98,26 @@ defineBackendTest("rounding_feature_with_custom_measure_keeps_whole_pixel_height
 
   expect(root_child0.getComputedHeight()).toBeCloseTo(164 / 3, 5);
 });
+
+defineBackendTest("set_node_type_reruns_rounding_on_a_cached_tree", ({ Yoga }) => {
+  const root = Yoga.Node.create();
+  root.setWidth(4);
+  root.setHeight(2);
+  root.setFlexDirection(Yoga.FLEX_DIRECTION_ROW);
+  root.setJustifyContent(Yoga.JUSTIFY_CENTER);
+  const child = Yoga.Node.create();
+  child.setMeasureFunc(() => ({ width: 1, height: 1 }));
+  root.insertChild(child, 0);
+
+  // A measured node rounds its position down: 1.5 -> 1.
+  root.calculateLayout(undefined, undefined, Yoga.DIRECTION_LTR);
+  expect(child.getComputedLeft()).toBe(1);
+
+  child.setNodeType(Yoga.NODE_TYPE_DEFAULT);
+  root.calculateLayout(undefined, undefined, Yoga.DIRECTION_LTR);
+  expect(child.getComputedLeft()).toBe(2);
+
+  child.setNodeType(Yoga.NODE_TYPE_TEXT);
+  root.calculateLayout(undefined, undefined, Yoga.DIRECTION_LTR);
+  expect(child.getComputedLeft()).toBe(1);
+});

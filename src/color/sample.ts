@@ -167,7 +167,7 @@ export function interpolateColor(
     if (delta > 180) delta -= 360;
     if (delta < -180) delta += 360;
     return fromHsv(
-      ah[0] + delta * t,
+      (((ah[0] + delta * t) % 360) + 360) % 360,
       mix(ah[1], bh[1], t),
       mix(ah[2], bh[2], t),
       mix(a.alpha, b.alpha, t),

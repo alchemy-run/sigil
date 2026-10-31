@@ -18,17 +18,31 @@ const create = (columns: number | string, rows: number | string): TerminalSize =
   rows: Number.parseInt(String(rows), 10),
 });
 
+// Opened at most once per process: opening per call leaked a descriptor (and
+// a stream) every time, and libuv reopens a tty handed to `tty.WriteStream`,
+// so destroying the stream would not release ours. `null` records a failed
+// open so it isn't retried.
+let devTtyStream: (WriteStream & { _refreshSize?: () => void }) | null | undefined;
+
 const devTty = (): TerminalSize | undefined => {
   try {
-    // O_EVTONLY is macOS-only and missing from the Node type definitions.
-    const { O_EVTONLY: evtOnly } = constants as { O_EVTONLY?: number };
-    const flags =
-      isMacos && evtOnly !== undefined
-        ? // eslint-disable-next-line no-bitwise
-          evtOnly | constants.O_NONBLOCK
-        : constants.O_NONBLOCK;
+    if (devTtyStream === undefined) {
+      devTtyStream = null;
+      // O_EVTONLY is macOS-only and missing from the Node type definitions.
+      const { O_EVTONLY: evtOnly } = constants as { O_EVTONLY?: number };
+      const flags =
+        isMacos && evtOnly !== undefined
+          ? // eslint-disable-next-line no-bitwise
+            evtOnly | constants.O_NONBLOCK
+          : constants.O_NONBLOCK;
 
-    const { columns, rows } = new WriteStream(openSync("/dev/tty", flags));
+      devTtyStream = new WriteStream(openSync("/dev/tty", flags));
+    }
+
+    // The cached stream gets no SIGWINCH updates, so re-read the size; this is
+    // what Node itself does for `process.stdout` on resize.
+    devTtyStream?._refreshSize?.();
+    const { columns, rows } = devTtyStream ?? {};
 
     if (columns && rows) {
       return { columns, rows };
