@@ -1,0 +1,13 @@
+{
+  "extends": "../../test/tsconfig.json",
+  // `../../src` is included for the script runner's sake: fixture subprocesses
+  // resolve this tsconfig from their cwd, and sigil's source (run via the
+  // `source` condition) needs its jsx transform.
+  "include": [".", "../../src"],
+  "compilerOptions": {
+    "customConditions": ["source"],
+    "paths": {
+      "#/*": ["../../src/*"]
+    }
+  }
+}

@@ -112,7 +112,8 @@ export const renderToString = (node: ReactNode, options?: RenderToStringOptions)
 
   // Create a reconciler container in legacy (synchronous) mode.
   // The four trailing callbacks are: onUncaughtError, onCaughtError,
-  // onRecoverableError, and onHostTransitionComplete.
+  // onRecoverableError, and onDefaultTransitionIndicator; then no
+  // transition tracing callbacks.
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const container = reconciler.createContainer(
     rootNode,
@@ -128,6 +129,7 @@ export const renderToString = (node: ReactNode, options?: RenderToStringOptions)
     () => {},
     () => {},
     () => {},
+    null,
   );
 
   let screen: Screen | undefined;

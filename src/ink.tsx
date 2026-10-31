@@ -442,6 +442,7 @@ export const createInk = (options: Options): Ink => {
     () => {},
     () => {},
     () => {},
+    null,
   );
 
   // Unmount when process exits
@@ -449,7 +450,6 @@ export const createInk = (options: Options): Ink => {
 
   setAlternateScreen(Boolean(options.alternateScreen));
 
-  // @ts-expect-error outdated types
   if (isSigilDev) reconciler.injectIntoDevTools();
   // The open DevTools socket keeps the process alive, so it's released on unmount.
   const disconnectFromDevTools = isSigilDev ? (connectToDevTools?.() ?? noop) : noop;

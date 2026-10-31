@@ -26,7 +26,7 @@ The familiar Ink component and hook surface remains available from the package r
 - **Terminal integrations** — `<Hyperlink>` provides OSC 8 links with a fallback. `useTitle`, `useWorkingDirectory`, `useProgress`, `useNotification`, `useClipboard`, and `usePointerShape` manage session-scoped OSC state.
 - **ANSI-aware text** — `<AnsiText>` interprets ANSI-styled input without flattening its semantic colors before rendering.
 - **Routing** — `@alchemy.run/sigil/router` provides an in-memory router designed for terminal applications. See the [routing recipe](recipes/routing.md).
-- **Testing** — the repository includes an internal emulator-backed E2E harness and interactive explorer. These utilities are not part of the public API while their design is evolving.
+- **Testing** — the repository includes an internal emulator-backed E2E harness and interactive explorer (`vpr explorer` in `integration/`), kept with the PTY-driven tests in the private `integration/` workspace package. `vp test` at the root runs both. These utilities are not part of the public API while their design is evolving.
 
 Sigil requires Node.js 22 or newer and React 19.2 or newer.
 
@@ -68,8 +68,8 @@ pnpm add @alchemy.run/sigil react
 ## Usage
 
 ```jsx
-import React, { useState, useEffect } from "react";
 import { render, Text } from "@alchemy.run/sigil";
+import React, { useState, useEffect } from "react";
 
 const Counter = () => {
   const [counter, setCounter] = useState(0);
@@ -223,8 +223,8 @@ npm install --save-dev @babel/preset-react
 Next, create a file `source.js`, where you'll type code that uses Ink:
 
 ```jsx
-import React from "react";
 import { render, Text } from "@alchemy.run/sigil";
+import React from "react";
 
 const Demo = () => <Text>Hello World</Text>;
 
@@ -1071,8 +1071,8 @@ Offsets are terminal cell coordinates, so fractional values are truncated toward
 When an offset splits a wide character, such as CJK, its visible half is rendered as a blank that keeps the character's style, so the columns after it stay aligned.
 
 ```jsx
-import { useState, useRef } from "react";
 import { Box, useInput, useBoxMetrics } from "@alchemy.run/sigil";
+import { useState, useRef } from "react";
 
 const ScrollView = ({ height, children }) => {
   const ref = useRef(null);
@@ -1549,8 +1549,8 @@ a list of completed tests. [Gatsby](https://github.com/gatsbyjs/gatsby) uses it
 to display a list of generated pages while still displaying a live progress bar.
 
 ```jsx
-import React, { useState, useEffect } from "react";
 import { render, Static, Box, Text } from "@alchemy.run/sigil";
+import React, { useState, useEffect } from "react";
 
 const Example = () => {
   const [tests, setTests] = useState([]);
@@ -1729,8 +1729,8 @@ A vertically windowed list. Only the items that intersect the viewport are rende
 Give it a fixed `height`, or omit it and bound an ancestor instead: the list then takes the height of its content and shrinks to whatever rows the container leaves over. Siblings that must keep their size need `flexShrink={0}`, because every `<Box>` shrinks by default.
 
 ```jsx
-import { useState } from "react";
 import { render, Box, Text, VirtualList, useInput, useWindowSize } from "@alchemy.run/sigil";
+import { useState } from "react";
 
 const entries = Array.from({ length: 200 }, (_, index) => `entry ${index}`);
 
@@ -2274,8 +2274,8 @@ Type: `React.RefObject<DOMElement | null>`
 A ref to the `<Box>` element to track.
 
 ```jsx
-import { useRef } from "react";
 import { Box, Text, useBoxMetrics } from "@alchemy.run/sigil";
+import { useRef } from "react";
 
 const Example = () => {
   const ref = useRef(null);
@@ -2692,8 +2692,8 @@ A React hook that returns methods to control the terminal cursor position after 
 This is essential for IME (Input Method Editor) support, where the composing character is displayed at the cursor location.
 
 ```jsx
-import { useState } from "react";
 import { Box, Text, useCursor } from "@alchemy.run/sigil";
+import { useState } from "react";
 import stringWidth from "string-width";
 
 const TextInput = () => {
@@ -3237,9 +3237,9 @@ Ink components are simple to test with [ink-testing-library](https://github.com/
 Here's a simple example that checks how the component is rendered:
 
 ```jsx
-import React from "react";
 import { Text } from "@alchemy.run/sigil";
 import { render } from "ink-testing-library";
+import React from "react";
 
 const Test = () => <Text>Hello World</Text>;
 const { lastFrame } = render(<Test />);

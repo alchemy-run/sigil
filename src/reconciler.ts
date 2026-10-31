@@ -223,20 +223,26 @@ const viewTransitionHostConfig = {
 };
 
 export const reconciler = createReconciler<
-  ElementNames,
-  Props,
-  DOMElement,
-  DOMElement,
-  TextNode,
-  DOMElement,
-  unknown,
-  unknown,
-  unknown,
-  HostContext,
-  unknown,
-  unknown,
-  unknown,
-  unknown
+  ElementNames, // Type
+  Props, // Props
+  DOMElement, // Container
+  DOMElement, // Instance
+  TextNode, // TextInstance
+  DOMElement, // ActivityInstance
+  DOMElement, // SuspenseInstance
+  unknown, // HydratableInstance
+  unknown, // FormInstance
+  unknown, // PublicInstance
+  HostContext, // HostContext
+  unknown, // ChildSet
+  unknown, // TimeoutHandle
+  unknown, // NoTimeout
+  unknown, // TransitionStatus
+  unknown, // SuspendedState
+  unknown, // RendererInspectionConfig
+  unknown, // FormStateMarkerInstance
+  unknown, // HoistableRoot
+  unknown // Resource
 >({
   getRootHostContext: () => ({
     isInsideText: false,

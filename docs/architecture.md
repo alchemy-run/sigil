@@ -27,7 +27,7 @@ back into cells.
 - `@alchemy.run/sigil/screen` contains cells, geometry, canvases, serialization, and diff encoding.
 - `@alchemy.run/sigil/terminal` owns terminal sessions, input decoding, reports, modes, cursor state, and lifecycle.
 
-The emulator-backed test harness, virtual streams, and screen/frame assertions under `src/testing/` are internal while their APIs are evolving.
+Virtual streams and screen/frame assertions under `src/testing/` are internal while their APIs are evolving. The emulator-backed E2E harness, the explorer, and the PTY-driven tests live in the private `integration/` workspace package, which runs against sigil's source through the `source` export condition.
 
 ## Extension rules
 

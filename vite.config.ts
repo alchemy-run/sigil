@@ -35,7 +35,7 @@ export default defineConfig({
       {
         test: {
           include: ["test/**/*.test.{ts,tsx}"],
-          // PTY-based integration tests regularly exceed the default 5s.
+          // Fixture-spawning tests regularly exceed the default 5s.
           testTimeout: 60_000,
           hookTimeout: 60_000,
           env: { FORCE_COLOR: "true" },
@@ -44,6 +44,8 @@ export default defineConfig({
           disableConsoleIntercept: true,
         },
       },
+      // Emulator and PTY driven tests, in their own workspace package.
+      "integration",
     ],
   },
   lint: {

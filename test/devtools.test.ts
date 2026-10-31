@@ -1,16 +1,12 @@
 import { spawnSync } from "node:child_process";
 
-import { expect, onTestFinished, test } from "vite-plus/test";
-
-import term from "./helpers/term.ts";
-import { createWebSocketServer } from "./helpers/websocket-server.ts";
+import { expect, test } from "vite-plus/test";
 
 test("DevTools connection cleanup tolerates an error emitted synchronously by close()", () => {
   // Isolate the globals installed by devtools.ts from the test runner.
   const result = spawnSync(
     process.execPath,
     [
-      "--import=tsx",
       "--input-type=module",
       "-e",
       `
@@ -37,29 +33,4 @@ test("DevTools connection cleanup tolerates an error emitted synchronously by cl
   expect(result.error).toBeUndefined();
   expect(result.status, result.stderr).toBe(0);
   expect(result.stderr).toContain("React DevTools server is not running");
-});
-
-test("exit on unmount() while connected to React DevTools", async (context) => {
-  // The DevTools port is not configurable, so the fake DevTools server has to listen on the default one.
-  let server: Awaited<ReturnType<typeof createWebSocketServer>>;
-  try {
-    server = await createWebSocketServer(8097);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "EADDRINUSE") {
-      context.skip("Port 8097 is in use");
-    }
-
-    throw error;
-  }
-
-  onTestFinished(async () => {
-    await server.close();
-  });
-
-  // eslint-disable-next-line @typescript-eslint/naming-convention
-  const ps = term("devtools-exit-on-unmount", [], { env: { SIGIL_DEV: "true" } });
-  await ps.waitForExit();
-
-  expect(ps.output).toContain("exited");
-  expect(server.receivedChunks, "DevTools never received a message").toBeGreaterThan(0);
 });

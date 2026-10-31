@@ -6,7 +6,6 @@ import { Box, Static, Text, Transform, render, useStdout, useStderr } from "#/in
 
 import createStdout from "./helpers/create-stdout.ts";
 import { renderToString } from "./helpers/render-to-string.ts";
-import term from "./helpers/term.ts";
 
 const previousColorLevel = chalk.level;
 afterEach(() => {
@@ -60,20 +59,6 @@ test("render accessibilityLabel only Transform for screen readers", () => {
 
   expect(renderToString(element, { isScreenReaderEnabled: true })).toBe("Screen-reader only");
   expect(renderToString(element)).toBe("");
-});
-
-test("SIGIL_SCREEN_READER=true enables screen-reader output unless the option disables it", async () => {
-  const output = async (value: string, args: string[] = []) => {
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    const ps = term("screen-reader-env", args, { env: { SIGIL_SCREEN_READER: value } });
-    await ps.waitForExit();
-    return ps.output.includes("Hello World") ? "screen reader" : "visual";
-  };
-
-  expect(await output("true")).toBe("screen reader");
-  expect(await output("true", ["false"])).toBe("visual");
-  expect(await output("false")).toBe("visual");
-  expect(await output("false", ["true"])).toBe("screen reader");
 });
 
 test("omit Static content inside a hidden ancestor from screen-reader output", () => {

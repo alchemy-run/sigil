@@ -34,56 +34,67 @@
   },
   "exports": {
     ".": {
+      "source": "./src/index.ts",
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
     "./ansi": {
+      "source": "./src/ansi/index.ts",
       "import": "./dist/ansi.js",
       "types": "./dist/ansi.d.ts",
       "default": "./dist/ansi.js"
     },
     "./yoga": {
+      "source": "./src/yoga/index.ts",
       "import": "./dist/yoga.js",
       "types": "./dist/yoga.d.ts",
       "default": "./dist/yoga.js"
     },
     "./router": {
+      "source": "./src/router/index.ts",
       "import": "./dist/router.js",
       "types": "./dist/router.d.ts",
       "default": "./dist/router.js"
     },
     "./capabilities": {
+      "source": "./src/capabilities/index.ts",
       "import": "./dist/capabilities.js",
       "types": "./dist/capabilities.d.ts",
       "default": "./dist/capabilities.js"
     },
     "./color": {
+      "source": "./src/color/index.ts",
       "import": "./dist/color.js",
       "types": "./dist/color.d.ts",
       "default": "./dist/color.js"
     },
     "./screen": {
+      "source": "./src/screen/index.ts",
       "import": "./dist/screen.js",
       "types": "./dist/screen.d.ts",
       "default": "./dist/screen.js"
     },
     "./terminal": {
+      "source": "./src/terminal/index.ts",
       "import": "./dist/terminal.js",
       "types": "./dist/terminal.d.ts",
       "default": "./dist/terminal.js"
     },
     "./react": {
+      "source": "./src/react.ts",
       "import": "./dist/react.js",
       "types": "./dist/react.d.ts",
       "default": "./dist/react.js"
     },
     "./jsx-runtime": {
+      "source": "./src/jsx-runtime.ts",
       "import": "./dist/jsx-runtime.js",
       "types": "./dist/jsx-runtime.d.ts",
       "default": "./dist/jsx-runtime.js"
     },
     "./jsx-dev-runtime": {
+      "source": "./src/jsx-dev-runtime.ts",
       "import": "./dist/jsx-dev-runtime.js",
       "types": "./dist/jsx-dev-runtime.d.ts",
       "default": "./dist/jsx-dev-runtime.js"
@@ -97,44 +108,32 @@
     "build": "vp pack",
     "prepare": "vpr build",
     "test": "vp test",
-    "e2e": "vp test test/e2e.test.ts",
-    "explorer": "node --import=tsx scripts/explorer.ts",
+    "e2e": "vp test integration/test/e2e.test.ts",
     "lint": "vp lint",
     "format": "vp fmt .",
     "check": "vp check",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p test/contracts/tsconfig.json",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p test/contracts/tsconfig.json && tsc --noEmit -p integration/tsconfig.json && tsc --noEmit -p integration/test/tsconfig.json",
     "inspect": "vpx react-devtools",
-    "build:reference": "tsx scripts/build-reference.ts",
-    "bench:terminal": "tsx benchmark/terminal-core.tsx --check",
-    "fuzz": "tsx test/yoga/fuzz/typescript.ts",
-    "fuzz:differential": "vpr build:reference && tsx test/yoga/fuzz/differential.ts",
-    "fuzz:loop": "vpr build:reference && tsx test/yoga/fuzz/loop.ts"
+    "build:reference": "vpx scripts/build-reference.ts",
+    "bench:terminal": "vpx benchmark/terminal-core.tsx --check",
+    "fuzz": "vpx test/yoga/fuzz/typescript.ts",
+    "fuzz:differential": "vpr build:reference && vpx test/yoga/fuzz/differential.ts",
+    "fuzz:loop": "vpr build:reference && vpx test/yoga/fuzz/loop.ts"
   },
   "devDependencies": {
-    "@slopus/ghostty-wasm": "^1.3.6",
-    "@types/node": "^26.6.1",
+    "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
-    "@types/react-reconciler": "^0.33.0",
+    "@types/react-reconciler": "^0.34.1",
     "@types/scheduler": "^0.28.0",
-    "@vitest/ui": "^5.0.1",
-    "@xterm/addon-clipboard": "^0.2.0",
-    "@xterm/addon-fit": "^0.11.0",
-    "@xterm/addon-image": "^0.9.0",
-    "@xterm/addon-unicode11": "^0.9.0",
-    "@xterm/addon-web-links": "^0.12.0",
-    "@xterm/addon-webgl": "^0.19.0",
-    "@xterm/headless": "^6.0.0",
-    "@xterm/xterm": "^6.0.0",
-    "react": "^19.3.0",
+    "@vitest/ui": "^5.0.5",
+    "react": "^19.3.1",
     "react-devtools-core": "^8.0.0",
     "react-reconciler": "^0.34.0",
     "scheduler": "^0.28.0",
-    "tsx": "^4.23.13",
     "typescript": "^7.0.2",
-    "vite": "npm:@voidzero-dev/vite-plus-core@^0.3.2",
-    "vite-plus": "^0.3.2",
-    "vitest": "4.1.11",
-    "zigpty": "^0.2.1"
+    "vite": "npm:@voidzero-dev/vite-plus-core@^1.4.0",
+    "vite-plus": "^1.4.0",
+    "vitest": "5.0.5"
   },
   "peerDependencies": {
     "@types/react": ">=19.2.0",

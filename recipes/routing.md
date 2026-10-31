@@ -3,9 +3,9 @@
 Sigil ships a purpose-built in-memory router under `@alchemy.run/sigil/router`. Its component model is a subset of [React Router](https://reactrouter.com)'s declarative mode — `MemoryRouter`, `Routes`, `Route`, `Outlet`, and the familiar hooks — so anything you know from React Router transfers directly. Everything URL- and DOM-specific is gone: routes aren't URLs, they're screen states.
 
 ```tsx
-import React from "react";
 import { render, Text } from "@alchemy.run/sigil";
 import { MemoryRouter, Routes, Route, Link, Outlet } from "@alchemy.run/sigil/router";
+import React from "react";
 
 function Layout() {
   return (

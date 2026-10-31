@@ -40,7 +40,7 @@ test("snake ends with a win when it fills the board", async () => {
     import.meta.dirname,
     "fixtures/alternate-screen-full-board-win.tsx",
   );
-  const childProcess = spawnProcess(process.execPath, ["--import=tsx", fixturePath], {
+  const childProcess = spawnProcess("vpx", [fixturePath], {
     cwd: import.meta.dirname,
     stdio: ["ignore", "pipe", "pipe"],
   });
