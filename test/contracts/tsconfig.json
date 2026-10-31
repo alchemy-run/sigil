@@ -1,6 +1,6 @@
 {
   "extends": "../tsconfig.json",
-  "include": ["root-public-api.tsx", "../../src"],
+  "include": ["root-public-api.tsx", "box-width-types.tsx", "../../src"],
   "compilerOptions": {
     "noEmit": true
   }

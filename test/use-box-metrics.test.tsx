@@ -493,3 +493,70 @@ test("resets metrics when tracked element unmounts", async () => {
 
   expect(stripAnsi(stdout.get())).toContain("Metrics: 0,0,0,0,false");
 });
+
+test("returns viewport client size and content size for overflowing content", async () => {
+  const stdout = createStdout(100);
+
+  function Test() {
+    const ref = useRef<DOMElement>(null);
+    const contentRef = useRef<DOMElement>(null);
+    const { clientWidth, clientHeight } = useBoxMetrics(ref);
+    const content = useBoxMetrics(contentRef);
+
+    return (
+      <Box flexDirection="column">
+        <Box ref={ref} width={12} height={2} overflow="hidden" flexDirection="column">
+          <Box ref={contentRef} width={20} height={5} flexShrink={0} flexGrow={0} />
+        </Box>
+        <Text>
+          client:{clientWidth}x{clientHeight} content:{content.width}x{content.height}
+        </Text>
+      </Box>
+    );
+  }
+
+  const { waitUntilRenderFlush } = render(<Test />, { stdout, debug: true });
+  await waitUntilRenderFlush();
+  await delay(50);
+
+  expect(stripAnsi(stdout.get())).toContain("client:12x2 content:20x5");
+});
+
+test("content size updates when content grows", async () => {
+  const stdout = createStdout(100);
+  let addItem!: () => void;
+
+  function Test() {
+    const contentRef = useRef<DOMElement>(null);
+    const [items, setItems] = useState(["a", "b"]);
+    const content = useBoxMetrics(contentRef);
+
+    addItem = () => {
+      setItems((previousItems) => [...previousItems, `item ${previousItems.length}`]);
+    };
+
+    return (
+      <Box flexDirection="column">
+        <Box height={2} overflowY="hidden" flexDirection="column">
+          <Box ref={contentRef} flexDirection="column" flexShrink={0}>
+            {items.map((item) => (
+              <Text key={item}>{item}</Text>
+            ))}
+          </Box>
+        </Box>
+        <Text>contentHeight:{content.height}</Text>
+      </Box>
+    );
+  }
+
+  const { waitUntilRenderFlush } = render(<Test />, { stdout, debug: true });
+  await waitUntilRenderFlush();
+  await delay(50);
+
+  expect(stripAnsi(stdout.get())).toContain("contentHeight:2");
+
+  addItem();
+  await delay(50);
+
+  expect(stripAnsi(stdout.get())).toContain("contentHeight:3");
+});

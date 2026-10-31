@@ -62,6 +62,8 @@ export function Box({
   children,
   ref,
   backgroundColor,
+  flexWrap = "nowrap",
+  flexDirection = "row",
   "aria-label": ariaLabel,
   "aria-hidden": ariaHidden,
   "aria-role": role,
@@ -78,8 +80,8 @@ export function Box({
     <ink-box
       ref={ref}
       style={{
-        flexWrap: "nowrap",
-        flexDirection: "row",
+        flexWrap,
+        flexDirection,
         flexGrow: 0,
         flexShrink: 1,
         ...style,

@@ -75,6 +75,10 @@ export const renderAccessibleText = (
   return output;
 };
 
+// Content offsets end up as terminal cell coordinates, so they have to be whole numbers.
+const normalizeContentOffset = (value: number | undefined): number =>
+  typeof value === "number" && Number.isFinite(value) ? Math.trunc(value) : 0;
+
 // After nodes are laid out, render each to output object, which later gets rendered to terminal
 export const paintTree = (
   node: DOMElement,
@@ -167,9 +171,9 @@ export const paintTree = (
       renderBackground(x, y, node, output);
       renderBorder(x, y, node, output);
 
-      const clipHorizontally =
-        node.style.overflowX === "hidden" || node.style.overflow === "hidden";
-      const clipVertically = node.style.overflowY === "hidden" || node.style.overflow === "hidden";
+      // An explicit axis value overrides the `overflow` shorthand.
+      const clipHorizontally = (node.style.overflowX ?? node.style.overflow) === "hidden";
+      const clipVertically = (node.style.overflowY ?? node.style.overflow) === "hidden";
 
       if (clipHorizontally || clipVertically) {
         const x1 = clipHorizontally ? x + yogaNode.getComputedBorder(Yoga.EDGE_LEFT) : undefined;
@@ -192,8 +196,8 @@ export const paintTree = (
     if (node.nodeName === "ink-root" || node.nodeName === "ink-box") {
       for (const childNode of node.childNodes) {
         paintTree(childNode as DOMElement, output, {
-          offsetX: x,
-          offsetY: y,
+          offsetX: x - normalizeContentOffset(node.style.contentOffsetX),
+          offsetY: y - normalizeContentOffset(node.style.contentOffsetY),
           transformers: newTransformers,
           skipStaticElements,
         });

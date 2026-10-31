@@ -356,6 +356,11 @@ export function styledCharsFromTokens(tokens: readonly Token[]): StyledChar[] {
   return result;
 }
 
+const isSameStyle = (a: readonly AnsiCode[], b: readonly AnsiCode[]): boolean =>
+  a === b ||
+  (a.length === b.length &&
+    a.every((code, index) => code.code === b[index]!.code && code.endCode === b[index]!.endCode));
+
 export function styledCharsToString(chars: readonly StyledChar[]): string {
   let result = "";
 
@@ -364,7 +369,8 @@ export function styledCharsToString(chars: readonly StyledChar[]): string {
 
     if (index === 0) {
       result += ansiCodesToString(char.styles);
-    } else {
+    } else if (!isSameStyle(chars[index - 1]!.styles, char.styles)) {
+      // Neighbors usually share styles, so skip diffing them.
       result += ansiCodesToString(diffAnsiCodes(chars[index - 1]!.styles, char.styles));
     }
 

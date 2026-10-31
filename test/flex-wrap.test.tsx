@@ -1,7 +1,8 @@
 import { expect, test } from "vite-plus/test";
 
-import { Box, Text } from "#/index.ts";
+import { Box, Text, render } from "#/index.ts";
 
+import createStdout from "./helpers/create-stdout.ts";
 import { renderToString } from "./helpers/render-to-string.ts";
 
 test("row - no wrap", () => {
@@ -73,3 +74,34 @@ test("row - wrap content reverse", () => {
 
   expect(output).toBe("\nC\nAB");
 });
+
+for (const [wrap, initialOutput] of [
+  ["wrap", "AB\nCD"],
+  ["wrap-reverse", "CD\nAB"],
+] as const) {
+  test(`setting ${wrap} to undefined restores nowrap`, () => {
+    function Example({ wrap }: { readonly wrap?: "wrap" | "wrap-reverse" }) {
+      return (
+        <Box width={3} flexWrap={wrap}>
+          <Box flexShrink={0}>
+            <Text>AB</Text>
+          </Box>
+          <Box flexShrink={0}>
+            <Text>CD</Text>
+          </Box>
+        </Box>
+      );
+    }
+
+    const stdout = createStdout();
+    const { rerender, unmount } = render(<Example wrap={wrap} />, {
+      stdout,
+      debug: true,
+    });
+
+    expect(stdout.get()).toBe(initialOutput);
+    rerender(<Example />);
+    expect(stdout.get()).toBe("ABCD");
+    unmount();
+  });
+}
