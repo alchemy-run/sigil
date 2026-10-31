@@ -139,6 +139,27 @@ describe("program status", () => {
     session.cleanup();
   });
 
+  test("an earlier publisher's updates don't take over from a later one", () => {
+    const { stdin, stdout, stderr, write } = streams();
+    const session = new TerminalSession({ stdin, stdout, stderr, programStatus: "enabled" });
+    const task = Symbol("task");
+    const prompt = Symbol("prompt");
+    session.publishStatus(task, { state: "working", progress: 10 });
+    session.publishStatus(prompt, { state: "blocked", kind: "question" });
+    // The task keeps reporting progress while the prompt waits for input:
+    // the terminal must keep showing `blocked`.
+    session.publishStatus(task, { state: "working", progress: 50 });
+    expect(write.mock.calls.map(([value]) => value)).toEqual([
+      setProgramStatus({ state: "working", progress: 10 }),
+      setProgramStatus({ state: "blocked", kind: "question" }),
+    ]);
+
+    // Once the prompt closes, the task's latest report comes back.
+    session.publishStatus(prompt, undefined);
+    expect(write.mock.calls.at(-1)?.[0]).toBe(setProgramStatus({ state: "working", progress: 50 }));
+    session.cleanup();
+  });
+
   test("keeps done and error records after their publisher leaves", () => {
     const { stdin, stdout, stderr, write } = streams();
     const session = new TerminalSession({ stdin, stdout, stderr, programStatus: "enabled" });

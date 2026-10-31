@@ -297,14 +297,17 @@ export class TerminalSession {
 
   /**
    * Publish an OSC 7501 record for `owner`, or withdraw it with `undefined`.
-   * The latest publisher of an id wins. A withdrawn id with no publisher
-   * left is cleared, unless it last reported `done` or `error`.
+   * Of the publishers of an id, the one that started publishing last wins;
+   * updates keep a publisher's place, so a prompt shown during a running task
+   * stays on top while the task keeps reporting progress. A withdrawn id with
+   * no publisher left is cleared, unless it last reported `done` or `error`.
    */
   publishStatus(owner: symbol, status?: ProgramStatus): boolean {
     if (status !== undefined) setProgramStatus(status); // validate before mutating
     const previous = this.#statusPublishers.get(owner);
-    this.#statusPublishers.delete(owner);
-    if (status !== undefined) this.#statusPublishers.set(owner, status);
+    // `Map.set` on an existing key keeps its position.
+    if (status === undefined) this.#statusPublishers.delete(owner);
+    else this.#statusPublishers.set(owner, status);
     const keys = new Set<string>();
     if (previous !== undefined) keys.add(statusKey(previous));
     if (status !== undefined) keys.add(statusKey(status));
