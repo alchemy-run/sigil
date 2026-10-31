@@ -8,19 +8,24 @@ type RerenderFixtureOptions = {
   readonly includeStaticLine?: boolean;
   readonly rowsFallback?: number;
   readonly heightForFrame: (rows: number, frameCount: number) => number;
+  readonly labelForFrame?: (frameCount: number) => string;
 };
+
+const defaultLabelForFrame = (frameCount: number) => `frame ${frameCount}`;
 
 function Issue450RerenderFixtureComponent({
   completionMarker,
   frameLimit,
   includeStaticLine,
   heightForFrame,
+  labelForFrame,
   rows,
 }: {
   readonly completionMarker?: string;
   readonly frameLimit: number;
   readonly includeStaticLine: boolean;
   readonly heightForFrame: (rows: number, frameCount: number) => number;
+  readonly labelForFrame: (frameCount: number) => string;
   readonly rows: number;
 }) {
   const { exit } = useApp();
@@ -59,7 +64,7 @@ function Issue450RerenderFixtureComponent({
       <Box height={targetHeight} flexDirection="column">
         <Text>#450 top</Text>
         <Box flexGrow={1}>
-          <Text>{`frame ${frameCount}`}</Text>
+          <Text>{labelForFrame(frameCount)}</Text>
         </Box>
         <Text>#450 bottom</Text>
       </Box>
@@ -73,6 +78,7 @@ export const runIssue450RerenderFixture = ({
   includeStaticLine = false,
   rowsFallback = 6,
   heightForFrame,
+  labelForFrame = defaultLabelForFrame,
 }: RerenderFixtureOptions): void => {
   const rows = Number(process.argv[2]) || rowsFallback;
   process.stdout.rows = rows;
@@ -83,6 +89,7 @@ export const runIssue450RerenderFixture = ({
       frameLimit={frameLimit}
       includeStaticLine={includeStaticLine}
       heightForFrame={heightForFrame}
+      labelForFrame={labelForFrame}
       rows={rows}
     />,
   );

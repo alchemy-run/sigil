@@ -3,6 +3,8 @@ import { ansiEscapes } from "#/ansi/escapes.ts";
 import {
   buildCursorOnlySequence,
   buildCursorSuffix,
+  buildEraseFrame,
+  buildReturnToBottom,
   buildReturnToBottomPrefix,
   cursorPositionChanged,
   hideCursorEscape,
@@ -74,16 +76,18 @@ export function createInlinePresenter(
   };
 
   present.clear = () => {
-    stream.write(
-      buildReturnToBottomPrefix(cursorWasShown, previousLineCount, previousCursorPosition) +
-        ansiEscapes.eraseLines(previousLineCount),
-    );
+    stream.write(buildEraseFrame(previousLineCount, previousCursorPosition));
     previousOutput = "";
     previousLineCount = 0;
     previousCursorPosition = undefined;
     cursorWasShown = false;
   };
   present.done = () => {
+    // Leave the terminal below the output before discarding the cursor position.
+    if (previousCursorPosition) {
+      stream.write(buildReturnToBottom(previousLineCount, previousCursorPosition));
+    }
+
     previousOutput = "";
     previousLineCount = 0;
     previousCursorPosition = undefined;

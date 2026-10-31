@@ -219,17 +219,26 @@ export type Instance = {
 Mount a component and render the output.
 */
 export const render = (node: ReactNode, options?: Writable | RenderOptions): Instance => {
+  // Explicitly undefined options fall back to their defaults too.
+  const {
+    stdout = process.stdout,
+    stdin = process.stdin,
+    stderr = process.stderr,
+    exitOnCtrlC = true,
+    patchConsole = true,
+    ...renderOptions
+  } = getOptions(options);
   const inkOptions: InkOptions = {
-    stdout: process.stdout,
-    stdin: process.stdin,
-    stderr: process.stderr,
+    stdout,
+    stdin,
+    stderr,
     debug: false,
-    exitOnCtrlC: true,
-    patchConsole: true,
+    exitOnCtrlC,
+    patchConsole,
     maxFps: 30,
     concurrent: false,
     alternateScreen: false,
-    ...getOptions(options),
+    ...renderOptions,
   };
 
   const instance: Ink = getInstance(inkOptions.stdout, () => createInk(inkOptions));

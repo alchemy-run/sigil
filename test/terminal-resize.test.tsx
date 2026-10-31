@@ -5,10 +5,11 @@ import { expect, onTestFinished, test, afterAll } from "vite-plus/test";
 
 import { stripAnsi } from "#/ansi/strip.ts";
 import { getCapabilities } from "#/capabilities/store.ts";
-import { render, Box, Text, useWindowSize } from "#/index.ts";
+import { render, Box, Text, useCursor, useWindowSize } from "#/index.ts";
 
 import { createStdin } from "./helpers/create-stdin.ts";
 import createStdout, { type FakeStdout } from "./helpers/create-stdout.ts";
+import { reconstructTerminalLines } from "./helpers/reconstruct-terminal.ts";
 
 const getWriteContents = (stdout: FakeStdout): string[] =>
   stdout
@@ -178,6 +179,63 @@ test("useWindowSize falls back to terminal-size rows when stdout.rows is missing
 
   expect(capturedRows).toBe(45);
 });
+
+for (const isTty of [false, true]) {
+  test(`resolve the terminal-size fallback once per stream instead of on every render (isTTY: ${String(isTty)})`, async () => {
+    const stdout = createStdout(0, isTty);
+    const originalColumns = process.env.COLUMNS;
+    const originalLines = process.env.LINES;
+    const originalSizes = [process.stdout, process.stderr].map(
+      (stream) => [stream, stream.columns, stream.rows] as const,
+    );
+
+    try {
+      process.env.COLUMNS = "30";
+      process.env.LINES = "10";
+      for (const [stream] of originalSizes) {
+        stream.columns = 0;
+        stream.rows = 0;
+      }
+
+      function Test({ label }: { readonly label: string }) {
+        return (
+          <Box borderStyle="single">
+            <Text>{label}</Text>
+          </Box>
+        );
+      }
+
+      const { rerender, unmount, waitUntilRenderFlush } = render(<Test label="first" />, {
+        stdout,
+        debug: true,
+      });
+      await waitUntilRenderFlush();
+
+      process.env.COLUMNS = "50";
+      rerender(<Test label="second" />);
+      await waitUntilRenderFlush();
+      unmount();
+
+      const lastFrame = stripAnsi(
+        stdout.getWrites().findLast((write) => write.includes("second")) ?? "",
+      );
+      const topBorder = lastFrame.split("\n").find((line) => line.startsWith("┌")) ?? "";
+      expect(topBorder.length).toBe(30);
+    } finally {
+      for (const [name, value] of [
+        ["COLUMNS", originalColumns],
+        ["LINES", originalLines],
+      ] as const) {
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+      }
+      for (const [stream, columns, rows] of originalSizes) {
+        stream.columns = columns;
+        stream.rows = rows;
+      }
+    }
+  });
+}
 
 test("clear screen when terminal width decreases", async () => {
   const stdout = createStdout(100);
@@ -489,3 +547,215 @@ test("window-size-only consumers never query the terminal or change raw mode", a
   expect(stdout.getWrites().join("")).not.toContain("\u001B[c");
   expect(stdin.setRawMode).not.toHaveBeenCalledWith(true);
 });
+
+// Replays the writes on a 10-row terminal below three shell lines, shrinking it
+// to `rows` after the first `writesBeforeResize` writes. Only trailing empty
+// rows are dropped, so a stray blank row inside the output still fails.
+const screenAfterShrink = (
+  stdout: FakeStdout,
+  writesBeforeResize: number,
+  rows: number,
+): string[] => {
+  const writes = stdout.getWrites().map((write) => write.replaceAll("\n", "\r\n"));
+  const lines = reconstructTerminalLines(
+    [
+      "shell 0\r\nshell 1\r\nshell 2\r\n",
+      ...writes.slice(0, writesBeforeResize),
+      { rows },
+      ...writes.slice(writesBeforeResize),
+    ],
+    10,
+  );
+
+  while (lines.at(-1) === "") lines.pop();
+  return lines;
+};
+
+const shell = ["shell 0", "shell 1", "shell 2"];
+const letters = ["A", "B", "C", "D", "E", "F"];
+
+function CursorFrame({
+  suffix = "",
+  cursorY,
+}: {
+  readonly suffix?: string;
+  readonly cursorY: number | undefined;
+}) {
+  const { setCursorPosition } = useCursor();
+  setCursorPosition(cursorY === undefined ? undefined : { x: 0, y: cursorY });
+
+  return (
+    <Box flexDirection="column">
+      {letters.map((letter) => (
+        <Text key={letter}>{letter + suffix}</Text>
+      ))}
+    </Box>
+  );
+}
+
+for (const { cursorY, rows } of [
+  { cursorY: 0, rows: 8 },
+  // The cursor has fewer rows below it than the shrink removes, so the
+  // terminal also scrolls the top off.
+  { cursorY: 4, rows: 7 },
+]) {
+  test(`rows shrink with a cursor above the output bottom keeps lines above the frame - cursor row ${cursorY}, ${rows} rows`, async () => {
+    const stdout = createStdout(100, true, 10);
+    const { rerender, unmount, waitUntilRenderFlush } = render(<CursorFrame cursorY={cursorY} />, {
+      stdout,
+    });
+
+    try {
+      await waitUntilRenderFlush();
+
+      const writesBeforeResize = stdout.getWrites().length;
+      stdout.rows = rows;
+      stdout.emit("resize");
+      await delay(100);
+      await waitUntilRenderFlush();
+
+      // The shrink drops the frame rows below the cursor, so they have to be repainted.
+      expect(screenAfterShrink(stdout, writesBeforeResize, rows)).toEqual([...shell, ...letters]);
+
+      rerender(<CursorFrame suffix="!" cursorY={cursorY} />);
+      await waitUntilRenderFlush();
+
+      expect(screenAfterShrink(stdout, writesBeforeResize, rows)).toEqual([
+        ...shell,
+        ...letters.map((letter) => letter + "!"),
+      ]);
+    } finally {
+      unmount();
+    }
+  });
+}
+
+test("rows shrink right after a commit clears the cursor keeps lines above the frame", async () => {
+  const stdout = createStdout(100, true, 10);
+  const { rerender, unmount, waitUntilRenderFlush } = render(<CursorFrame cursorY={0} />, {
+    stdout,
+  });
+
+  try {
+    await waitUntilRenderFlush();
+
+    // The commit clears the cursor, but its frame is still throttled, so the
+    // terminal still shows the cursor when the rows shrink.
+    rerender(<CursorFrame cursorY={undefined} />);
+    const writesBeforeResize = stdout.getWrites().length;
+    stdout.rows = 8;
+    stdout.emit("resize");
+    await delay(100);
+    await waitUntilRenderFlush();
+
+    expect(screenAfterShrink(stdout, writesBeforeResize, 8)).toEqual([...shell, ...letters]);
+  } finally {
+    unmount();
+  }
+});
+
+test("width and height shrinking together keeps lines above the frame", async () => {
+  const stdout = createStdout(100, true, 10);
+  const { unmount, waitUntilRenderFlush } = render(<CursorFrame cursorY={0} />, { stdout });
+
+  try {
+    await waitUntilRenderFlush();
+
+    const writesBeforeResize = stdout.getWrites().length;
+    // Pairing a width decrease with a height decrease must still use the
+    // committed cursor position to find what to erase.
+    stdout.columns = 50;
+    stdout.rows = 6;
+    stdout.emit("resize");
+    await delay(100);
+    await waitUntilRenderFlush();
+
+    expect(screenAfterShrink(stdout, writesBeforeResize, 6)).toEqual([...shell, ...letters]);
+  } finally {
+    unmount();
+  }
+});
+
+const sixLines = Array.from({ length: 6 }, (_, index) => `line ${index}`);
+
+function SixLines() {
+  return (
+    <Box flexDirection="column">
+      {sixLines.map((line) => (
+        <Text key={line}>{line}</Text>
+      ))}
+    </Box>
+  );
+}
+
+function CursorSixLines({ cursorRow }: { readonly cursorRow?: number }) {
+  const { setCursorPosition } = useCursor();
+  setCursorPosition(cursorRow === undefined ? undefined : { x: 0, y: cursorRow });
+  return <SixLines />;
+}
+
+test("rewrites the frame when the terminal height shrinks onto it", async () => {
+  const stdout = createStdout(40, true, 10);
+  const { unmount, waitUntilRenderFlush } = render(<SixLines />, { stdout });
+
+  try {
+    await waitUntilRenderFlush();
+
+    const writesBefore = stdout.getWrites().length;
+    // The frame now exactly fills the viewport, and the terminal scrolled its
+    // top row into scrollback when it shrank, so the viewport must be redrawn.
+    stdout.rows = 6;
+    stdout.emit("resize");
+    await delay(100);
+    await waitUntilRenderFlush();
+
+    expect(screenAfterShrink(stdout, writesBefore, 6).slice(-6)).toEqual(sixLines);
+  } finally {
+    unmount();
+  }
+});
+
+for (const { description, initialCursorRow, shrink } of [
+  {
+    description: "a custom cursor sits on it",
+    initialCursorRow: 0,
+    shrink: (stdout: FakeStdout) => {
+      stdout.emit("resize");
+    },
+  },
+  {
+    description: "the same render moves a custom cursor",
+    initialCursorRow: 4,
+    shrink: (stdout: FakeStdout, rerender: (tree: React.ReactNode) => void) => {
+      stdout.emit("resize");
+      rerender(<CursorSixLines cursorRow={2} />);
+    },
+  },
+]) {
+  test(`keeps content above the frame when the terminal height shrinks onto it and ${description}`, async () => {
+    const stdout = createStdout(40, true, 10);
+    const { unmount, rerender, waitUntilRenderFlush } = render(
+      <CursorSixLines cursorRow={initialCursorRow} />,
+      { stdout },
+    );
+
+    try {
+      await waitUntilRenderFlush();
+
+      const writesBefore = stdout.getWrites().length;
+      stdout.rows = 6;
+      shrink(stdout, rerender);
+      await delay(100);
+      await waitUntilRenderFlush();
+
+      // The frame now exactly fills the viewport. Replay the stream on a
+      // modelled terminal with shell output above the frame.
+      expect(screenAfterShrink(stdout, writesBefore, 6).filter(Boolean)).toEqual([
+        ...shell,
+        ...sixLines,
+      ]);
+    } finally {
+      unmount();
+    }
+  });
+}

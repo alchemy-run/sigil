@@ -1250,60 +1250,6 @@ test("reset is a stable function reference", () => {
   unmount();
 });
 
-test("reset() clears paused animation values without resuming", async () => {
-  vi.useFakeTimers();
-
-  try {
-    let resetAnimation!: () => void;
-
-    function PausableAnimation({ isActive }: { readonly isActive: boolean }) {
-      const { frame, time, delta, reset } = useAnimation({ interval: 50, isActive });
-      resetAnimation = reset;
-      return <Text>{[frame, time, delta].join(",")}</Text>;
-    }
-
-    const stdout = createStdout();
-    const { rerender, unmount } = render(<PausableAnimation isActive />, {
-      stdout,
-      debug: true,
-      maxFps: 120,
-    });
-
-    const allPositive = () =>
-      stdout
-        .get()
-        .split(",")
-        .map(Number)
-        .every((value) => value > 0);
-
-    // Let a few frames accumulate
-    await vi.advanceTimersByTimeAsync(200);
-    expect(allPositive()).toBe(true);
-
-    // Pause the animation
-    rerender(<PausableAnimation isActive={false} />);
-
-    // Reset all values while paused without restarting the animation.
-    resetAnimation();
-    await vi.advanceTimersByTimeAsync(1);
-    expect(stdout.get()).toBe("0,0,0");
-    await vi.advanceTimersByTimeAsync(100);
-    expect(stdout.get()).toBe("0,0,0");
-
-    // Resume with all values still at zero.
-    rerender(<PausableAnimation isActive />);
-    expect(stdout.get()).toBe("0,0,0");
-
-    // And then advance again to confirm animation restarts cleanly
-    await vi.advanceTimersByTimeAsync(100);
-    expect(allPositive()).toBe(true);
-
-    unmount();
-  } finally {
-    vi.useRealTimers();
-  }
-});
-
 test("concurrent aborted renders do not suppress interval reset", async () => {
   const { promise: suspendedRender, resolve: resolveSuspense } = Promise.withResolvers<void>();
 
@@ -1533,5 +1479,49 @@ test("suspended transitions do not reset the committed animation before commit",
   } finally {
     resolveSuspense();
     instance?.unmount();
+  }
+});
+
+test("reset() clears paused animation values without resuming", async () => {
+  vi.useFakeTimers();
+
+  try {
+    let resetAnimation!: () => void;
+
+    function PausableAnimation({ isActive }: { readonly isActive: boolean }) {
+      const { frame, time, delta, reset } = useAnimation({ interval: 50, isActive });
+      resetAnimation = reset;
+      return <Text>{[frame, time, delta].join(",")}</Text>;
+    }
+
+    const stdout = createStdout();
+    const { rerender, unmount } = render(<PausableAnimation isActive />, {
+      stdout,
+      debug: true,
+      maxFps: 120,
+    });
+    const values = () => stdout.get().split(",").map(Number);
+
+    // Let a few frames accumulate
+    await vi.advanceTimersByTimeAsync(200);
+    expect(values().every((value) => value > 0)).toBe(true);
+
+    // Pause, then reset all values without restarting the animation.
+    rerender(<PausableAnimation isActive={false} />);
+    resetAnimation();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(stdout.get()).toBe("0,0,0");
+    await vi.advanceTimersByTimeAsync(100);
+    expect(stdout.get()).toBe("0,0,0");
+
+    // Resume with all values still at zero, then confirm it restarts cleanly.
+    rerender(<PausableAnimation isActive />);
+    expect(stdout.get()).toBe("0,0,0");
+    await vi.advanceTimersByTimeAsync(100);
+    expect(values().every((value) => value > 0)).toBe(true);
+
+    unmount();
+  } finally {
+    vi.useRealTimers();
   }
 });

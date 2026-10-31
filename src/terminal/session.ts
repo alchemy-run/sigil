@@ -377,6 +377,8 @@ export class TerminalSession {
       } catch {}
       this.#titleActive = false;
     }
+    // Return the cursor below the frame while its screen is still active.
+    this.#presenter.done();
     for (const mode of [...this.#modes.values()].reverse()) {
       try {
         this.stdout.write(mode.disable);
@@ -397,7 +399,6 @@ export class TerminalSession {
     this.inlineScreen = true;
     this.suspended = false;
     this.cursor = { visible: true, shape: "block", blinking: true };
-    this.#presenter.done();
   }
 
   #wrapOsc(sequence: string): string {
