@@ -33,6 +33,7 @@ export const cursorNextLine = CSI + "E";
 export const eraseEndLine = CSI + "K";
 export const eraseLine = CSI + "2K";
 export const eraseScreen = CSI + "2J";
+export const eraseDown = CSI + "J";
 
 export const eraseLines = (count: number): string => {
   let clear = "";
@@ -98,6 +99,7 @@ export const ansiEscapes = {
   eraseEndLine,
   eraseLine,
   eraseScreen,
+  eraseDown,
   eraseLines,
   clearTerminal,
   enterAlternativeScreen,

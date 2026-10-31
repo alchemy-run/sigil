@@ -76,6 +76,8 @@ export function useAnimation(options?: Options): AnimationResult {
       resetKey !== previousOptions.resetKey);
 
   const reset = useCallback(() => {
+    // Clear values right away so reset() also applies while paused.
+    setAnimState(zeroAnimState);
     setResetKey((k) => k + 1);
   }, []);
 

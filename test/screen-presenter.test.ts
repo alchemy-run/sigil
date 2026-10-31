@@ -7,6 +7,8 @@ import { createCell } from "#/screen/cell.ts";
 import { Screen } from "#/screen/screen.ts";
 import { ScreenPresenter } from "#/terminal/screen-presenter.ts";
 
+import { reconstructTerminalLines } from "./helpers/reconstruct-terminal.ts";
+
 const frame = (...lines: string[]): Screen => {
   const width = Math.max(0, ...lines.map((line) => line.length));
   const screen = new Screen(width, lines.length);
@@ -132,3 +134,22 @@ test("clear ignores trailing blank padding but counts styled blanks", () => {
   // "ab" fits one row; "c" plus four highlighted blanks is five cells → three rows.
   expect(writes).toEqual([ansiEscapes.eraseLines(1 + 3 + 1)]);
 });
+
+for (const y of [0, 5]) {
+  test(`clear() erases the frame with the cursor at row ${y}`, () => {
+    const { subject, writes } = presenter();
+    subject.present(frame("Line 1", "Line 2", "Line 3"), {
+      colorProfile: "none",
+      cursor: { x: 5, y },
+    });
+    subject.clear();
+
+    expect(writes.at(-1)?.startsWith(ansiEscapes.cursorHide)).toBe(true);
+    expect(
+      reconstructTerminalLines(
+        ["shell\r\n", ...writes.map((write) => write.replaceAll("\n", "\r\n"))],
+        10,
+      ).filter(Boolean),
+    ).toEqual(["shell"]);
+  });
+}

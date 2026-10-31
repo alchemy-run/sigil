@@ -18,8 +18,19 @@ import { afterAll, expect, test, vi } from "vite-plus/test";
 import { ansiEscapes } from "#/ansi/escapes.ts";
 import { bsu, esu } from "#/ansi/escapes.ts";
 import { stripAnsi } from "#/ansi/strip.ts";
-import { render, Box, Text, useApp, useCursor, useInput, useStdin } from "#/index.ts";
-import { type RenderMetrics } from "#/ink.tsx";
+import {
+  render,
+  Box,
+  Static,
+  Text,
+  useApp,
+  useCursor,
+  useInput,
+  useStdin,
+  useStdout,
+} from "#/index.ts";
+import { type RenderMetrics, homeAndEraseDown } from "#/ink.tsx";
+import { Yoga, type Node as YogaNode } from "#/yoga/index.ts";
 
 import { createStdin, emitReadable } from "./helpers/create-stdin.ts";
 import createStdout, { type FakeStdout } from "./helpers/create-stdout.ts";
@@ -147,8 +158,11 @@ test("handles input without requiring process ref methods", async () => {
 
 // All fixtures here go through the shared pty runner, with Synchronized
 // Update Mode sequences stripped so assertions see content only.
-const term = (fixture: string, args: string[] = [], options: { rows?: number } = {}) =>
-  termHelper(fixture, args, { ...options, stripSyncSequences: true });
+const term = (
+  fixture: string,
+  args: string[] = [],
+  options: { rows?: number; env?: Record<string, string> } = {},
+) => termHelper(fixture, args, { ...options, stripSyncSequences: true });
 
 const countOccurrences = (text: string, searchValue: string): number => {
   if (searchValue === "") {
@@ -224,7 +238,8 @@ type Issue450Fixture =
   | "issue-450-shrink-from-fullscreen-rerender"
   | "issue-450-shrink-from-overflow-rerender"
   | "issue-450-static-shrink-from-fullscreen-rerender"
-  | "issue-969-windows-full-height-rerender";
+  | "issue-969-windows-full-height-rerender"
+  | "issue-935-overflow-rerender";
 
 const runIssue450Fixture = async (fixture: Issue450Fixture, rows = 6): Promise<string> => {
   const processResult = term(fixture, [String(rows)]);
@@ -243,7 +258,7 @@ const runNonTtyFixture = async (fixture: string, args: string[] = []): Promise<s
   env.CI = "";
 
   const fixtureProcess = spawnProcess(
-    "node",
+    process.execPath,
     ["--import=tsx", path.join(import.meta.dirname, `./fixtures/${fixture}.tsx`), ...args],
     {
       cwd: import.meta.dirname,
@@ -268,12 +283,12 @@ const runNonTtyFixture = async (fixture: string, args: string[] = []): Promise<s
 
 type Issue450FixtureResult = {
   output: string;
-  clearTerminalCount: number;
+  fullClearCount: number;
   eraseLineCount: number;
 };
 
 const getIssue450ControlSequenceCounts = (output: string) => ({
-  clearTerminalCount: countOccurrences(output, ansiEscapes.clearTerminal),
+  fullClearCount: countOccurrences(output, homeAndEraseDown),
   eraseLineCount: countOccurrences(output, ansiEscapes.eraseLines(1)),
 });
 
@@ -282,11 +297,11 @@ const runIssue450FixtureWithCounts = async (
   rows = 6,
 ): Promise<Issue450FixtureResult> => {
   const output = await runIssue450Fixture(fixture, rows);
-  const { clearTerminalCount, eraseLineCount } = getIssue450ControlSequenceCounts(output);
+  const { fullClearCount, eraseLineCount } = getIssue450ControlSequenceCounts(output);
 
   return {
     output,
-    clearTerminalCount,
+    fullClearCount,
     eraseLineCount,
   };
 };
@@ -357,7 +372,7 @@ function ThrowingComponentWithBoundary() {
 test("do not erase screen", async () => {
   const ps = term("erase", ["4"]);
   await ps.waitForExit();
-  expect(ps.output).not.toContain(ansiEscapes.clearTerminal);
+  expect(ps.output).not.toContain(homeAndEraseDown);
 
   for (const letter of ["A", "B", "C"]) {
     expect(ps.output).toContain(letter);
@@ -368,7 +383,7 @@ test("do not erase screen where <Static> is taller than viewport", async () => {
   const ps = term("erase-with-static", ["4"]);
 
   await ps.waitForExit();
-  expect(ps.output).not.toContain(ansiEscapes.clearTerminal);
+  expect(ps.output).not.toContain(homeAndEraseDown);
 
   for (const letter of ["A", "B", "C", "D", "E", "F"]) {
     expect(ps.output).toContain(letter);
@@ -410,7 +425,7 @@ test("last line of <Static> survives overflowing live updates (related to #973)"
   expect(
     ps.output,
     "Overflowing updates must not route frames through the scrollback-erasing full clear",
-  ).not.toContain(ansiEscapes.clearTerminal);
+  ).not.toContain(homeAndEraseDown);
   expect(
     ps.output.includes("live-0") && ps.output,
     "Expected the shrink and nudge phases to have rendered as separate frames",
@@ -427,7 +442,7 @@ test("last line of <Static> survives overflowing live updates (related to #973)"
 test("erase screen", async () => {
   const ps = term("erase", ["3"]);
   await ps.waitForExit();
-  expect(ps.output).toContain(ansiEscapes.clearTerminal);
+  expect(ps.output).toContain(homeAndEraseDown);
 
   for (const letter of ["A", "B", "C"]) {
     expect(ps.output).toContain(letter);
@@ -437,7 +452,7 @@ test("erase screen", async () => {
 test("erase screen where <Static> exists but interactive part is taller than viewport", async () => {
   const ps = term("erase", ["3"]);
   await ps.waitForExit();
-  expect(ps.output).toContain(ansiEscapes.clearTerminal);
+  expect(ps.output).toContain(homeAndEraseDown);
 
   for (const letter of ["A", "B", "C"]) {
     expect(ps.output).toContain(letter);
@@ -479,7 +494,7 @@ test("erase screen where state changes in small viewport", async () => {
 
   // The frame exactly filled the viewport, which is erasable in place —
   // clearTerminal (and its ESC[3J scrollback erase) must not fire.
-  expect(ps.output).not.toContain(ansiEscapes.clearTerminal);
+  expect(ps.output).not.toContain(homeAndEraseDown);
 
   const visibleLines = reconstructTerminalLines(ps.output, rows);
   for (const letter of ["A", "B", "C"]) {
@@ -493,7 +508,7 @@ test("fullscreen mode should not add extra newline at the bottom", async () => {
 
   expect(ps.output).toContain("Bottom line");
 
-  const lastFrame = ps.output.split(ansiEscapes.clearTerminal).at(-1) ?? "";
+  const lastFrame = ps.output.split(homeAndEraseDown).at(-1) ?? "";
 
   // Check that the bottom line is at the end without extra newlines
   // In a 5-line terminal:
@@ -512,7 +527,7 @@ test("#442: full terminal-size box should not add an extra scroll line", async (
   const ps = term("issue-442-full-height", [String(rows)]);
   await ps.waitForExit();
 
-  const lastFrame = ps.output.split(ansiEscapes.clearTerminal).at(-1) ?? "";
+  const lastFrame = ps.output.split(homeAndEraseDown).at(-1) ?? "";
   const lastFrameContent = stripAnsi(lastFrame);
   const lines = lastFrameContent.split("\n");
 
@@ -525,14 +540,14 @@ test("#442: full terminal-size box should not add an extra scroll line", async (
 });
 
 test("#450: full-height rerenders should not repeatedly clear terminal", async () => {
-  const { output, clearTerminalCount, eraseLineCount } = await runIssue450FixtureWithCounts(
+  const { output, fullClearCount, eraseLineCount } = await runIssue450FixtureWithCounts(
     "issue-450-full-height-rerender",
   );
 
   assertIssue450DynamicFrameOutput(output);
   expect(
-    clearTerminalCount <= 1,
-    `Expected at most one clearTerminal sequence, received ${clearTerminalCount}`,
+    fullClearCount <= 1,
+    `Expected at most one full-clear sequence, received ${fullClearCount}`,
   ).toBe(true);
   expect(eraseLineCount > 0, "Expected incremental erase sequences for fullscreen rerenders").toBe(
     true,
@@ -545,11 +560,8 @@ test("#969: full-height rerenders on Windows should clear terminal between frame
   assertIssue450DynamicFrameOutput(output);
   // Windows consoles scroll when the bottom-right cell is written, which
   // breaks incremental erase for fullscreen frames. Each rerender must fall
-  // back to a full clear there. The fixture process believes it is on
-  // Windows, so ansi-escapes may emit its legacy clearTerminal variant
-  // there (the host's os.release() decides), while this process resolves
-  // the modern one. Count the eraseScreen prefix shared by both variants.
-  const fullClearCount = countOccurrences(output, ansiEscapes.eraseScreen);
+  // back to a full clear there.
+  const fullClearCount = countOccurrences(output, homeAndEraseDown);
   expect(
     fullClearCount >= 2,
     `Expected a full clear per fullscreen rerender, received ${fullClearCount}`,
@@ -565,7 +577,7 @@ test("#450: initial overflowing frame should not clear terminal", async () => {
   );
 
   expect(outputBeforeMarker, "Initial overflowing render should not clear terminal").not.toContain(
-    ansiEscapes.clearTerminal,
+    homeAndEraseDown,
   );
 });
 
@@ -578,21 +590,49 @@ test("#450: initial full-height frame should not clear terminal", async () => {
   );
 
   expect(outputBeforeMarker, "Initial full-height render should not clear terminal").not.toContain(
-    ansiEscapes.clearTerminal,
+    homeAndEraseDown,
   );
 });
 
 test("#450 control: rows - 1 rerenders should avoid clearTerminal", async () => {
-  const { output, clearTerminalCount, eraseLineCount } = await runIssue450FixtureWithCounts(
+  const { output, fullClearCount, eraseLineCount } = await runIssue450FixtureWithCounts(
     "issue-450-height-minus-one-rerender",
   );
 
   assertIssue450DynamicFrameOutput(output);
-  expect(clearTerminalCount).toBe(0);
+  expect(fullClearCount).toBe(0);
   expect(
     eraseLineCount > 0,
     "Expected incremental erase sequences for non-fullscreen rerenders",
   ).toBe(true);
+});
+
+test("#935: overflowing rerenders must not erase terminal scrollback", async () => {
+  const rows = 6;
+  const processResult = term("issue-935-overflow-rerender", [String(rows)], { rows });
+  await processResult.waitForExit();
+  const { output } = processResult;
+
+  assertIssue450DynamicFrameOutput(output);
+  // Sigil clamps overflowing frames to the viewport instead of taking the
+  // full-clear path, but neither may touch the terminal's history. CSI 3J
+  // erases scrollback and CSI 2J makes VS Code / Windows Terminal push the
+  // viewport into scrollback before clearing.
+  expect(output, "Must not emit CSI 3J").not.toContain("\u001B[3J");
+  expect(output, "Must not emit CSI 2J").not.toContain(ansiEscapes.eraseScreen);
+
+  const visibleLines = reconstructTerminalLines(output, rows);
+  for (let index = 0; index < rows; index++) {
+    expect(visibleLines, `Pre-existing scrollback line ${index} must survive rerenders`).toContain(
+      `#935 scrollback ${index}`,
+    );
+  }
+
+  // Frame 7's label is longer than every other frame's, so a missing or
+  // partial clear leaves `STALE-ROW` behind.
+  const viewport = visibleLines.slice(-rows);
+  expect(viewport.some((line) => line.includes("frame 8"))).toBe(true);
+  expect(visibleLines.some((line) => line.includes("STALE-ROW"))).toBe(false);
 });
 
 test("#450: full-height rerenders should not clear before unmount", async () => {
@@ -601,10 +641,10 @@ test("#450: full-height rerenders should not clear before unmount", async () => 
     "issue-450-full-height-rerender-with-marker",
     renderedMarker,
   );
-  const { clearTerminalCount } = getIssue450ControlSequenceCounts(outputBeforeMarker);
+  const { fullClearCount } = getIssue450ControlSequenceCounts(outputBeforeMarker);
 
   assertIssue450DynamicFrameOutput(outputBeforeMarker);
-  expect(clearTerminalCount).toBe(0);
+  expect(fullClearCount).toBe(0);
 });
 
 test("#450: grow from rows - 1 to full-height should not clear before unmount", async () => {
@@ -613,38 +653,38 @@ test("#450: grow from rows - 1 to full-height should not clear before unmount", 
     "issue-450-grow-to-fullscreen-rerender",
     renderedMarker,
   );
-  const { clearTerminalCount } = getIssue450ControlSequenceCounts(outputBeforeMarker);
+  const { fullClearCount } = getIssue450ControlSequenceCounts(outputBeforeMarker);
 
   assertIssue450DynamicFrameOutput(outputBeforeMarker);
-  expect(clearTerminalCount).toBe(0);
+  expect(fullClearCount).toBe(0);
 });
 
 test("#450: shrink from full-height to rows - 1 must not clear the terminal", async () => {
-  const { output, clearTerminalCount } = await runIssue450FixtureWithCounts(
+  const { output, fullClearCount } = await runIssue450FixtureWithCounts(
     "issue-450-shrink-from-fullscreen-rerender",
   );
 
   assertIssue450DynamicFrameOutput(output);
-  expect(clearTerminalCount).toBe(0);
+  expect(fullClearCount).toBe(0);
 });
 
 test("#450: shrink from overflow to rows - 1 must not clear the terminal", async () => {
-  const { output, clearTerminalCount } = await runIssue450FixtureWithCounts(
+  const { output, fullClearCount } = await runIssue450FixtureWithCounts(
     "issue-450-shrink-from-overflow-rerender",
   );
 
   assertIssue450DynamicFrameOutput(output);
-  expect(clearTerminalCount).toBe(0);
+  expect(fullClearCount).toBe(0);
 });
 
 test("#450: <Static> with shrink from full-height must not clear the terminal", async () => {
-  const { output, clearTerminalCount } = await runIssue450FixtureWithCounts(
+  const { output, fullClearCount } = await runIssue450FixtureWithCounts(
     "issue-450-static-shrink-from-fullscreen-rerender",
   );
 
   expect(output).toContain("#450 static line");
   assertIssue450DynamicFrameOutput(output);
-  expect(clearTerminalCount).toBe(0);
+  expect(fullClearCount).toBe(0);
 });
 
 test("#450: non-TTY full-height rerenders should never clear terminal", () => {
@@ -670,8 +710,8 @@ test("#450: non-TTY full-height rerenders should never clear terminal", () => {
   rerender(<NonTtyRerenderTestComponent frameCount={1} />);
   rerender(<NonTtyRerenderTestComponent frameCount={2} />);
 
-  const { clearTerminalCount } = getIssue450ControlSequenceCounts(writes.join(""));
-  expect(clearTerminalCount).toBe(0);
+  const { fullClearCount } = getIssue450ControlSequenceCounts(writes.join(""));
+  expect(fullClearCount).toBe(0);
 
   unmount();
 });
@@ -697,8 +737,8 @@ test("#450: non-TTY overflow transitions should never clear terminal", () => {
 
   rerender(<NonTtyOverflowTransitionTestComponent lineCount={4} />);
 
-  const { clearTerminalCount } = getIssue450ControlSequenceCounts(writes.join(""));
-  expect(clearTerminalCount).toBe(0);
+  const { fullClearCount } = getIssue450ControlSequenceCounts(writes.join(""));
+  expect(fullClearCount).toBe(0);
 
   unmount();
 });
@@ -728,15 +768,15 @@ test("#450: viewport shrink into overflow must not clear the terminal", async ()
   stdout.emit("resize");
   await delay(0);
 
-  const { clearTerminalCount } = getIssue450ControlSequenceCounts(writes.join(""));
-  expect(clearTerminalCount).toBe(0);
+  const { fullClearCount } = getIssue450ControlSequenceCounts(writes.join(""));
+  expect(fullClearCount).toBe(0);
 
   unmount();
 });
 
 test("#450: non-TTY grow-to-overflow rerender should not clear terminal", async () => {
   const output = await runNonTtyFixture("issue-450-grow-to-overflow-rerender", ["3"]);
-  expect(output).not.toContain(ansiEscapes.clearTerminal);
+  expect(output).not.toContain(homeAndEraseDown);
 });
 
 test("#725: non-TTY child process output is flushed", async () => {
@@ -760,15 +800,15 @@ test("useAnimation can drive explicitly non-interactive process exit", async () 
 });
 
 test("#450: full-height rerenders with <Static> should not repeatedly clear terminal", async () => {
-  const { output, clearTerminalCount, eraseLineCount } = await runIssue450FixtureWithCounts(
+  const { output, fullClearCount, eraseLineCount } = await runIssue450FixtureWithCounts(
     "issue-450-full-height-with-static-rerender",
   );
 
   expect(output, "Fixture should emit static output").toContain("#450 static line");
   assertIssue450DynamicFrameOutput(output);
   expect(
-    clearTerminalCount <= 1,
-    `Expected at most one clearTerminal sequence, received ${clearTerminalCount}`,
+    fullClearCount <= 1,
+    `Expected at most one full-clear sequence, received ${fullClearCount}`,
   ).toBe(true);
   expect(eraseLineCount > 0, "Expected incremental erase sequences for fullscreen rerenders").toBe(
     true,
@@ -786,15 +826,224 @@ test("clear output", async () => {
   }
 });
 
-test("intercept console methods and display result above output", async () => {
-  const ps = term("console");
-  await ps.waitForExit();
+const visibleTerminalLines = (stdout: FakeStdout, rows = 10): string[] =>
+  reconstructTerminalLines(stdout.getWrites().join("").replaceAll("\n", "\r\n"), rows).filter(
+    Boolean,
+  );
 
-  const frames = ps.output.split(ansiEscapes.eraseLines(2)).map((line) => {
-    return stripAnsi(line);
+for (const mode of ["standard", "screen-reader"]) {
+  test(`preserve terminal history when rerendering after clear - ${mode}`, async () => {
+    const stdout = createStdout();
+    stdout.write("History\n");
+    const instance = render(<Text>{"First\nSecond"}</Text>, {
+      stdout,
+      interactive: true,
+      patchConsole: false,
+      isScreenReaderEnabled: mode === "screen-reader",
+    });
+
+    try {
+      await instance.waitUntilRenderFlush();
+
+      instance.clear();
+      expect(visibleTerminalLines(stdout, 100)).toEqual(["History"]);
+      instance.clear();
+      expect(visibleTerminalLines(stdout, 100)).toEqual(["History"]);
+      instance.rerender(<Text>Updated</Text>);
+      await instance.waitUntilRenderFlush();
+
+      expect(visibleTerminalLines(stdout, 100)).toEqual(["History", "Updated"]);
+    } finally {
+      instance.unmount();
+    }
+  });
+}
+
+test("replace restored screen-reader output after clear and stdout write", async () => {
+  const stdout = createStdout(10);
+  let write: (text: string) => void = () => {};
+  function Test() {
+    ({ write } = useStdout());
+    return <Text>First Second Third</Text>;
+  }
+
+  const instance = render(<Test />, {
+    stdout,
+    interactive: true,
+    isScreenReaderEnabled: true,
+    patchConsole: false,
   });
 
-  expect(frames).toEqual(["Hello World\r\n", "First log\r\nHello World\r\nSecond log\r\n"]);
+  try {
+    await instance.waitUntilRenderFlush();
+
+    instance.clear();
+    write("Log\n");
+    instance.rerender(<Text>Updated</Text>);
+    await instance.waitUntilRenderFlush();
+
+    expect(visibleTerminalLines(stdout)).toEqual(["Log", "Updated"]);
+  } finally {
+    instance.unmount();
+  }
+});
+
+test("replace screen-reader output ending in a newline after stdout write", async () => {
+  const stdout = createStdout();
+  let write: (text: string) => void = () => {};
+  function Test() {
+    ({ write } = useStdout());
+    return <Text>{"First\n"}</Text>;
+  }
+
+  const instance = render(<Test />, {
+    stdout,
+    interactive: true,
+    isScreenReaderEnabled: true,
+    patchConsole: false,
+  });
+
+  try {
+    await instance.waitUntilRenderFlush();
+
+    write("Log\n");
+    instance.rerender(<Text>Updated</Text>);
+    await instance.waitUntilRenderFlush();
+
+    expect(visibleTerminalLines(stdout, 100)).toEqual(["Log", "Updated"]);
+  } finally {
+    instance.unmount();
+  }
+});
+
+test("update trailing newline when unchanged output becomes fullscreen", async () => {
+  const stdout = createStdout();
+  stdout.rows = 24;
+  const instance = render(<Text>{"First\nSecond"}</Text>, {
+    stdout,
+    interactive: true,
+    patchConsole: false,
+  });
+
+  try {
+    await instance.waitUntilRenderFlush();
+    expect(stripAnsi(getContentWrites(stdout.write).at(-1)!)).toBe("First\nSecond\n");
+
+    stdout.rows = 2;
+    stdout.emit("resize");
+    await delay(100);
+    await instance.waitUntilRenderFlush();
+    expect(stripAnsi(getContentWrites(stdout.write).at(-1)!)).toBe("First\nSecond");
+  } finally {
+    instance.unmount();
+  }
+});
+
+test("clear screen-reader output", () => {
+  const stdout = createStdout(10);
+  const instance = render(<Text>{"First line\nSecond line"}</Text>, {
+    stdout,
+    interactive: true,
+    isScreenReaderEnabled: true,
+    patchConsole: false,
+  });
+
+  try {
+    expect(visibleTerminalLines(stdout)).toEqual(["First line", "Second", "line"]);
+    instance.clear();
+    expect(visibleTerminalLines(stdout)).toEqual([]);
+  } finally {
+    instance.unmount();
+  }
+});
+
+test("preserve screen-reader output around stdout writes", () => {
+  const stdout = createStdout();
+  let write: (text: string) => void = () => {};
+  function Test() {
+    ({ write } = useStdout());
+    return <Text>{"First line\nSecond line"}</Text>;
+  }
+
+  const instance = render(<Test />, {
+    stdout,
+    interactive: true,
+    isScreenReaderEnabled: true,
+    patchConsole: false,
+  });
+
+  try {
+    write("Log message\n");
+    expect(visibleTerminalLines(stdout)).toEqual(["Log message", "First line", "Second line"]);
+  } finally {
+    instance.unmount();
+  }
+});
+
+test("preserve static history when screen-reader output resizes", async () => {
+  const stdout = createStdout(20);
+  const instance = render(
+    <>
+      <Static items={["History"]}>{(item) => <Text key={item}>{item}</Text>}</Static>
+      <Text>{"First line\nSecond line"}</Text>
+    </>,
+    {
+      stdout,
+      interactive: true,
+      isScreenReaderEnabled: true,
+      patchConsole: false,
+    },
+  );
+
+  try {
+    stdout.columns = 10;
+    stdout.emit("resize");
+    await delay(100);
+
+    expect(visibleTerminalLines(stdout)).toEqual(["History", "First line", "Second", "line"]);
+  } finally {
+    instance.unmount();
+  }
+});
+
+test("rewrap screen-reader output when the terminal gets wider", async () => {
+  const stdout = createStdout(10);
+  const instance = render(<Text>Hello world</Text>, {
+    stdout,
+    interactive: true,
+    isScreenReaderEnabled: true,
+    patchConsole: false,
+  });
+
+  try {
+    expect(visibleTerminalLines(stdout)).toEqual(["Hello", "world"]);
+    stdout.columns = 20;
+    stdout.emit("resize");
+    await delay(100);
+    expect(visibleTerminalLines(stdout)).toEqual(["Hello world"]);
+  } finally {
+    instance.unmount();
+  }
+});
+
+for (const patchConsoleOption of ["omitted", "undefined"]) {
+  test(`intercept console methods with ${patchConsoleOption} patchConsole option`, async () => {
+    const ps = term("console", [patchConsoleOption]);
+    await ps.waitForExit();
+
+    const frames = ps.output.split(ansiEscapes.eraseLines(2)).map((line) => {
+      return stripAnsi(line);
+    });
+
+    expect(frames).toEqual(["Hello World\r\n", "First log\r\nHello World\r\nSecond log\r\n"]);
+  });
+}
+
+test("undefined stream options use the default streams", async () => {
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  const ps = term("undefined-render-streams", [], { env: { CI: "true" } });
+  await ps.waitForExit();
+  expect(ps.output).toContain("Default streams: true");
 });
 
 test("rerender on resize", async () => {
@@ -1434,6 +1683,21 @@ test("waitUntilRenderFlush waits for unmount write callback", async () => {
   expect(didUnmountWriteCallbackFire).toBe(true);
 });
 
+test("waitUntilExit after unmount does not retain a beforeExit listener", async () => {
+  const existingListeners = process.listeners("beforeExit");
+  try {
+    const instance = render(<Text>Hello</Text>, { stdout: createStdout(), patchConsole: false });
+    instance.unmount();
+    await instance.waitUntilExit();
+
+    expect(process.listeners("beforeExit")).toEqual(existingListeners);
+  } finally {
+    for (const listener of process.listeners("beforeExit")) {
+      if (!existingListeners.includes(listener)) process.off("beforeExit", listener);
+    }
+  }
+});
+
 test("waitUntilRenderFlush after unmount does not register beforeExit listener", async () => {
   const stdout = createStdout();
   const { unmount, waitUntilRenderFlush } = render(<Text>Hello</Text>, {
@@ -1917,4 +2181,18 @@ test("bsu/esu wraps throttledLog trailing call", () => {
       unmount();
     }
   });
+});
+
+test("unmount frees the root Yoga node", () => {
+  const create = vi.spyOn(Yoga.Node, "create");
+  const stdout = createStdout();
+  const { unmount } = render(<Text>Hello</Text>, { stdout, debug: true });
+  // The root node is created first, before React mounts any children.
+  const rootYogaNode = create.mock.results[0]?.value as YogaNode;
+  create.mockRestore();
+  const free = vi.spyOn(rootYogaNode, "free");
+
+  unmount();
+
+  expect(free).toHaveBeenCalledOnce();
 });

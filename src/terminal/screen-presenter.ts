@@ -3,6 +3,8 @@ import { ansiEscapes } from "#/ansi/escapes.ts";
 import {
   buildCursorOnlySequence,
   buildCursorSuffix,
+  buildEraseFrame,
+  buildReturnToBottom,
   buildReturnToBottomPrefix,
   cursorPositionChanged,
   type CursorPosition,
@@ -81,12 +83,11 @@ export class ScreenPresenter {
 
     if (firstChangedRow !== undefined) {
       const eraseCount = this.#lineCount - firstChangedRow;
-      const body = screen
-        .toRows()
-        .slice(firstChangedRow)
-        .map((line) => serializeLine(line, serializeOptions))
-        .join("\n");
-      const output = fullscreen || body === "" ? body : `${body}\n`;
+      const rows = screen.toRows().slice(firstChangedRow);
+      const body = rows.map((line) => serializeLine(line, serializeOptions)).join("\n");
+      // New blank rows still need their line feed, or the cursor ends up above
+      // the remembered bottom and the next erase reaches into history.
+      const output = fullscreen || rows.length === 0 ? body : `${body}\n`;
       this.#write(
         buildReturnToBottomPrefix(this.#cursorWasShown, this.#lineCount, this.#cursor) +
           ansiEscapes.eraseLines(eraseCount) +
@@ -132,11 +133,15 @@ export class ScreenPresenter {
   physical rows before the resize event reaches us, so the erase has to cover
   that physical footprint. Erasing only the logical row count leaves the frame's
   top rows behind as ghosts, one more batch per resize event.
+
+  With a cursor shown, the frame's top is found relative to the cursor instead
+  (see `buildEraseFrame`), since a row shrink drops the rows below it.
   */
   clear(options: { readonly columns?: number } = {}): void {
     this.#write(
-      buildReturnToBottomPrefix(this.#cursorWasShown, this.#lineCount, this.#cursor) +
-        ansiEscapes.eraseLines(this.#physicalLineCount(options.columns)),
+      this.#cursor
+        ? buildEraseFrame(this.#lineCount, this.#cursor)
+        : ansiEscapes.eraseLines(this.#physicalLineCount(options.columns)),
     );
     this.#lineCount = 0;
     this.#cursor = undefined;
@@ -168,6 +173,8 @@ export class ScreenPresenter {
   }
 
   done(): void {
+    // Leave the terminal below the frame before discarding the cursor position.
+    if (this.#cursor) this.#write(buildReturnToBottom(this.#lineCount, this.#cursor));
     this.reset();
     if (this.#hidden) {
       cliCursor.show(this.#stream);

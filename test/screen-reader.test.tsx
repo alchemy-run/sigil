@@ -1,8 +1,80 @@
-import { expect, test } from "vite-plus/test";
+import { afterEach, expect, test } from "vite-plus/test";
 
-import { Box, Text } from "#/index.ts";
+import { chalk } from "#/ansi/chalk.ts";
+import { ansiEscapes, bsu, esu } from "#/ansi/escapes.ts";
+import { Box, Text, Transform, render, useStdout, useStderr } from "#/index.ts";
 
+import createStdout from "./helpers/create-stdout.ts";
 import { renderToString } from "./helpers/render-to-string.ts";
+import term from "./helpers/term.ts";
+
+const previousColorLevel = chalk.level;
+afterEach(() => {
+  chalk.level = previousColorLevel;
+});
+
+test("omit nested Text styling from screen-reader output", () => {
+  chalk.level = 3;
+  const element = (
+    <Text>
+      Status: <Text color="green">Ready</Text>
+    </Text>
+  );
+
+  expect(renderToString(element, { isScreenReaderEnabled: true })).toBe("Status: Ready");
+  expect(renderToString(element)).toBe(`Status: ${chalk.green("Ready")}`);
+});
+
+test("preserve nested Transform accessibility labels for screen readers", () => {
+  const element = (
+    <Text>
+      Status:{" "}
+      <Transform accessibilityLabel="Ready" transform={(text) => "*".repeat(text.length)}>
+        <Text>ready</Text>
+      </Transform>
+    </Text>
+  );
+
+  // Only the screen-reader half is asserted: Sigil's paint tree applies a
+  // nested Transform to the enclosing Text's whole compatibility run.
+  expect(renderToString(element, { isScreenReaderEnabled: true })).toBe("Status: Ready");
+});
+
+test("honor empty Transform accessibility labels for screen readers", () => {
+  const element = (
+    <Text>
+      <Transform accessibilityLabel="" transform={(text) => text.toUpperCase()}>
+        <Text>decorative</Text>
+      </Transform>
+      Ready
+    </Text>
+  );
+
+  expect(renderToString(element, { isScreenReaderEnabled: true })).toBe("Ready");
+});
+
+test("render accessibilityLabel only Transform for screen readers", () => {
+  const element = (
+    <Transform accessibilityLabel="Screen-reader only" transform={(text) => text.toUpperCase()} />
+  );
+
+  expect(renderToString(element, { isScreenReaderEnabled: true })).toBe("Screen-reader only");
+  expect(renderToString(element)).toBe("");
+});
+
+test("SIGIL_SCREEN_READER=true enables screen-reader output unless the option disables it", async () => {
+  const output = async (value: string, args: string[] = []) => {
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    const ps = term("screen-reader-env", args, { env: { SIGIL_SCREEN_READER: value } });
+    await ps.waitForExit();
+    return ps.output.includes("Hello World") ? "screen reader" : "visual";
+  };
+
+  expect(await output("true")).toBe("screen reader");
+  expect(await output("true", ["false"])).toBe("visual");
+  expect(await output("false")).toBe("visual");
+  expect(await output("false", ["true"])).toBe("screen reader");
+});
 
 test("render text for screen readers", () => {
   const output = renderToString(
@@ -372,4 +444,94 @@ test("render listbox with multiselectable options", () => {
   expect(output).toBe(
     "listbox: (multiselectable) option: (selected) Option 1\noption: Option 2\noption: (selected) Option 3",
   );
+});
+
+const contentWrites = (stdout: ReturnType<typeof createStdout>) =>
+  stdout.getWrites().filter((write) => write.length > 0);
+
+test("restore screen-reader output after stdout writes without touching the cursor", async () => {
+  const stdout = createStdout(40, true);
+  let write: (text: string) => void = () => {};
+  function Test() {
+    ({ write } = useStdout());
+    return <Text>Hello</Text>;
+  }
+
+  const instance = render(<Test />, {
+    stdout,
+    interactive: true,
+    isScreenReaderEnabled: true,
+    patchConsole: false,
+  });
+
+  try {
+    await instance.waitUntilRenderFlush();
+    expect(contentWrites(stdout)).toEqual([bsu, "Hello", esu]);
+
+    write("External\n");
+
+    expect(contentWrites(stdout).slice(3)).toEqual([
+      bsu,
+      ansiEscapes.eraseLines(1),
+      "External\n",
+      "Hello",
+      esu,
+    ]);
+  } finally {
+    instance.unmount();
+  }
+});
+
+test("restore screen-reader output after stderr writes without touching the cursor", async () => {
+  const stdout = createStdout(40, true);
+  const stderr = createStdout(40, true);
+  let write: (text: string) => void = () => {};
+  function Test() {
+    ({ write } = useStderr());
+    return <Text>Hello</Text>;
+  }
+
+  const instance = render(<Test />, {
+    stdout,
+    stderr,
+    interactive: true,
+    isScreenReaderEnabled: true,
+    patchConsole: false,
+  });
+
+  try {
+    await instance.waitUntilRenderFlush();
+
+    write("External\n");
+
+    expect(contentWrites(stderr)).toEqual(["External\n"]);
+    expect(contentWrites(stdout).slice(3)).toEqual([bsu, ansiEscapes.eraseLines(1), "Hello", esu]);
+  } finally {
+    instance.unmount();
+  }
+});
+
+test("restore screen-reader output after console.log without touching the cursor", async () => {
+  const stdout = createStdout(40, true);
+  const instance = render(<Text>Hello</Text>, {
+    stdout,
+    interactive: true,
+    isScreenReaderEnabled: true,
+  });
+
+  try {
+    await instance.waitUntilRenderFlush();
+
+    console.log("External");
+
+    expect(contentWrites(stdout).slice(3)).toEqual([
+      bsu,
+      ansiEscapes.eraseLines(1),
+      "External\n",
+      "Hello",
+      esu,
+    ]);
+  } finally {
+    instance.unmount();
+  }
 });

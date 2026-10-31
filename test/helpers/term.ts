@@ -29,13 +29,17 @@ const term = (fixture: string, args: string[] = [], options: TermOptions = {}) =
     NODE_NO_WARNINGS: "1",
   };
 
-  const ps = spawn("node", ["--import=tsx", path.join(fixturesDir, `${fixture}.tsx`), ...args], {
-    name: "xterm-color",
-    cols: options.columns ?? 100,
-    cwd: fixturesDir,
-    env,
-    ...(options.rows === undefined ? {} : { rows: options.rows }),
-  });
+  const ps = spawn(
+    process.execPath,
+    ["--import=tsx", path.join(fixturesDir, `${fixture}.tsx`), ...args],
+    {
+      name: "xterm-color",
+      cols: options.columns ?? 100,
+      cwd: fixturesDir,
+      env,
+      ...(options.rows === undefined ? {} : { rows: options.rows }),
+    },
+  );
 
   const result = {
     write(input: string) {

@@ -4,7 +4,10 @@ import { expect, test } from "vite-plus/test";
 import { spawn } from "zigpty";
 
 import { stripAnsi } from "#/ansi/strip.ts";
+import { render, useInput } from "#/index.ts";
 
+import { createStdin, emitReadable } from "./helpers/create-stdin.ts";
+import createStdout from "./helpers/create-stdout.ts";
 import { run } from "./helpers/run.ts";
 
 test("exit normally without unmount() or exit()", async () => {
@@ -76,7 +79,7 @@ test("don't exit while raw mode is active", async () => {
     };
 
     const term = spawn(
-      "node",
+      process.execPath,
       ["--import=tsx", path.join(import.meta.dirname, "./fixtures/exit-double-raw-mode.tsx")],
       {
         name: "xterm-color",
@@ -143,4 +146,32 @@ test("exit on exit() with error and static output", async () => {
   // Static items NOT duplicated (the bug from #397)
   const cleaned = stripAnsi(output);
   expect(cleaned.split("A").length - 1).toBe(1);
+});
+
+test("unmount on process.exit() after a dependency using signal-exit 4 registered an exit handler", async () => {
+  const output = await run("exit-after-signal-exit-v4-user");
+  expect(output).toContain("Hello World");
+  expect(output, "Sigil did not unmount on exit").toContain("unmounted");
+});
+
+test("automatic exit handles legacy Ctrl+C with an undefined exit option", async () => {
+  function Input() {
+    useInput(() => {});
+    return null;
+  }
+
+  const stdin = createStdin();
+  const instance = render(<Input />, {
+    stdin,
+    stdout: createStdout(),
+    exitOnCtrlC: undefined,
+    patchConsole: false,
+  });
+
+  try {
+    emitReadable(stdin, "\u0003");
+    await expect(instance.waitUntilExit()).resolves.toBeUndefined();
+  } finally {
+    instance.unmount();
+  }
 });

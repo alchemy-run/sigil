@@ -69,6 +69,53 @@ test("cursor is shown at specified position after render", async () => {
   unmount();
 });
 
+test("memoized cursor survives sibling updates", async () => {
+  const stdout = createStdout();
+  let cursorRenderCount = 0;
+  const Cursor = React.memo(function Cursor() {
+    cursorRenderCount++;
+    const { setCursorPosition } = useCursor();
+    setCursorPosition({ x: 2, y: 0 });
+    return <Text>Input</Text>;
+  });
+  function Test({ status }: { readonly status: string }) {
+    return (
+      <Box flexDirection="column">
+        <Cursor />
+        <Text>{status}</Text>
+      </Box>
+    );
+  }
+
+  const app = render(<Test status="Waiting" />, { stdout });
+  try {
+    await app.waitUntilRenderFlush();
+    expect(stdout.getWrites().join("")).toContain(showCursorEscape);
+    const writesBeforeUpdate = stdout.getWrites().length;
+
+    app.rerender(<Test status="Ready" />);
+    await app.waitUntilRenderFlush();
+
+    const output = stdout.getWrites().slice(writesBeforeUpdate).join("");
+    expect(cursorRenderCount).toBe(1);
+    expect(output).toContain("Ready");
+    expect(output).toContain(ansiEscapes.cursorTo(2) + showCursorEscape);
+    expect(output.lastIndexOf(showCursorEscape)).toBeGreaterThan(
+      output.lastIndexOf(hideCursorEscape),
+    );
+
+    const writesBeforeUnmount = stdout.getWrites().length;
+    app.rerender(<Text>Finished</Text>);
+    await app.waitUntilRenderFlush();
+    const outputAfterUnmount = stdout.getWrites().slice(writesBeforeUnmount).join("");
+    expect(outputAfterUnmount).toContain("Finished");
+    expect(outputAfterUnmount).toContain(hideCursorEscape);
+    expect(outputAfterUnmount).not.toContain(showCursorEscape);
+  } finally {
+    app.unmount();
+  }
+});
+
 test("cursor is not hidden by useEffect after first render", async () => {
   const stdout = createStdout();
   const stdin = createStdin();

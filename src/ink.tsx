@@ -68,6 +68,13 @@ function bottomRows(screen: Screen, height: number): Screen {
 // emulator needs a frame or so to agree with the PTY size either way.
 const RESIZE_SETTLE_MS = 50;
 
+// Full-clear path (see `shouldClearTerminalForFrame`). It must clear only
+// what is visible: `ansiEscapes.clearTerminal` emits CSI 3J, which erases the
+// terminal's scrollback, and CSI 2J makes VS Code and Windows Terminal push
+// the viewport into scrollback first (#935). Exported so tests assert against
+// the real sequence rather than a copy.
+export const homeAndEraseDown = ansiEscapes.cursorTo(0, 0) + ansiEscapes.eraseDown;
+
 const shouldClearTerminalForFrame = ({
   isTTY,
   viewportRows,
@@ -555,15 +562,21 @@ export const createInk = (options: Options): Ink => {
     accessiblePresenter?.setCursorPosition(position);
   }
 
+  // After clear(), the recorded frame is off screen until the next render.
+  function isOutputCleared(): boolean {
+    return lastOutputHeight === 0 && lastOutput !== "";
+  }
+
   function restoreLastOutput(): void {
-    if (!interactive) {
+    // Console output must not repaint a cleared frame.
+    if (!interactive || isOutputCleared()) {
       return;
     }
 
-    // Replay the latest cursor intent when restoring after external output.
+    // Screen-reader output uses no cursor placement, like its render path.
     if (isScreenReaderEnabled) {
-      accessiblePresenter!.setCursorPosition(terminal.cursor.position);
-      accessiblePresenter!(lastOutputToRender || lastOutput + "\n");
+      accessiblePresenter!.setCursorPosition(undefined);
+      accessiblePresenter!(lastOutputToRender);
     } else if (lastScreen) {
       terminal.present(lastScreen, {
         fullscreen: lastOutputToRender === lastOutput,
@@ -588,11 +601,14 @@ export const createInk = (options: Options): Ink => {
   }
 
   function calculateLayout(): void {
-    const terminalWidth = windowSize().columns;
+    const { yogaNode } = rootNode;
 
-    rootNode.yogaNode!.setWidth(terminalWidth);
+    // Calling exit() from an effect unmounts synchronously, so React's
+    // teardown commit can land after the root Yoga node is freed.
+    if (!yogaNode) return;
 
-    rootNode.yogaNode!.calculateLayout(undefined, undefined, Yoga.DIRECTION_LTR);
+    yogaNode.setWidth(windowSize().columns);
+    yogaNode.calculateLayout(undefined, undefined, Yoga.DIRECTION_LTR);
   }
 
   // Resets `fullStaticOutput` when the <Static> identity changes so stale items from a previous instance are not replayed on future rewrites.
@@ -636,6 +652,13 @@ export const createInk = (options: Options): Ink => {
       nextRenderCommit = undefined;
     }
 
+    // After clear(), draw the next frame even when unchanged. Keep the record
+    // while unmounting, so clear() followed by unmount() leaves the terminal clean.
+    if (isOutputCleared() && !isUnmounting) {
+      lastOutputToRender = "";
+      resetLiveOutput();
+    }
+
     const startTime = performance.now();
     const rendered = renderFrame(rootNode, isScreenReaderEnabled, {
       colorProfile: terminal.colorProfile,
@@ -657,8 +680,18 @@ export const createInk = (options: Options): Ink => {
       (rendered.staticScreen ? terminal.encode(rendered.staticScreen) : "");
     const staticOutput = staticBody ? `${staticBody}\n` : "";
 
-    options.onRender?.({ renderTime: performance.now() - startTime });
+    const renderTime = performance.now() - startTime;
+    commitFrame(output, outputHeight, staticOutput, screen);
+    // Report after committing so the callback observes the written frame.
+    options.onRender?.({ renderTime });
+  }
 
+  function commitFrame(
+    output: string,
+    outputHeight: number,
+    staticOutput: string,
+    screen: Screen | undefined,
+  ): void {
     // If <Static> output isn't empty, it means new children have been added to it
     const hasStaticOutput = staticOutput && staticOutput !== "\n";
 
@@ -691,15 +724,13 @@ export const createInk = (options: Options): Ink => {
         options.stdout.write(bsu);
       }
 
-      if (hasStaticOutput) {
-        // We need to erase the main output before writing new static output
-        const erase = lastOutputHeight > 0 ? ansiEscapes.eraseLines(lastOutputHeight) : "";
-        options.stdout.write(erase + staticOutput);
-        // After erasing, the last output is gone, so we should reset its height
-        lastOutputHeight = 0;
-      }
+      // Compare the wrapped output so a wider terminal still rewraps it.
+      const wrappedOutput = wrapAnsi(output, windowSize().columns, {
+        trim: false,
+        hard: true,
+      });
 
-      if (output === lastOutput && !hasStaticOutput) {
+      if (wrappedOutput === lastOutputToRender && !hasStaticOutput) {
         if (sync) {
           options.stdout.write(esu);
         }
@@ -707,24 +738,21 @@ export const createInk = (options: Options): Ink => {
         return;
       }
 
-      const terminalWidth = windowSize().columns;
-
-      const wrappedOutput = wrapAnsi(output, terminalWidth, {
-        trim: false,
-        hard: true,
-      });
-
-      // If we haven't erased yet, do it now.
-      if (hasStaticOutput) {
-        options.stdout.write(wrappedOutput);
-      } else {
-        const erase = lastOutputHeight > 0 ? ansiEscapes.eraseLines(lastOutputHeight) : "";
-        options.stdout.write(erase + wrappedOutput);
-      }
+      // Erase the frame before writing new static output or replacing it. The
+      // presenter tracks the rows actually on screen, including frames
+      // restored after external writes and nothing after clear().
+      accessiblePresenter!.clear();
+      if (hasStaticOutput) options.stdout.write(staticOutput);
+      options.stdout.write(wrappedOutput);
 
       lastOutput = output;
       lastOutputToRender = wrappedOutput;
       lastOutputHeight = wrappedOutput === "" ? 0 : wrappedOutput.split("\n").length;
+      // Keep the presenter's bookkeeping in sync so clear() and console
+      // writes erase exactly this output. Screen-reader output uses its own
+      // cursor placement.
+      accessiblePresenter!.setCursorPosition(undefined);
+      accessiblePresenter!.sync(wrappedOutput);
 
       if (sync) {
         options.stdout.write(esu);
@@ -949,6 +977,12 @@ export const createInk = (options: Options): Ink => {
 
       instances.delete(captureTargets?.stdout ?? options.stdout);
 
+      // React has torn down the tree and freed the child Yoga nodes; the root
+      // node is Ink's own. Free it and drop the reference so late access is a
+      // no-op.
+      rootNode.yogaNode?.free();
+      rootNode.yogaNode = undefined;
+
       // Ensure all queued writes have been processed before resolving the
       // exit promise. Queue an empty write as a barrier — its callback fires
       // only after all prior writes complete.
@@ -995,7 +1029,7 @@ export const createInk = (options: Options): Ink => {
   }
 
   async function waitUntilExit(): Promise<unknown> {
-    if (!unsubscribeBeforeExit) {
+    if (!isUnmounting && !unsubscribeBeforeExit) {
       unsubscribeBeforeExit = registerBeforeExit(() => {
         unmount();
       });
@@ -1053,9 +1087,9 @@ export const createInk = (options: Options): Ink => {
   function clear(): void {
     if (interactive && !options.debug) {
       clearLiveOutput();
-      // Sync lastOutput so that unmount's final onRender
-      // sees it as unchanged and the presenter skips it
-      if (isScreenReaderEnabled) accessiblePresenter!.sync(lastOutputToRender || lastOutput + "\n");
+      // Keep lastOutput so that unmount's final onRender sees it as
+      // unchanged, but no rows remain on screen.
+      lastOutputHeight = 0;
     }
   }
 
@@ -1176,7 +1210,11 @@ export const createInk = (options: Options): Ink => {
       return;
     }
 
+    // A handle resumes only its own suspension, never a later one.
+    let resumed = false;
     const resume = async (): Promise<void> => {
+      if (resumed) return;
+      resumed = true;
       await endSuspend();
     };
 
@@ -1265,7 +1303,7 @@ export const createInk = (options: Options): Ink => {
         options.stdout.write(bsu);
       }
 
-      options.stdout.write(ansiEscapes.clearTerminal + fullStaticOutput + outputToRender);
+      options.stdout.write(homeAndEraseDown + fullStaticOutput + outputToRender);
       lastOutput = output;
       lastOutputToRender = outputToRender;
       lastOutputHeight = outputHeight;
@@ -1350,6 +1388,10 @@ export const createInk = (options: Options): Ink => {
   }
 
   function beginSuspend(): void {
+    // Non-interactive output is not a live frame, so there is nothing to hand
+    // over; keep rendering and writing as usual.
+    if (!interactive) return;
+
     terminal.beginSuspension();
 
     if (!interactive || isUnmounted || isUnmounting) {
@@ -1404,13 +1446,13 @@ export const createInk = (options: Options): Ink => {
 
     terminal.resume();
 
-    // Reclaim input even mid-unmount: pauseInput already ran in beginSuspend, so
-    // restoring it is symmetric regardless of any state change during suspension.
-    resumeInput?.();
-
     if (!interactive || isUnmounted || isUnmounting) {
       return;
     }
+
+    // Reclaim input only while the app still owns the terminal. After
+    // unmount, App cleanup has already restored raw mode.
+    resumeInput?.();
 
     const { canWriteToStdout } = getWritableStreamState(options.stdout);
 
