@@ -72,6 +72,13 @@ test("useInput - handle ctrl + up arrow", async () => {
   expect(ps.output).toContain("exited");
 });
 
+test("useInput - handle SS3 ctrl + up arrow", async () => {
+  const ps = term("use-input", ["upArrowCtrl"]);
+  ps.write("\u001BO1;5A");
+  await ps.waitForExit();
+  expect(ps.output).toContain("exited");
+});
+
 test("useInput - handle ctrl + down arrow", async () => {
   const ps = term("use-input", ["downArrowCtrl"]);
   ps.write("\u001B[1;5B");

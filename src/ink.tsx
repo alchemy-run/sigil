@@ -17,12 +17,7 @@ import type { CursorPosition } from "#/cursor-position.ts";
 import * as dom from "#/dom.ts";
 import { isSigilDev, isInCi, isScreenReader, isTty, isWindows } from "#/env.ts";
 import { instances } from "#/instances.ts";
-import {
-  type KittyKeyboardOptions,
-  type KittyFlagName,
-  resolveFlags,
-  detectKittySupport,
-} from "#/kitty-keyboard.ts";
+import { type KittyKeyboardOptions, type KittyFlagName, resolveFlags } from "#/kitty-keyboard.ts";
 import { patchConsole, patchStreamWrite } from "#/patch-console.ts";
 import { reconciler } from "#/reconciler.ts";
 import { renderFrame } from "#/render-frame.ts";
@@ -412,7 +407,9 @@ export const createInk = (options: Options): Ink => {
   let unsubscribeResize: (() => void) | undefined;
   let kittyProtocolEnabled = false;
   let kittyFlags: KittyFlagName[] | undefined;
-  let cancelKittyDetection: (() => void) | undefined;
+  // Auto-detection flags waiting for App to start reading input.
+  let pendingKittyFlags: KittyFlagName[] | undefined;
+  let finishKittyDetection: ((isSupported: boolean) => void) | undefined;
   let nextRenderCommit: { promise: Promise<void>; resolve: () => void } | undefined;
   // Input pause/resume hooks registered by the App component, which owns raw
   // mode and bracketed paste state.
@@ -765,6 +762,7 @@ export const createInk = (options: Options): Ink => {
             onWaitUntilRenderFlush={waitUntilRenderFlush}
             onSuspendTerminal={suspendTerminal}
             onRegisterInputControl={registerInputControl}
+            onInputReady={handleInputReady}
           >
             {node}
           </App>
@@ -914,13 +912,12 @@ export const createInk = (options: Options): Ink => {
       }
 
       // Cancel any in-progress auto-detection before checking protocol state
-      if (cancelKittyDetection) {
-        cancelKittyDetection();
-      }
+      finishKittyDetection?.(false);
 
       if (canWriteToStdout) {
         if (kittyProtocolEnabled) {
           writeBestEffort(options.stdout, ansiEscapes.popKittyKeyboard);
+          kittyProtocolEnabled = false;
         }
 
         // Alternate-screen content is disposable by design. We intentionally
@@ -1332,13 +1329,41 @@ export const createInk = (options: Options): Ink => {
     }
 
     // Auto mode: query the terminal for kitty keyboard protocol support.
-    // This avoids maintaining a hardcoded whitelist of terminal names.
-    cancelKittyDetection = detectKittySupport(options.stdin, options.stdout, () => {
-      cancelKittyDetection = undefined;
-      if (!isUnmounted) {
+    // This avoids maintaining a hardcoded whitelist of terminal names. The
+    // query waits until an input hook enables raw mode: in a cooked tty the
+    // terminal echoes the reply, and with no input listener it is left for
+    // the shell.
+    pendingKittyFlags = flags;
+  }
+
+  function handleInputReady(): void {
+    if (!pendingKittyFlags || isUnmounted) return;
+    const flags = pendingKittyFlags;
+    pendingKittyFlags = undefined;
+    confirmKittySupport(flags);
+  }
+
+  // The reply is consumed by App's normal input pipeline (TerminalInput), so
+  // user input is never read twice.
+  function confirmKittySupport(flags: KittyFlagName[]): void {
+    const finish = (isSupported: boolean): void => {
+      finishKittyDetection = undefined;
+      terminal.input.onKittyQueryResponse = undefined;
+      clearTimeout(timer);
+      if (isSupported && !isUnmounted) {
         enableKittyProtocol(flags);
       }
-    });
+    };
+
+    // Register before writing the query so immediate responses are not missed.
+    const timer = setTimeout(() => {
+      finish(false);
+    }, 200);
+    finishKittyDetection = finish;
+    terminal.input.onKittyQueryResponse = () => {
+      finish(true);
+    };
+    options.stdout.write(ansiEscapes.kittyQuery);
   }
 
   function enableKittyProtocol(flags: KittyFlagName[]): void {
@@ -1350,6 +1375,7 @@ export const createInk = (options: Options): Ink => {
   }
 
   function beginSuspend(): void {
+    finishKittyDetection?.(false);
     terminal.beginSuspension();
 
     if (!interactive || isUnmounted || isUnmounting) {
@@ -1374,6 +1400,7 @@ export const createInk = (options: Options): Ink => {
 
         if (kittyProtocolEnabled) {
           writeBestEffort(options.stdout, ansiEscapes.popKittyKeyboard);
+          kittyProtocolEnabled = false;
         }
 
         if (terminal.alternateScreen) {
@@ -1419,8 +1446,9 @@ export const createInk = (options: Options): Ink => {
         writeBestEffort(options.stdout, ansiEscapes.enterAlternativeScreen);
       }
 
-      if (kittyProtocolEnabled && kittyFlags) {
+      if (kittyFlags) {
         writeBestEffort(options.stdout, ansiEscapes.pushKittyKeyboard(resolveFlags(kittyFlags)));
+        kittyProtocolEnabled = true;
       }
     }
 

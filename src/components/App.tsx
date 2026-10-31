@@ -29,6 +29,7 @@ import { StderrContext } from "#/components/StderrContext.ts";
 import { StdinContext } from "#/components/StdinContext.ts";
 import { StdoutContext } from "#/components/StdoutContext.ts";
 import { type CursorPosition } from "#/cursor-position.ts";
+import { parseKeypress } from "#/parse-keypress.ts";
 import { getRawModeStream, type OutputStream } from "#/stream.ts";
 import type { TerminalInput } from "#/terminal/input.ts";
 
@@ -55,6 +56,8 @@ type Props = {
   readonly onWaitUntilRenderFlush: () => Promise<void>;
   readonly onSuspendTerminal: SuspendTerminal;
   readonly onRegisterInputControl: (pauseInput: () => void, resumeInput: () => void) => void;
+  // Called whenever App starts reading stdin (raw mode on, listener attached).
+  readonly onInputReady: () => void;
   readonly setCursorPosition: (position: CursorPosition | undefined) => void;
   readonly interactive: boolean;
   readonly renderThrottleMs: number;
@@ -81,6 +84,7 @@ export function App({
   onWaitUntilRenderFlush,
   onSuspendTerminal,
   onRegisterInputControl,
+  onInputReady,
   setCursorPosition,
   interactive,
   renderThrottleMs,
@@ -256,9 +260,9 @@ export function App({
 
   const handleInput = useCallback(
     (input: string): void => {
-      // Exit on Ctrl+C
-      // eslint-disable-next-line unicorn/no-hex-escape
-      if (input === "\x03" && exitOnCtrlC) {
+      // Exit on Ctrl+C, in legacy or kitty encoding (but not on its release).
+      const key = parseKeypress(input);
+      if (exitOnCtrlC && key.ctrl && key.name === "c" && key.eventType !== "release") {
         handleExit();
         return;
       }
@@ -327,7 +331,8 @@ export function App({
     // Store the listener reference to avoid stale closure when removing
     readableListenerRef.current = handleReadable;
     stdin.addListener("readable", handleReadable);
-  }, [stdin, handleReadable]);
+    onInputReady();
+  }, [stdin, handleReadable, onInputReady]);
 
   const handleSetRawMode = useCallback(
     (isEnabled: boolean): void => {

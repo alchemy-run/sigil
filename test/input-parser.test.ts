@@ -1,6 +1,6 @@
 import { expect, test } from "vite-plus/test";
 
-import { createInputParser, type InputEvent } from "#/input-parser.ts";
+import { createInputParser, isCompleteControlSequence, type InputEvent } from "#/input-parser.ts";
 
 const parseChunks = (chunks: readonly string[]): InputEvent[] => {
   const parser = createInputParser();
@@ -380,4 +380,129 @@ test("paste event delivers backspace chars verbatim without splitting", () => {
   expect(parseChunks(["\u001B[200~\u007F\u0008\u007F\u001B[201~"])).toEqual([
     { paste: "\u007F\u0008\u007F" },
   ]);
+});
+
+test("keeps rxvt shifted editing keys separate from following text", () => {
+  for (const key of [2, 3, 5, 6, 7, 8]) {
+    const sequence = `\u001B[${key}$`;
+
+    expect(parseChunks([`${sequence}hello`])).toEqual([sequence, "hello"]);
+  }
+});
+
+test("emits rxvt Shift+Delete as soon as its final byte arrives", () => {
+  const parser = createInputParser();
+
+  expect(parser.push("\u001B[3")).toEqual([]);
+  expect(parser.push("$")).toEqual(["\u001B[3$"]);
+  expect(parser.hasPendingEscape()).toBe(false);
+  expect(parser.push("hello")).toEqual(["hello"]);
+});
+
+test("parses consecutive rxvt shifted keys including meta", () => {
+  expect(parseChunks(["\u001B[3$\u001B\u001B[5$\u001B[A"])).toEqual([
+    "\u001B[3$",
+    "\u001B\u001B[5$",
+    "\u001B[A",
+  ]);
+});
+
+test("preserves CSI intermediate bytes outside rxvt shifted keys", () => {
+  expect(parseChunks(["\u001B[1;", "2$", "yhello"])).toEqual(["\u001B[1;2$y", "hello"]);
+});
+
+test("preserves modified SS3 keys and following text", () => {
+  for (const sequence of ["\u001BO2P", "\u001BO1;5A", "\u001B\u001BO5D"]) {
+    expect(parseChunks([`${sequence}hello`])).toEqual([sequence, "hello"]);
+  }
+});
+
+test("holds modified SS3 sequences until their final byte arrives", () => {
+  const parser = createInputParser();
+
+  expect(parser.push("\u001BO1")).toEqual([]);
+  expect(parser.hasPendingEscape()).toBe(true);
+  expect(parser.push(";5")).toEqual([]);
+  expect(parser.push("A")).toEqual(["\u001BO1;5A"]);
+  expect(parser.hasPendingEscape()).toBe(false);
+});
+
+test("parses legacy mouse report with its three coordinate bytes as one event", () => {
+  expect(parseChunks(['\u001B[M !"q'])).toEqual(['\u001B[M !"', "q"]);
+  expect(parseChunks(['\u001B\u001B[M !"q'])).toEqual(['\u001B\u001B[M !"', "q"]);
+});
+
+test("holds legacy mouse report until its coordinate bytes arrive", () => {
+  const parser = createInputParser();
+
+  expect(parser.push("\u001B[M")).toEqual([]);
+  expect(parser.push(" !")).toEqual([]);
+  expect(parser.push('"')).toEqual(['\u001B[M !"']);
+});
+
+test("ends legacy mouse report at a byte that cannot be a coordinate", () => {
+  expect(parseChunks(["\u001B[M\u0003ab"])).toEqual(["\u001B[M", "\u0003", "ab"]);
+});
+
+test("does not hold Ctrl+C as a pending legacy mouse coordinate", () => {
+  const parser = createInputParser();
+
+  expect(parser.push("\u001B[M")).toEqual([]);
+  expect(parser.push("\u0003")).toEqual(["\u001B[M", "\u0003"]);
+  expect(parser.hasPendingEscape()).toBe(false);
+  expect(isCompleteControlSequence("\u001B[M")).toBe(true);
+});
+
+test("keeps the next legacy mouse report intact when coordinate bytes were merged by the UTF-8 decoder", () => {
+  // Drag to column 200, row 100: bytes 0xE8 0x84 decode to a single U+FFFD.
+  const events = parseChunks(["\u001B[M@\uFFFD\u001B[M@**q"]);
+
+  expect(events).toEqual(["\u001B[M", "@\uFFFD", "\u001B[M@**", "q"]);
+  expect(isCompleteControlSequence("\u001B[M@**")).toBe(true);
+});
+
+test("keeps NUL as a legacy mouse coordinate past column 223", () => {
+  // Xterm sends NUL for a position it can't encode.
+  expect(parseChunks(["\u001B[M@\u0000*q"])).toEqual(["\u001B[M@\u0000*", "q"]);
+});
+
+test("isCompleteControlSequence accepts every complete CSI and SS3 form the parser emits", () => {
+  for (const sequence of [
+    "\u001B[A",
+    "\u001B[I",
+    "\u001B[24;80R",
+    "\u001B[<0;10;20M",
+    '\u001B[M !"',
+    "\u001B[[A",
+    "\u001B[2$",
+    "\u001B[ q",
+    "\u001BOP",
+    "\u001BO1;5A",
+    "\u001B\u001B[A",
+    "\u001B\u001BO5D",
+  ]) {
+    expect(isCompleteControlSequence(sequence), `Sequence: ${JSON.stringify(sequence)}`).toBe(true);
+    expect(parseChunks([sequence])).toEqual([sequence]);
+  }
+});
+
+test("isCompleteControlSequence rejects partial sequences and escaped code points", () => {
+  for (const input of [
+    "",
+    "q",
+    "\u001B",
+    "\u001B[",
+    "\u001B[1;",
+    "\u001B[[",
+    "\u001BO",
+    "\u001BO1",
+    "\u001Bx",
+    "\u001B\u001B",
+    "\u001B\u001Bx",
+    "\u001B[1$",
+    "\u001B[M !",
+    "\u001B[Aq",
+  ]) {
+    expect(isCompleteControlSequence(input), `Input: ${JSON.stringify(input)}`).toBe(false);
+  }
 });

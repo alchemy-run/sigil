@@ -2,6 +2,24 @@ import { expect, test } from "vite-plus/test";
 
 import term from "./helpers/term.ts";
 
+for (const [name, fixture, sequence] of [
+  ["handle kitty special key modifiers without event type", "specialModifiers", "\u001B[1;9A"],
+  ["handle kitty keypad navigation", "keypadNavigation", "\u001B[57420;5:2u"],
+  ["handle kitty alternate key codes", "alternateKeys", "\u001B[97:65:113;6:2;65u"],
+  ["handle kitty keypad associated text", "keypadText", "\u001B[57399;129;48u"],
+  ["handle kitty keypad Enter", "keypadEnter", "\u001B[57414u"],
+  ["kitty associated text with omitted modifiers", "associatedText", "\u001B[0;;229u"],
+  // Caps Lock without Shift, with uppercase A as associated text.
+  ["kitty capsLock text does not imply shift", "capsLockText", "\u001B[97;65;65u"],
+] as const) {
+  test(`useInput - ${name}`, async () => {
+    const ps = term("use-input-kitty", [fixture]);
+    ps.write(sequence);
+    await ps.waitForExit();
+    expect(ps.output).toContain("exited");
+  });
+}
+
 test("useInput - handle kitty protocol super modifier", async () => {
   const ps = term("use-input-kitty", ["super"]);
   // 's' with super modifier (modifier 9 = super(8) + 1)
@@ -128,10 +146,10 @@ test("useInput - kitty protocol return key produces carriage return input", asyn
   expect(ps.output).toContain("exited");
 });
 
-test("useInput - kitty protocol ctrl+letter via codepoint 1-26 produces input", async () => {
+test("useInput - kitty protocol Ctrl+letter produces input", async () => {
   const ps = term("use-input-kitty", ["ctrlLetter"]);
-  // Ctrl+a via codepoint 1 form (modifier 5 = ctrl(4) + 1)
-  ps.write("\u001B[1;5u");
+  // Ctrl+a uses the unshifted key code (modifier 5 = ctrl(4) + 1).
+  ps.write("\u001B[97;5u");
   await ps.waitForExit();
   expect(ps.output).toContain("exited");
 });
