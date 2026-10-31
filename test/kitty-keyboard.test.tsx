@@ -1,6 +1,9 @@
-import { afterAll, expect, test, vi } from "vite-plus/test";
+import { Readable } from "node:stream";
+import { setTimeout as delay } from "node:timers/promises";
 
-import { render, Text } from "#/index.ts";
+import { expect, onTestFinished, test } from "vite-plus/test";
+
+import { render, Text, useInput } from "#/index.ts";
 import { parseKeypress } from "#/parse-keypress.ts";
 
 import { createStdin } from "./helpers/create-stdin.ts";
@@ -153,11 +156,11 @@ test("kitty protocol - tab key", () => {
   expect(result.eventType).toBe("press");
 });
 
-test("kitty protocol - backspace key", () => {
-  // Backspace key
-  const result = parseKeypress(kittyKey(8));
+test("kitty protocol - backspace release", () => {
+  // Backspace key release
+  const result = parseKeypress(kittyKey(127, 1, 3));
   expect(result.name).toBe("backspace");
-  expect(result.eventType).toBe("press");
+  expect(result.eventType).toBe("release");
 });
 
 test("kitty protocol - backspace key (codepoint 127)", () => {
@@ -215,10 +218,9 @@ test("kitty protocol - special character", () => {
   expect(result.eventType).toBe("press");
 });
 
-test("kitty protocol - ctrl+letter produces codepoint 1-26", () => {
-  // When using ctrl+a, kitty sends codepoint 1 (not 97)
-  // Ctrl+a (codepoint 1, modifier 5 = ctrl + 1)
-  const result = parseKeypress(kittyKey(1, 5));
+test("kitty protocol - Ctrl letters retain their unshifted key code", () => {
+  // Ctrl+a uses the unshifted letter codepoint and modifier 5.
+  const result = parseKeypress(kittyKey(97, 5));
   expect(result.name).toBe("a");
   expect(result.ctrl).toBe(true);
 });
@@ -454,10 +456,11 @@ test("kitty protocol - isPrintable is false for backspace", () => {
   expect(result.isPrintable).toBe(false);
 });
 
-test("kitty protocol - isPrintable is false for ctrl+letter", () => {
-  // Ctrl+a (codepoint 1)
-  const result = parseKeypress(kittyKey(1, 5));
-  expect(result.isPrintable).toBe(false);
+test("kitty protocol - Ctrl letters preserve their input character", () => {
+  // Ctrl+a uses the unshifted letter codepoint.
+  const result = parseKeypress(kittyKey(97, 5));
+  expect(result.isPrintable).toBe(true);
+  expect(result.text).toBe("a");
 });
 
 test("kitty protocol - isPrintable is false for special keys (arrows)", () => {
@@ -626,308 +629,135 @@ test("kitty protocol - not enabled when stdout is not a TTY", () => {
 
 // --- Auto-detection race condition tests ---
 
-test("kitty protocol - auto detection does not enable protocol after unmount", () => {
-  const stdout = createStdout();
-  const stdin = createStdin();
-
-  const origKittyId = process.env["KITTY_WINDOW_ID"];
-  process.env["KITTY_WINDOW_ID"] = "1";
-  afterAll(() => {
-    if (origKittyId === undefined) {
-      delete process.env["KITTY_WINDOW_ID"];
-    } else {
-      process.env["KITTY_WINDOW_ID"] = origKittyId;
-    }
+// Use a real Readable so read()/data event ordering matches terminal input.
+const createDetectionApp = (onQuery?: (stdin: Readable) => void) => {
+  const stdin = Object.assign(new Readable({ read() {} }), {
+    isTTY: true,
+    setRawMode() {},
   });
-
-  const { unmount } = render(<Text>Hello</Text>, {
-    stdout,
-    stdin,
-    kittyKeyboard: { mode: "auto" },
-  });
-
-  // Unmount before the terminal responds
-  unmount();
-
-  // Simulate a late terminal response arriving after unmount
-  stdin.emit("data", "\u001B[?1u");
-
-  // The enable sequence should NOT have been written after unmount
-  const strings = stdout.getWrites();
-  const enableCount = strings.filter((s) => s === "\u001B[>1u").length;
-  expect(enableCount).toBe(0);
-});
-
-test("kitty protocol - auto detection handles synchronous query response", () => {
   const stdout = createStdout();
-  const stdin = createStdin();
   const writtenStrings: string[] = [];
-
-  // Override stdout.write to synchronously emit the response on stdin
-  // when the query sequence is written, simulating a fast terminal
-  stdout.write = vi.fn((data: string) => {
+  const inputs: string[] = [];
+  stdout.write.mockImplementation((data: string) => {
     writtenStrings.push(data);
     if (data === "\u001B[?u") {
-      stdin.emit("data", "\u001B[?1u");
+      onQuery?.(stdin);
     }
 
     return true;
   });
 
-  const origKittyId = process.env["KITTY_WINDOW_ID"];
-  process.env["KITTY_WINDOW_ID"] = "1";
-  afterAll(() => {
-    if (origKittyId === undefined) {
-      delete process.env["KITTY_WINDOW_ID"];
-    } else {
-      process.env["KITTY_WINDOW_ID"] = origKittyId;
-    }
-  });
+  function Example() {
+    useInput((input) => {
+      inputs.push(input);
+    });
+    return <Text>Hello</Text>;
+  }
 
-  const { unmount } = render(<Text>Hello</Text>, {
+  const app = render(<Example />, {
     stdout,
     stdin,
+    interactive: true,
     kittyKeyboard: { mode: "auto" },
   });
 
-  // The enable sequence should have been written
-  expect(writtenStrings).toContain("\u001B[>1u");
+  return { stdin, writtenStrings, inputs, unmount: app.unmount };
+};
 
-  unmount();
+test("kitty protocol - auto detection does not enable protocol after unmount", async () => {
+  const app = createDetectionApp();
+  // Unmount before the terminal responds.
+  app.unmount();
+  // Simulate a late terminal response arriving after unmount.
+  app.stdin.push("\u001B[?1u");
+  await delay(30);
+  // The enable sequence should NOT have been written after unmount.
+  expect(app.writtenStrings).not.toContain("\u001B[>1u");
 });
 
-test("kitty protocol - auto detection handles Uint8Array query response", () => {
-  const stdout = createStdout();
-  const stdin = createStdin();
-
-  const origKittyId = process.env["KITTY_WINDOW_ID"];
-  process.env["KITTY_WINDOW_ID"] = "1";
-  afterAll(() => {
-    if (origKittyId === undefined) {
-      delete process.env["KITTY_WINDOW_ID"];
-    } else {
-      process.env["KITTY_WINDOW_ID"] = origKittyId;
-    }
+test("kitty protocol - auto detection handles synchronous query response", async () => {
+  // Respond synchronously to stdout.write, before App has attached its reader.
+  const app = createDetectionApp((stdin) => {
+    stdin.push("\u001B[?1u");
   });
-
-  const { unmount } = render(<Text>Hello</Text>, {
-    stdout,
-    stdin,
-    kittyKeyboard: { mode: "auto" },
+  onTestFinished(() => {
+    app.unmount();
   });
+  await delay(30);
+  expect(app.writtenStrings).toContain("\u001B[>1u");
+  expect(app.inputs).toEqual([]);
+});
 
-  // Respond with Uint8Array instead of string
-  const response = textEncoder.encode("\u001B[?1u");
-  stdin.emit("data", response);
-
-  // The enable sequence should have been written
-  const strings = stdout.getWrites();
-  expect(strings).toContain("\u001B[>1u");
-
-  unmount();
+test("kitty protocol - auto detection handles Uint8Array query response", async () => {
+  const app = createDetectionApp();
+  onTestFinished(() => {
+    app.unmount();
+  });
+  // Respond with Uint8Array instead of string.
+  app.stdin.push(textEncoder.encode("\u001B[?1u"));
+  await delay(30);
+  expect(app.writtenStrings).toContain("\u001B[>1u");
+  expect(app.inputs).toEqual([]);
 });
 
 test("kitty protocol - auto detection preserves split UTF-8 input bytes", async () => {
-  const stdout = createStdout();
-  const stdin = createStdin();
-  const unshifted: Uint8Array[] = [];
-
-  const concatUint8Arrays = (chunks: Uint8Array[]): number[] => {
-    const merged: number[] = [];
-    for (const chunk of chunks) {
-      for (const byte of chunk) {
-        merged.push(byte);
-      }
-    }
-
-    return merged;
-  };
-
-  stdin.unshift = ((chunk: Uint8Array) => {
-    unshifted.push(Uint8Array.from(chunk));
-    return true;
-  }) as typeof stdin.unshift;
-
-  const origKittyId = process.env["KITTY_WINDOW_ID"];
-  process.env["KITTY_WINDOW_ID"] = "1";
-  afterAll(() => {
-    if (origKittyId === undefined) {
-      delete process.env["KITTY_WINDOW_ID"];
-    } else {
-      process.env["KITTY_WINDOW_ID"] = origKittyId;
-    }
+  const app = createDetectionApp();
+  onTestFinished(() => {
+    app.unmount();
   });
-
-  const { unmount } = render(<Text>Hello</Text>, {
-    stdout,
-    stdin,
-    kittyKeyboard: { mode: "auto" },
-  });
-
   // Emit one UTF-8 emoji split across chunks during detection.
-  stdin.emit("data", new Uint8Array([0xf0, 0x9f]));
-  stdin.emit("data", new Uint8Array([0x92, 0xa9]));
-
-  await new Promise((resolve) => {
-    setTimeout(resolve, 250);
-  });
-
-  expect(concatUint8Arrays(unshifted)).toEqual([0xf0, 0x9f, 0x92, 0xa9]);
-  unmount();
+  app.stdin.push(new Uint8Array([0xf0, 0x9f]));
+  await delay(1);
+  app.stdin.push(new Uint8Array([0x92, 0xa9]));
+  await delay(250);
+  expect(app.inputs).toEqual(["💩"]);
 });
 
-test("kitty protocol - auto detection timeout does not leak partial query response", async () => {
-  const stdout = createStdout();
-  const stdin = createStdin();
-  const unshifted: Uint8Array[] = [];
-
-  stdin.unshift = ((chunk: Uint8Array) => {
-    unshifted.push(Uint8Array.from(chunk));
-    return true;
-  }) as typeof stdin.unshift;
-
-  const origKittyId = process.env["KITTY_WINDOW_ID"];
-  process.env["KITTY_WINDOW_ID"] = "1";
-  afterAll(() => {
-    if (origKittyId === undefined) {
-      delete process.env["KITTY_WINDOW_ID"];
-    } else {
-      process.env["KITTY_WINDOW_ID"] = origKittyId;
-    }
+test("kitty protocol - auto detection handles split responses with surrounding input", async () => {
+  const app = createDetectionApp();
+  onTestFinished(() => {
+    app.unmount();
   });
-
-  const { unmount } = render(<Text>Hello</Text>, {
-    stdout,
-    stdin,
-    kittyKeyboard: { mode: "auto" },
-  });
-
-  // Simulate partial terminal response that times out before completion.
-  stdin.emit("data", "\u001B[?1");
-
-  await new Promise((resolve) => {
-    setTimeout(resolve, 250);
-  });
-
-  expect(unshifted.length).toBe(0);
-  unmount();
+  app.stdin.push("before\u001B[?");
+  await delay(1);
+  app.stdin.push("0uafter");
+  await delay(30);
+  expect(app.writtenStrings).toContain("\u001B[>1u");
+  expect(app.inputs).toEqual(["before", "after"]);
 });
 
-test("kitty protocol - auto detection timeout preserves query prefix without digits", async () => {
-  const stdout = createStdout();
-  const stdin = createStdin();
-  const unshifted: Uint8Array[] = [];
-
-  stdin.unshift = ((chunk: Uint8Array) => {
-    unshifted.push(Uint8Array.from(chunk));
-    return true;
-  }) as typeof stdin.unshift;
-
-  const origKittyId = process.env["KITTY_WINDOW_ID"];
-  process.env["KITTY_WINDOW_ID"] = "1";
-  afterAll(() => {
-    if (origKittyId === undefined) {
-      delete process.env["KITTY_WINDOW_ID"];
-    } else {
-      process.env["KITTY_WINDOW_ID"] = origKittyId;
-    }
+test("kitty protocol - auto detection timeout holds query prefix without digits", async () => {
+  const app = createDetectionApp();
+  onTestFinished(() => {
+    app.unmount();
   });
-
-  const { unmount } = render(<Text>Hello</Text>, {
-    stdout,
-    stdin,
-    kittyKeyboard: { mode: "auto" },
-  });
-
-  stdin.emit("data", "\u001B[?");
-
-  await new Promise((resolve) => {
-    setTimeout(resolve, 250);
-  });
-
-  const strings = stdout.getWrites();
-  const enableCount = strings.filter((s) => s === "\u001B[>1u").length;
-  expect(enableCount).toBe(0);
-  expect(unshifted.map((chunk) => [...chunk])).toEqual([[0x1b, 0x5b, 0x3f]]);
-  unmount();
+  app.stdin.push("\u001B[?");
+  await delay(250);
+  expect(app.writtenStrings).not.toContain("\u001B[>1u");
+  // Unlike Ink, sigil never flushes a pending CSI prefix as literal input.
+  expect(app.inputs).toEqual([]);
 });
 
-test("kitty protocol - auto detection ignores query response without digits", async () => {
-  const stdout = createStdout();
-  const stdin = createStdin();
-  const unshifted: Uint8Array[] = [];
-
-  stdin.unshift = ((chunk: Uint8Array) => {
-    unshifted.push(Uint8Array.from(chunk));
-    return true;
-  }) as typeof stdin.unshift;
-
-  const origKittyId = process.env["KITTY_WINDOW_ID"];
-  process.env["KITTY_WINDOW_ID"] = "1";
-  afterAll(() => {
-    if (origKittyId === undefined) {
-      delete process.env["KITTY_WINDOW_ID"];
-    } else {
-      process.env["KITTY_WINDOW_ID"] = origKittyId;
-    }
+test("kitty protocol - auto detection does not treat query response without digits as a response", async () => {
+  const app = createDetectionApp();
+  onTestFinished(() => {
+    app.unmount();
   });
-
-  const { unmount } = render(<Text>Hello</Text>, {
-    stdout,
-    stdin,
-    kittyKeyboard: { mode: "auto" },
-  });
-
-  stdin.emit("data", "\u001B[?u");
-
-  await new Promise((resolve) => {
-    setTimeout(resolve, 250);
-  });
-
-  const strings = stdout.getWrites();
-  const enableCount = strings.filter((s) => s === "\u001B[>1u").length;
-  expect(enableCount).toBe(0);
-  expect(unshifted.map((chunk) => [...chunk])).toEqual([[0x1b, 0x5b, 0x3f, 0x75]]);
-  unmount();
+  app.stdin.push("\u001B[?u");
+  await delay(250);
+  expect(app.writtenStrings).not.toContain("\u001B[>1u");
+  expect(app.inputs).toEqual([]);
 });
 
-test("kitty protocol - auto detection preserves invalid query-like escape sequence", async () => {
-  const stdout = createStdout();
-  const stdin = createStdin();
-  const unshifted: Uint8Array[] = [];
-
-  stdin.unshift = ((chunk: Uint8Array) => {
-    unshifted.push(Uint8Array.from(chunk));
-    return true;
-  }) as typeof stdin.unshift;
-
-  const origKittyId = process.env["KITTY_WINDOW_ID"];
-  process.env["KITTY_WINDOW_ID"] = "1";
-  afterAll(() => {
-    if (origKittyId === undefined) {
-      delete process.env["KITTY_WINDOW_ID"];
-    } else {
-      process.env["KITTY_WINDOW_ID"] = origKittyId;
-    }
+test("kitty protocol - auto detection does not treat invalid query-like sequence as a response", async () => {
+  const app = createDetectionApp();
+  onTestFinished(() => {
+    app.unmount();
   });
-
-  const { unmount } = render(<Text>Hello</Text>, {
-    stdout,
-    stdin,
-    kittyKeyboard: { mode: "auto" },
-  });
-
-  stdin.emit("data", "\u001B[?1x");
-
-  await new Promise((resolve) => {
-    setTimeout(resolve, 250);
-  });
-
-  const strings = stdout.getWrites();
-  const enableCount = strings.filter((s) => s === "\u001B[>1u").length;
-  expect(enableCount).toBe(0);
-  expect(unshifted.map((chunk) => [...chunk])).toEqual([[0x1b, 0x5b, 0x3f, 0x31, 0x78]]);
-  unmount();
+  app.stdin.push("\u001B[?1x");
+  await delay(250);
+  expect(app.writtenStrings).not.toContain("\u001B[>1u");
+  expect(app.inputs).toEqual([]);
 });
 
 // --- Space and return text input tests ---

@@ -48,20 +48,40 @@ const parseCsiSequence = (
       return { sequence: "", nextIndex: index };
     }
 
-    if (isCsiParameterByte(byte) || isCsiIntermediateByte(byte)) {
-      continue;
-    }
-
     // Preserve legacy terminal function-key sequences like ESC[[A and ESC[[5~.
     if (byte === 0x5b && index === csiPayloadStart) {
       continue;
     }
 
-    if (isCsiFinalByte(byte)) {
+    // Shifted editing keys in rxvt end in $, which is normally a CSI intermediate byte.
+    const isRxvtShiftKey =
+      byte === 0x24 && index === csiPayloadStart + 1 && "235678".includes(input[csiPayloadStart]!);
+
+    if (isRxvtShiftKey || isCsiFinalByte(byte)) {
+      // A bare ESC[M is a legacy X10/normal mouse report, followed by three raw
+      // bytes: button, column and row. Coordinates past 95 are bytes >= 0x80,
+      // which the UTF-8 decoder can merge, so this is best effort (SGR 1006
+      // reports don't have the problem). Coordinates are never below 0x20
+      // except NUL (xterm's past-223 position), so any other control byte ends
+      // the sequence at M and a Ctrl+C or the next report's ESC parses normally.
+      let length = 1;
+      if (byte === 0x4d && index === csiPayloadStart) {
+        const coordinates = input.slice(index + 1, index + 4);
+        // oxlint-disable-next-line typescript/no-misused-spread
+        if ([...coordinates].every((character) => character >= " " || character === "\0")) {
+          if (coordinates.length < 3) return "pending";
+          length = 4;
+        }
+      }
+
       return {
-        sequence: input.slice(startIndex, index + 1),
-        nextIndex: index + 1,
+        sequence: input.slice(startIndex, index + length),
+        nextIndex: index + length,
       };
+    }
+
+    if (isCsiParameterByte(byte) || isCsiIntermediateByte(byte)) {
+      continue;
     }
 
     return;
@@ -75,20 +95,22 @@ const parseSs3Sequence = (
   startIndex: number,
   prefixLength: number,
 ): ParsedSequence => {
-  const nextIndex = startIndex + prefixLength + 2;
-  if (nextIndex > input.length) {
-    return "pending";
+  for (let index = startIndex + prefixLength + 1; index < input.length; index++) {
+    const byte = input.codePointAt(index)!;
+    if (isCsiFinalByte(byte)) {
+      return {
+        sequence: input.slice(startIndex, index + 1),
+        nextIndex: index + 1,
+      };
+    }
+
+    // Modified SS3 keys can include numeric parameters separated by semicolons.
+    if (byte !== 0x3b && (byte < 0x30 || byte > 0x39)) {
+      return;
+    }
   }
 
-  const finalByte = input.codePointAt(nextIndex - 1);
-  if (finalByte === undefined || !isCsiFinalByte(finalByte)) {
-    return;
-  }
-
-  return {
-    sequence: input.slice(startIndex, nextIndex),
-    nextIndex,
-  };
+  return "pending";
 };
 
 const parseControlSequence = (
@@ -129,6 +151,30 @@ const parseControlSequence = (
   }
 
   return;
+};
+
+/**
+Whether `input` is exactly one complete control sequence as the parser defines
+it, including legacy `ESC[[A`, rxvt `ESC[2$` and parameterized SS3 forms.
+Partial sequences (timeout-flushed) and plain escaped code points are not.
+*/
+export const isCompleteControlSequence = (input: string): boolean => {
+  if (!input.startsWith(escape)) {
+    return false;
+  }
+
+  const prefixLength = input[1] === escape ? 2 : 1;
+
+  // The parser emits a bare legacy mouse prefix only when the byte after it
+  // can't be a coordinate, so there is nothing left to wait for.
+  if (input.slice(prefixLength) === "[M") {
+    return true;
+  }
+
+  const parsed = parseControlSequence(input, 0, prefixLength);
+  return (
+    typeof parsed === "object" && parsed.sequence.length > 0 && parsed.nextIndex === input.length
+  );
 };
 
 const parseEscapedCodePoint = (
@@ -194,16 +240,16 @@ const parseEscapeSequence = (input: string, escapeIndex: number): ParsedEscapeSe
 };
 
 /**
-Split a chunk of non-escape text so that backspace bytes (`0x7F` and `0x08`) become individual events. When a user holds the backspace key, the terminal sends repeated bytes in a single stdin chunk. Without splitting, `parseKeypress` receives the multi-byte string and fails to recognize it as a key event, corrupting the input state.
+Split a chunk of non-escape text so that backspace bytes (`0x7F` and `0x08`) and Ctrl+C (`0x03`) become individual events. Ctrl+C must be recognized even when buffered with ordinary text. When a user holds the backspace key, the terminal sends repeated bytes in a single stdin chunk. Without splitting, `parseKeypress` receives the multi-byte string and fails to recognize it as a key event, corrupting the input state.
 
 Other control characters like `\r` and `\t` are NOT split because they can legitimately appear inside pasted text.
 */
-const splitBackspaceBytes = (text: string, events: InputEvent[]): void => {
+const splitControlBytes = (text: string, events: InputEvent[]): void => {
   let textSegmentStart = 0;
 
   for (let index = 0; index < text.length; index++) {
     const character = text[index]!;
-    if (character === "\u007F" || character === "\u0008") {
+    if (character === "\u007F" || character === "\u0008" || character === "\u0003") {
       if (index > textSegmentStart) {
         events.push(text.slice(textSegmentStart, index));
       }
@@ -229,7 +275,7 @@ const parseKeypresses = (input: string): ParsedInput => {
   while (index < input.length) {
     const escapeIndex = input.indexOf(escape, index);
     if (escapeIndex === -1) {
-      splitBackspaceBytes(input.slice(index), events);
+      splitControlBytes(input.slice(index), events);
       return {
         events,
         pending: "",
@@ -237,7 +283,7 @@ const parseKeypresses = (input: string): ParsedInput => {
     }
 
     if (escapeIndex > index) {
-      splitBackspaceBytes(input.slice(index, escapeIndex), events);
+      splitControlBytes(input.slice(index, escapeIndex), events);
     }
 
     const parsedEscapeSequence = parseEscapeSequence(input, escapeIndex);

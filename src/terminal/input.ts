@@ -1,6 +1,7 @@
 import { isTerminalQueryResponse } from "#/capabilities/query.ts";
 import type { CapabilitiesStore } from "#/capabilities/store.ts";
-import { createInputParser, type InputEvent } from "#/input-parser.ts";
+import { createInputParser, isCompleteControlSequence, type InputEvent } from "#/input-parser.ts";
+import { parseKeypress } from "#/parse-keypress.ts";
 
 export type MouseButton = "left" | "middle" | "right" | "none" | "wheel-up" | "wheel-down";
 export type TerminalMouseEvent = {
@@ -14,12 +15,15 @@ export type TerminalMouseEvent = {
 };
 
 const sgrMouse = /^\u001B\[<(\d+);(\d+);(\d+)([Mm])$/;
+const kittyQueryResponse = /^\u001B\[\?\d+u$/;
 
 /** Stateful stdin decoder that separates terminal reports from application input. */
 export class TerminalInput {
   readonly #parser = createInputParser();
   readonly #capabilities: CapabilitiesStore;
   readonly #mouseListeners = new Set<(event: TerminalMouseEvent) => void>();
+  /** Called when a kitty keyboard query reply (`CSI ? flags u`) is read. */
+  onKittyQueryResponse: (() => void) | undefined;
 
   constructor(capabilities: CapabilitiesStore) {
     this.#capabilities = capabilities;
@@ -32,10 +36,24 @@ export class TerminalInput {
       if (event.startsWith("\u001B\u001B") && isTerminalQueryResponse(event.slice(1))) {
         return ["\u001B"];
       }
+      // Protocol replies are consumed here; bracketed paste stays literal.
+      if (kittyQueryResponse.test(event)) {
+        this.onKittyQueryResponse?.();
+        return [];
+      }
       if (this.#capabilities.ingest(event)) return [];
       if (isTerminalQueryResponse(event)) return [];
       const mouse = parseMouseEvent(event);
-      if (!mouse) return [event];
+      if (!mouse) {
+        // A complete control sequence that maps to no key is not printable
+        // text. Unknown terminal replies (focus in/out, legacy mouse, device
+        // attributes) would otherwise reach `useInput` with the ESC stripped.
+        if (isCompleteControlSequence(event)) {
+          const key = parseKeypress(event);
+          if (!key.isKittyProtocol && key.name === "") return [];
+        }
+        return [event];
+      }
       for (const listener of this.#mouseListeners) listener(mouse);
       return [];
     });

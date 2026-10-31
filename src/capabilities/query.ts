@@ -11,9 +11,9 @@
 // simply absent from the response stream. A timeout covers terminals (or
 // pipes) that never answer at all.
 //
-// Responses are read from a raw `data` listener with the same discipline as
-// `detectKittySupport`: recognized responses are consumed, everything else is
-// unshifted back into the stream so user input survives a query in flight.
+// Responses are read from a raw `data` listener: recognized responses are
+// consumed, everything else is unshifted back into the stream so user input
+// survives a query in flight.
 // A `readable` listener on the same stream stops it flowing and would route
 // responses into the input parser as garbage key presses — inside Ink, App
 // detaches its input listener for the duration of the query (see
