@@ -89,13 +89,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.release.outputs.version }}
-          PUBLISH_TAG: ${{ steps.release.outputs.tag }}
         run: |
           set -euo pipefail
+          # Every release, alpha versions included, is a full release and the
+          # latest one, matching the npm `latest` tag it is published under.
           if ! gh release view "v${VERSION}" >/dev/null 2>&1; then
-            args=(--verify-tag --generate-notes)
-            if [[ "$PUBLISH_TAG" == "next" ]]; then
-              args+=(--prerelease)
-            fi
-            gh release create "v${VERSION}" "${args[@]}"
+            gh release create "v${VERSION}" --verify-tag --generate-notes --latest
           fi
