@@ -208,8 +208,19 @@ export type Instance = {
 	*/
   clear: () => void;
 
-  /** Copy text through the renderer-owned terminal session. */
+  /**
+	Copy text to the user's clipboard: OSC 52 (wrapped for tmux or GNU
+	screen), `tmux load-buffer`, and the system clipboard tool for local
+	sessions. Returns whether any route accepted it.
+	*/
   copyToClipboard: (text: string, selection?: ClipboardSelection) => boolean;
+
+  /**
+	Enter or leave the alternate screen without remounting. Entering erases
+	the inline frame; leaving writes any `<Static>` output produced meanwhile
+	to the main screen. Ignored when the output isn't an interactive TTY.
+	*/
+  setAlternateScreen: (enabled: boolean) => void;
 
   /** Update terminal-native progress through the renderer-owned session. */
   setProgress: (state: TerminalProgressState, value?: number) => boolean;
@@ -256,6 +267,7 @@ export const render = (node: ReactNode, options?: Writable | RenderOptions): Ins
     },
     clear: instance.clear,
     copyToClipboard: instance.copyToClipboard,
+    setAlternateScreen: instance.setAlternateScreen,
     setProgress: instance.setProgress,
   };
 };

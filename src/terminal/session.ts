@@ -1,7 +1,6 @@
 import { ansiEscapes, type CursorShape } from "#/ansi/escapes.ts";
 import {
   notify,
-  setClipboard,
   setPointerShape,
   setTerminalProgress,
   setWindowTitle,
@@ -17,6 +16,7 @@ import type { ColorProfile } from "#/screen/color-profile.ts";
 import type { Screen } from "#/screen/screen.ts";
 import { serializeScreen } from "#/screen/serialize.ts";
 import type { OutputStream } from "#/stream.ts";
+import { copyToClipboard } from "#/terminal/clipboard.ts";
 import { TerminalInput } from "#/terminal/input.ts";
 import { ScreenPresenter } from "#/terminal/screen-presenter.ts";
 
@@ -185,9 +185,11 @@ export class TerminalSession {
     await Promise.all(this.#pendingWrites);
   }
 
-  /** Copy text through OSC 52, including tmux passthrough when required. */
+  /** Copy text to the clipboard; see {@link copyToClipboard} for the routes tried. */
   copyToClipboard(text: string, selection: ClipboardSelection = "clipboard"): boolean {
-    return this.write(this.#wrapOsc(setClipboard(text, selection)));
+    return (
+      copyToClipboard(text, { selection, stream: { write: (data) => this.write(data) } }).length > 0
+    );
   }
 
   setTitle(title: string): boolean {

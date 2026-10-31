@@ -3,7 +3,8 @@
 // `@alchemy.run/sigil/ansi`.
 
 // Styling
-export { chalk } from "#/ansi/chalk.ts";
+export { chalk, createChalk } from "#/ansi/chalk.ts";
+export type { ChalkInstance, ChalkOptions, StyleFunction } from "#/ansi/chalk.ts";
 export { supportsColor } from "#/ansi/chalk.ts";
 export { hyperlink } from "#/ansi/hyperlink.ts";
 export * from "#/ansi/sgr.ts";

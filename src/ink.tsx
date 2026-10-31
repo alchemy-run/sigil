@@ -311,6 +311,9 @@ export type Ink = {
   /** Copy text through the renderer-owned terminal session. */
   copyToClipboard: (text: string, selection?: ClipboardSelection) => boolean;
 
+  /** Enter or leave the alternate screen on the live instance. */
+  setAlternateScreen: (enabled: boolean) => void;
+
   /** Update terminal-native progress through the renderer-owned session. */
   setProgress: (state: TerminalProgressState, value?: number) => boolean;
 };
@@ -409,6 +412,9 @@ export const createInk = (options: Options): Ink => {
   // This variable is used only in debug mode to store full static output
   // so that it's rerendered every time, not just new static parts, like in non-debug mode
   let fullStaticOutput = "";
+  // Where fullStaticOutput stood when the alternate screen was entered, so
+  // leaving it can write the <Static> rows the main screen never saw.
+  let staticOutputLengthAtAlternateScreen = 0;
 
   let exitResult: unknown;
   let unsubscribeBeforeExit: (() => void) | undefined;
@@ -1239,6 +1245,32 @@ export const createInk = (options: Options): Ink => {
     terminal.setAlternateScreen(enabled && interactive && Boolean(options.stdout.isTTY), {
       hideCursor: true,
     });
+    staticOutputLengthAtAlternateScreen = fullStaticOutput.length;
+  }
+
+  function switchAlternateScreen(enabled: boolean): void {
+    if (isUnmounted || isUnmounting || terminal.suspended) return;
+    const next = enabled && interactive && Boolean(options.stdout.isTTY);
+    if (next === terminal.alternateScreen) return;
+    if (!getWritableStreamState(options.stdout).canWriteToStdout) return;
+
+    // Erase the live frame from the buffer being left. Entering, that keeps
+    // the inline frame out of the main screen's history; leaving, the
+    // alternate buffer is discarded anyway.
+    terminal.clearFrame();
+    const missedStaticOutput = fullStaticOutput.slice(staticOutputLengthAtAlternateScreen);
+    setAlternateScreen(next);
+    // <Static> rows written while in the alternate screen belong in the main
+    // screen's history too.
+    if (!next && missedStaticOutput !== "") options.stdout.write(missedStaticOutput);
+
+    // Repaint from scratch in the new buffer.
+    lastOutput = "";
+    lastOutputToRender = "";
+    lastOutputHeight = 0;
+    resetLiveOutput();
+    calculateLayout();
+    onRender();
   }
 
   function shouldSync(): boolean {
@@ -1558,6 +1590,7 @@ export const createInk = (options: Options): Ink => {
     waitUntilRenderFlush,
     clear,
     copyToClipboard: (text, selection) => terminal.copyToClipboard(text, selection),
+    setAlternateScreen: switchAlternateScreen,
     setProgress: (state, value) => terminal.setProgress(state, value),
   };
 };

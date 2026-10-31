@@ -183,6 +183,7 @@ export type InstanceContract = Assert<
     | "cleanup"
     | "clear"
     | "copyToClipboard"
+    | "setAlternateScreen"
     | "setProgress"
   >
 >;

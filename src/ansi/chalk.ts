@@ -1,8 +1,8 @@
 import { isatty } from "node:tty";
 
 // Terminal string styling with a chalk-compatible API for the styles Ink uses.
-// Ported from `chalk` (MIT, Sindre Sorhus) without the chaining builder —
-// Ink only ever applies one style per call.
+// Ported from `chalk` (MIT, Sindre Sorhus), including chaining
+// (`chalk.bold.red`) and independent instances via `createChalk`.
 import { ESC } from "#/ansi/escapes.ts";
 import {
   background,
@@ -20,28 +20,24 @@ import {
 } from "#/ansi/sgr.ts";
 import {
   createSupportsColor,
+  detectColorLevel,
   type ColorInfo,
   type ColorSupportLevel,
 } from "#/capabilities/detect.ts";
+import type { ColorProfile } from "#/screen/color-profile.ts";
 
 export type { BackgroundColorName, ForegroundColorName, ModifierName };
 
 export type StyleFunction = (text: string) => string;
 
-const stdoutColor = createSupportsColor({ isTTY: isatty(1) });
-
 // `level` → color model for hex/rgb downsampling
 const levelMapping = ["ansi", "ansi", "ansi256", "ansi16m"] as const;
 type ColorModel = (typeof levelMapping)[number];
 
-const state = {
-  level: stdoutColor ? stdoutColor.level : 0,
-};
-
 // Replace every occurrence of `substring` with `substring + replacer`,
 // re-opening a style after a nested close code would have ended it.
 const applyStyle = (open: string, close: string, text: string): string => {
-  if (state.level <= 0 || !text) {
+  if (!text) {
     return text;
   }
 
@@ -62,24 +58,10 @@ const applyStyle = (open: string, close: string, text: string): string => {
   return open + string + close;
 };
 
-const styleFunction = (open: string, close: string): StyleFunction => {
-  return (text) => applyStyle(open, close, text);
-};
-
-const foregroundOpen = (model: ColorModel, args: number[] | [string]): string => {
-  return colorOpen(model, args, foreground, rgbToAnsi256, rgbToAnsi);
-};
-
-const backgroundOpen = (model: ColorModel, args: number[] | [string]): string => {
-  return colorOpen(model, args, background, rgbToAnsi256, rgbToAnsi);
-};
-
 const colorOpen = (
   model: ColorModel,
   args: number[] | [string],
   space: typeof foreground,
-  toAnsi256: typeof rgbToAnsi256,
-  toAnsi: typeof rgbToAnsi,
 ): string => {
   const rgb = (typeof args[0] === "string" ? hexToRgb(args[0]) : args) as [number, number, number];
 
@@ -88,51 +70,151 @@ const colorOpen = (
   }
 
   if (model === "ansi256") {
-    return space.ansi256(toAnsi256(...rgb));
+    return space.ansi256(rgbToAnsi256(...rgb));
   }
 
-  return space.ansi(toAnsi(...rgb));
+  return space.ansi(rgbToAnsi(...rgb));
 };
 
-type NamedStyles = Record<ModifierName | ForegroundColorName | BackgroundColorName, StyleFunction>;
+type NamedStyle = ModifierName | ForegroundColorName | BackgroundColorName;
 
-export type Chalk = NamedStyles & {
+/**
+A chainable style: call it to style text, or read another style off it to
+combine them, e.g. `chalk.bold.hex("#e28a5b")("hi")`.
+*/
+export type ChalkInstance = StyleFunction & {
+  readonly [Name in NamedStyle]: ChalkInstance;
+} & {
+  /** Color support level for this instance; 0 disables styling. Shared by every style chained off it. */
   level: ColorSupportLevel;
-  hex: (color: string) => StyleFunction;
-  bgHex: (color: string) => StyleFunction;
-  rgb: (red: number, green: number, blue: number) => StyleFunction;
-  bgRgb: (red: number, green: number, blue: number) => StyleFunction;
-  ansi256: (code: number) => StyleFunction;
-  bgAnsi256: (code: number) => StyleFunction;
+  hex: (color: string) => ChalkInstance;
+  bgHex: (color: string) => ChalkInstance;
+  rgb: (red: number, green: number, blue: number) => ChalkInstance;
+  bgRgb: (red: number, green: number, blue: number) => ChalkInstance;
+  ansi256: (code: number) => ChalkInstance;
+  bgAnsi256: (code: number) => ChalkInstance;
 };
 
-const named = {} as NamedStyles;
+/** @deprecated Use {@link ChalkInstance}. */
+export type Chalk = ChalkInstance;
 
-for (const name of [...modifierNames, ...foregroundColorNames, ...backgroundColorNames]) {
-  named[name] = styleFunction(styles[name].open, styles[name].close);
+export type ChalkOptions = {
+  /**
+	Color support level (`0`–`3`) or color profile. Defaults to the level
+	detected for `stream`.
+	*/
+  readonly level?: ColorSupportLevel | ColorProfile;
+  /**
+	Stream to detect color support for (honors `FORCE_COLOR`, `NO_COLOR`,
+	CI, and `isTTY`).
+
+	@default process.stdout
+	*/
+  readonly stream?: { readonly isTTY?: boolean };
+};
+
+const profileLevels: Record<ColorProfile, ColorSupportLevel> = {
+  none: 0,
+  ansi16: 1,
+  ansi256: 2,
+  truecolor: 3,
+};
+
+type Styler = { readonly open: (model: ColorModel) => string; readonly close: string };
+
+const stylersKey = Symbol("stylers");
+
+/**
+Creates a chalk with its own color level, so separate outputs (stdout, a
+piped log, a file) can style independently instead of sharing one global.
+*/
+export function createChalk(options: ChalkOptions = {}): ChalkInstance {
+  const state = {
+    level:
+      typeof options.level === "string"
+        ? profileLevels[options.level]
+        : (options.level ?? detectColorLevel(options.stream ?? { isTTY: isatty(1) })),
+  };
+
+  type Node = ChalkInstance & { [stylersKey]: readonly Styler[] };
+
+  // Styles share one prototype (itself a function, so chained styles keep
+  // Function.prototype); each node only carries its own styler list.
+  const proto = (() => {}) as unknown as Node;
+  const build = (stylers: readonly Styler[]): ChalkInstance => {
+    const node = ((text: string) => {
+      if (state.level <= 0) return text;
+      const model = levelMapping[state.level];
+      let styled = text;
+      // Innermost first, so `bold.red` nests as `bold(red(text))`.
+      for (let index = stylers.length - 1; index >= 0; index--) {
+        const styler = stylers[index]!;
+        styled = applyStyle(styler.open(model), styler.close, styled);
+      }
+      return styled;
+    }) as Node;
+    Object.setPrototypeOf(node, proto);
+    node[stylersKey] = stylers;
+    return node;
+  };
+  const chain = (self: Node, styler: Styler) => build([...self[stylersKey], styler]);
+
+  const descriptors: PropertyDescriptorMap = {
+    level: {
+      get: () => state.level,
+      set: (level: ColorSupportLevel) => {
+        state.level = level;
+      },
+    },
+  };
+  for (const name of [...modifierNames, ...foregroundColorNames, ...backgroundColorNames]) {
+    const { open, close } = styles[name];
+    descriptors[name] = {
+      get(this: Node) {
+        return chain(this, { open: () => open, close });
+      },
+    };
+  }
+  const method = (make: (...args: never[]) => Styler): PropertyDescriptor => ({
+    value(this: Node, ...args: never[]) {
+      return chain(this, make(...args));
+    },
+  });
+  Object.assign(descriptors, {
+    hex: method((color: string) => ({
+      open: (model) => colorOpen(model, [color], foreground),
+      close: foreground.close,
+    })),
+    bgHex: method((color: string) => ({
+      open: (model) => colorOpen(model, [color], background),
+      close: background.close,
+    })),
+    rgb: method((red: number, green: number, blue: number) => ({
+      open: (model) => colorOpen(model, [red, green, blue], foreground),
+      close: foreground.close,
+    })),
+    bgRgb: method((red: number, green: number, blue: number) => ({
+      open: (model) => colorOpen(model, [red, green, blue], background),
+      close: background.close,
+    })),
+    // Like chalk, 256-color styles always emit 8-bit codes (level only gates level 0).
+    ansi256: method((code: number) => ({
+      open: () => foreground.ansi256(code),
+      close: foreground.close,
+    })),
+    bgAnsi256: method((code: number) => ({
+      open: () => background.ansi256(code),
+      close: background.close,
+    })),
+  });
+  Object.defineProperties(proto, descriptors);
+
+  return build([]);
 }
 
-export const chalk: Chalk = {
-  ...named,
+const stdoutColor = createSupportsColor({ isTTY: isatty(1) });
 
-  get level(): ColorSupportLevel {
-    return state.level;
-  },
-  set level(level: ColorSupportLevel) {
-    state.level = level;
-  },
-
-  hex: (color) =>
-    styleFunction(foregroundOpen(levelMapping[state.level], [color]), foreground.close),
-  bgHex: (color) =>
-    styleFunction(backgroundOpen(levelMapping[state.level], [color]), background.close),
-  rgb: (red, green, blue) =>
-    styleFunction(foregroundOpen(levelMapping[state.level], [red, green, blue]), foreground.close),
-  bgRgb: (red, green, blue) =>
-    styleFunction(backgroundOpen(levelMapping[state.level], [red, green, blue]), background.close),
-  // Like chalk, 256-color styles always emit 8-bit codes (level only gates level 0).
-  ansi256: (code) => styleFunction(foreground.ansi256(code), foreground.close),
-  bgAnsi256: (code) => styleFunction(background.ansi256(code), background.close),
-};
+/** The default chalk, detected for stdout. Use {@link createChalk} for an independent level. */
+export const chalk: ChalkInstance = createChalk({ level: stdoutColor ? stdoutColor.level : 0 });
 
 export const supportsColor: ColorInfo = stdoutColor;

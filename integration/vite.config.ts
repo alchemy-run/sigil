@@ -10,7 +10,7 @@ export default defineConfig({
     // PTY-based integration tests regularly exceed the default 5s.
     testTimeout: 60_000,
     hookTimeout: 60_000,
-    env: { FORCE_COLOR: "true" },
+    env: { FORCE_COLOR: "true", SIGIL_CLIPBOARD: "osc52" },
     // Ink patches and restores the real console; tests assert against
     // native console behavior, so keep Vitest's interception off.
     disableConsoleIntercept: true,

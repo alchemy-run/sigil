@@ -305,7 +305,16 @@ render(<Example />);
 Type: `string`
 
 Change text color.
-Ink uses [chalk](https://github.com/chalk/chalk) under the hood, so all its functionality is supported.
+Colors accept the same formats as [chalk](https://github.com/chalk/chalk).
+
+For styled strings outside the renderer (logs, piped output), `@alchemy.run/sigil/ansi` exports a chainable `chalk` and `createChalk()`, which gives each output its own color level instead of sharing a global one:
+
+```js
+import { createChalk } from "@alchemy.run/sigil/ansi";
+
+const style = createChalk({ stream: process.stderr }); // or { level: "truecolor" }
+process.stderr.write(style.bold.hex("#e28a5b")("error:") + " something failed\n");
+```
 
 ```jsx
 <Text color="green">Green</Text>
@@ -2990,7 +2999,7 @@ Ink intentionally treats alternate-screen teardown output as disposable. It does
 Only works in interactive mode. Ignored when `interactive` is `false` or in a non-interactive environment (CI, piped stdout).
 
 > [!NOTE]
-> Reusing the same stdout across multiple `render()` calls without unmounting is unsupported. Call `unmount()` first if you need to change this option or create a fresh instance.
+> Reusing the same stdout across multiple `render()` calls without unmounting is unsupported. To switch screens on a running app, use [`setAlternateScreen()`](#setalternatescreenenabled) instead of remounting.
 
 ```jsx
 render(<MyApp />, { alternateScreen: true });
@@ -3188,6 +3197,28 @@ Clear output.
 const { clear } = render(<MyApp />);
 clear();
 ```
+
+##### setAlternateScreen(enabled)
+
+Enter or leave the alternate screen without remounting. Entering erases the inline frame so it isn't left in the scrollback; leaving writes any `<Static>` output produced in the meantime to the main screen. Ignored when the app isn't interactive.
+
+```jsx
+const { setAlternateScreen } = render(<MyApp />);
+setAlternateScreen(true); // full-screen view
+setAlternateScreen(false); // back inline
+```
+
+##### copyToClipboard(text, selection?)
+
+Copy text to the user's clipboard and return whether any route accepted it. Sigil tries every route that might work, since OSC 52 alone is dropped in common setups:
+
+- OSC 52, which also works over SSH. Inside tmux it is sent both plain and wrapped for passthrough; inside GNU screen it is wrapped in screen's chunked passthrough. Skipped for sequences over 100,000 characters, which terminals drop.
+- `tmux load-buffer -w`, which reaches the outer terminal with tmux's default `set-clipboard external`.
+- The system clipboard tool (`pbcopy`, `wl-copy`, `xclip`/`xsel`, `clip.exe`) for local sessions, for terminals without OSC 52. Never over SSH.
+
+Set `SIGIL_CLIPBOARD=osc52` to use only OSC 52. The same helper is available outside a render as `copyToClipboard(text, { stream })` from `@alchemy.run/sigil/terminal`, returning the routes used.
+
+If sigil runs on a remote host inside an SSH session started from a local tmux, the local tmux needs `set -g set-clipboard on` to forward OSC 52.
 
 #### measureElement(ref)
 
