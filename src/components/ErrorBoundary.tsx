@@ -1,4 +1,6 @@
 /** @jsxImportSource react */
+import { types } from "node:util";
+
 import { PureComponent, type ReactNode } from "react";
 
 import { ErrorOverview } from "#/components/ErrorOverview.tsx";
@@ -17,16 +19,19 @@ type State = {
 export class ErrorBoundary extends PureComponent<Props, State> {
   static displayName = "InternalErrorBoundary";
 
-  static getDerivedStateFromError(error: Error) {
-    return { error };
+  static getDerivedStateFromError(error: unknown) {
+    return {
+      // Treat non-Error throws (strings, undefined) as rendering failures too.
+      error: types.isNativeError(error) ? error : new Error(String(error)),
+    };
   }
 
   override state: State = {
     error: undefined,
   };
 
-  override componentDidCatch(error: Error): void {
-    this.props.onError(error);
+  override componentDidCatch(): void {
+    this.props.onError(this.state.error!);
   }
 
   override render(): ReactNode {

@@ -297,6 +297,11 @@ function appendNode(
     return;
   }
 
+  // Suspense hides nested text by flagging its virtual-text node.
+  if (node.isHidden) {
+    return;
+  }
+
   const style = mergeSemanticTextStyles(inherited, node.internal_textStyle);
   const childAnsi = ansi || node.internal_ansi === true;
   for (const child of node.childNodes) {

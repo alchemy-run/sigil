@@ -1,7 +1,7 @@
 import { setTimeout as delay } from "node:timers/promises";
 
-import React from "react";
-import { expect, test, afterAll } from "vite-plus/test";
+import React, { useLayoutEffect } from "react";
+import { expect, onTestFinished, test, afterAll } from "vite-plus/test";
 
 import { stripAnsi } from "#/ansi/strip.ts";
 import { getCapabilities } from "#/capabilities/store.ts";
@@ -14,6 +14,43 @@ const getWriteContents = (stdout: FakeStdout): string[] =>
   stdout
     .getWrites()
     .filter((w) => w.length > 0 && !w.startsWith("\u001B[?25") && !w.startsWith("\u001B[?2026"));
+
+test("useWindowSize catches resizes before its subscription is installed", async () => {
+  const stdout = createStdout(100);
+  stdout.rows = 40;
+  let initialSize: string | undefined;
+
+  function Test() {
+    const { columns, rows } = useWindowSize();
+    initialSize ??= `${columns}x${rows}`;
+
+    useLayoutEffect(() => {
+      stdout.columns = 60;
+      stdout.rows = 20;
+      stdout.emit("resize");
+    }, []);
+
+    return (
+      <Text>
+        {columns}x{rows}
+      </Text>
+    );
+  }
+
+  const { unmount, waitUntilRenderFlush } = render(<Test />, {
+    stdout,
+    debug: true,
+  });
+  onTestFinished(() => {
+    unmount();
+  });
+  await waitUntilRenderFlush();
+  // Sigil repaints a PTY resize only once it settles, so wait out that debounce.
+  await delay(100);
+
+  expect(initialSize).toBe("100x40");
+  expect(stdout.get()).toBe("60x20");
+});
 
 test("useWindowSize returns current terminal dimensions and updates on resize", async () => {
   const stdout = createStdout(100);

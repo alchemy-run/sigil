@@ -2513,7 +2513,7 @@ Number of rows (vertical character cells).
 
 A React hook that returns focus state and focus controls for the current component.
 A component that uses the `useFocus` hook becomes "focusable" to Ink, so when the user presses <kbd>Tab</kbd>, Ink will switch focus to this component.
-If there are multiple components that execute the `useFocus` hook, focus will be given to them in the order in which these components are rendered.
+If there are multiple components that execute the `useFocus` hook, focus will be given to them in registration order. Reordering keyed components does not change their registration order.
 This hook returns an object with an `isFocused` boolean property, which determines whether this component is focused.
 
 #### options
@@ -2538,7 +2538,7 @@ This is useful for inputs that are temporarily disabled.
 Type: `string`\
 Required: `false`
 
-Set a component's focus ID, which can be used to programmatically focus the component. This is useful for large interfaces with many focusable elements to avoid having to cycle through all of them.
+Set a component's focus ID, which can be used to programmatically focus the component. This is useful for large interfaces with many focusable elements to avoid having to cycle through all of them. The ID must be unique among focusable components.
 
 ```jsx
 import { render, useFocus, Text } from "@alchemy.run/sigil";
@@ -2930,6 +2930,12 @@ This controls how frequently the UI can update to prevent excessive re-rendering
 Higher values allow more frequent updates but may impact performance.
 Setting it to a lower value may be useful for components that update very frequently, to reduce CPU usage.
 
+###### colorProfile
+
+Type: `'none' | 'ansi16' | 'ansi256' | 'truecolor'`
+
+Override the output color profile for this render instance. When omitted, the profile follows the capabilities of `stdout` and capability upgrades redraw the live frame. Static content already written to scrollback is not replayed or recolored.
+
 ###### concurrent
 
 Type: `boolean`\
@@ -3072,7 +3078,8 @@ console.log(output);
 
 **Notes:**
 
-- Terminal-specific hooks (`useInput`, `useStdin`, `useStdout`, `useStderr`, `useWindowSize`, `useApp`, `useFocus`, `useFocusManager`) return default no-op values since there is no terminal session. They will not throw, but they will not function as in a live terminal.
+- Terminal-specific hooks (`useInput`, `useStdin`, `useStdout`, `useStderr`, `useApp`, `useFocus`, `useFocusManager`) return default no-op values since there is no terminal session. They will not throw, but they will not function as in a live terminal.
+- `useWindowSize` reports the virtual terminal size: `columns` from the option and 24 rows.
 - `useEffect` callbacks will execute during rendering (due to synchronous rendering mode), but state updates they trigger will not affect the returned output, which reflects the initial render.
 - `useLayoutEffect` callbacks fire synchronously during commit, so state updates they trigger **will** be reflected in the output.
 - The `<Static>` component is supported — its output is prepended to the dynamic output.
@@ -3099,6 +3106,12 @@ const output = renderToString(<Text>{"A".repeat(100)}</Text>, {
 });
 // Text wraps at 40 columns
 ```
+
+###### colorProfile
+
+Type: `'none' | 'ansi16' | 'ansi256' | 'truecolor'`
+
+Color profile used for deterministic serialization. By default this retains the process color level for Ink compatibility.
 
 #### Instance
 

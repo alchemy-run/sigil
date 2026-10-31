@@ -42,7 +42,7 @@ export type ExplorerEntry = {
 
 export type ServeTerminalOptions = {
   /**
-	@default 0 (any free port)
+	Default: `0` (any free port)
 	*/
   port?: number;
 

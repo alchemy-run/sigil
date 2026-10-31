@@ -13,12 +13,12 @@ import React, {
   useEffect,
   useState,
 } from "react";
-import { afterAll, expect, test, vi } from "vite-plus/test";
+import { afterAll, expect, onTestFinished, test, vi } from "vite-plus/test";
 
 import { ansiEscapes } from "#/ansi/escapes.ts";
 import { bsu, esu } from "#/ansi/escapes.ts";
 import { stripAnsi } from "#/ansi/strip.ts";
-import { render, Box, Text, useApp, useCursor, useInput, useStdin } from "#/index.ts";
+import { render, Box, Static, Text, useApp, useCursor, useInput, useStdin } from "#/index.ts";
 import { type RenderMetrics } from "#/ink.tsx";
 
 import { createStdin, emitReadable } from "./helpers/create-stdin.ts";
@@ -1917,4 +1917,98 @@ test("bsu/esu wraps throttledLog trailing call", () => {
       unmount();
     }
   });
+});
+
+const staticHistoryItems = ["S1", "S2", "S3"];
+
+function StaticHistoryApp({
+  liveLines,
+  tick,
+  items = staticHistoryItems,
+}: {
+  readonly liveLines: number;
+  readonly tick: number;
+  readonly items?: string[];
+}) {
+  const lines = [];
+  for (let index = 0; index < liveLines; index++) {
+    lines.push(<Text key={index}>{`live ${index} tick ${tick}`}</Text>);
+  }
+
+  return (
+    <>
+      <Static items={items}>{(item) => <Text key={item}>{item}</Text>}</Static>
+      <Box flexDirection="column">{lines}</Box>
+    </>
+  );
+}
+
+// Sigil clamps overflowing frames to the viewport instead of taking a full-clear path, so these
+// only check what upstream #1005 guards: <Static> rows are written once and never replayed into scrollback.
+test("overflowing rerenders do not replay <Static> output into scrollback", async () => {
+  const rows = 4;
+  const stdout = createStdout();
+  stdout.rows = rows;
+  stdout.write("History\n");
+  const instance = render(<StaticHistoryApp liveLines={rows + 2} tick={0} />, {
+    stdout,
+    interactive: true,
+    patchConsole: false,
+  });
+  onTestFinished(() => {
+    instance.unmount();
+  });
+  await instance.waitUntilRenderFlush();
+
+  instance.rerender(<StaticHistoryApp liveLines={rows + 2} tick={1} />);
+  await instance.waitUntilRenderFlush();
+  instance.rerender(<StaticHistoryApp liveLines={rows + 2} tick={2} />);
+  await instance.waitUntilRenderFlush();
+  instance.rerender(<StaticHistoryApp liveLines={1} tick={3} />);
+  await instance.waitUntilRenderFlush();
+
+  const output = stdout.getWrites().join("");
+  const terminalLines = reconstructTerminalLines(output.replaceAll("\n", "\r\n"), rows);
+  const scrollbackLines = terminalLines.slice(0, -rows).filter(Boolean);
+  const viewportLines = terminalLines.slice(-rows).filter(Boolean);
+
+  expect(scrollbackLines.slice(0, 4)).toEqual(["History", "S1", "S2", "S3"]);
+  for (const item of staticHistoryItems) {
+    expect(
+      terminalLines.filter((line) => line === item).length,
+      `Expected static item ${item} to be written once`,
+    ).toBe(1);
+  }
+
+  expect(viewportLines).toEqual(["live 0 tick 3"]);
+});
+
+test("<Static> items added while the frame overflows are written once", async () => {
+  const rows = 4;
+  const stdout = createStdout();
+  stdout.rows = rows;
+  const instance = render(<StaticHistoryApp items={["S1"]} liveLines={rows + 2} tick={0} />, {
+    stdout,
+    interactive: true,
+    patchConsole: false,
+  });
+  onTestFinished(() => {
+    instance.unmount();
+  });
+  await instance.waitUntilRenderFlush();
+
+  instance.rerender(<StaticHistoryApp items={["S1", "S2"]} liveLines={rows + 2} tick={1} />);
+  await instance.waitUntilRenderFlush();
+  instance.rerender(<StaticHistoryApp items={["S1", "S2", "S3"]} liveLines={rows + 2} tick={2} />);
+  await instance.waitUntilRenderFlush();
+
+  const terminalLines = reconstructTerminalLines(
+    stdout.getWrites().join("").replaceAll("\n", "\r\n"),
+    rows,
+  ).filter(Boolean);
+
+  expect(
+    terminalLines.filter((line) => line.startsWith("S")),
+    "Expected every static item to be written exactly once, in order",
+  ).toEqual(["S1", "S2", "S3"]);
 });

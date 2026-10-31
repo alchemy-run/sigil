@@ -1,4 +1,4 @@
-import { setTimeout } from "node:timers";
+import { isDevToolsReachable } from "#/is-devtools-reachable.ts";
 
 // Node 22.4+ ships a stable browser-compatible WebSocket client, so no `ws`
 // dependency is needed. react-devtools-core resolves the constructor via the
@@ -67,42 +67,89 @@ Object.defineProperty(globalThis, "__REACT_DEVTOOLS_COMPONENT_FILTERS__", {
   ],
 });
 
-const isDevToolsReachable = () =>
-  new Promise<boolean>((resolve) => {
-    const socket = new WebSocket("ws://localhost:8097");
-    let settled = false;
+// @ts-expect-error: react-devtools-core is not typed
+const devtools = await import("react-devtools-core");
 
-    const settle = (reachable: boolean) => {
-      // Node 22 can emit another error synchronously when closing a failed
-      // connection. Mark it settled before close() re-enters this handler.
-      if (settled) return;
-      settled = true;
-      clearTimeout(timeout);
-      socket.close();
-      resolve(reachable);
-    };
+const isReachable = await isDevToolsReachable();
 
-    const timeout = setTimeout(() => {
-      settle(false);
-    }, 2000);
-    // Don't let the timeout keep the process alive on its own
-    timeout.unref();
-
-    socket.addEventListener("open", () => {
-      settle(true);
-    });
-    socket.addEventListener("error", () => {
-      settle(false);
-    });
-  });
-
-if (await isDevToolsReachable()) {
-  // @ts-expect-error: react-devtools-core is not typed
-  const devtools = await import("react-devtools-core");
+if (isReachable) {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   devtools.initialize();
-  devtools.connectToDevTools();
 } else {
   console.warn(
     "SIGIL_DEV is set to true, but the React DevTools server is not running. Start it with:\n\n$ npx react-devtools\n",
   );
 }
+
+let websocket: WebSocket | undefined;
+let connectedInstances = 0;
+
+/**
+Connect to React DevTools while at least one Sigil instance is mounted. Returns a function that releases the connection.
+
+The open socket keeps the process alive, so it's closed once the last instance unmounts. Sigil owns the socket instead of using `connectToDevTools()`, which keeps no reference to hand back and reconnects on a timer that also keeps the process alive.
+*/
+export const connectToDevTools = (): (() => void) => {
+  if (!isReachable) {
+    return () => {};
+  }
+
+  connectedInstances++;
+
+  if (connectedInstances === 1) {
+    const socket = new WebSocket("ws://localhost:8097");
+    const listeners = new Set<(message: unknown) => void>();
+    let agent: { shutdown: () => void } | undefined;
+
+    socket.addEventListener("message", (event) => {
+      let message: unknown;
+      try {
+        message = JSON.parse(String(event.data));
+      } catch {
+        return;
+      }
+
+      for (const listener of listeners) {
+        listener(message);
+      }
+    });
+
+    socket.addEventListener("open", () => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      devtools.connectWithCustomMessagingProtocol({
+        onSubscribe(listener: (message: unknown) => void) {
+          listeners.add(listener);
+        },
+        onUnsubscribe(listener: (message: unknown) => void) {
+          listeners.delete(listener);
+        },
+        onMessage(event: string, payload: unknown) {
+          if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ event, payload }));
+          }
+        },
+      });
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
+      agent = (globalThis as any).__REACT_DEVTOOLS_GLOBAL_HOOK__?.reactDevtoolsAgent;
+    });
+
+    // Same teardown as `connectToDevTools()` on close: shutting down the agent unsubscribes from the hook and cleans up the renderer interfaces.
+    socket.addEventListener("close", () => {
+      agent?.shutdown();
+      agent = undefined;
+    });
+
+    websocket = socket;
+  }
+
+  return () => {
+    connectedInstances--;
+
+    if (connectedInstances > 0) {
+      return;
+    }
+
+    websocket?.close();
+    websocket = undefined;
+  };
+};

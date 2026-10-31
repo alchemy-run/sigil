@@ -1250,16 +1250,16 @@ test("reset is a stable function reference", () => {
   unmount();
 });
 
-test("reset() while paused takes effect when animation is resumed", async () => {
+test("reset() clears paused animation values without resuming", async () => {
   vi.useFakeTimers();
 
   try {
     let resetAnimation!: () => void;
 
     function PausableAnimation({ isActive }: { readonly isActive: boolean }) {
-      const { frame, reset } = useAnimation({ interval: 50, isActive });
+      const { frame, time, delta, reset } = useAnimation({ interval: 50, isActive });
       resetAnimation = reset;
-      return <Text>{String(frame)}</Text>;
+      return <Text>{[frame, time, delta].join(",")}</Text>;
     }
 
     const stdout = createStdout();
@@ -1269,27 +1269,34 @@ test("reset() while paused takes effect when animation is resumed", async () => 
       maxFps: 120,
     });
 
+    const allPositive = () =>
+      stdout
+        .get()
+        .split(",")
+        .map(Number)
+        .every((value) => value > 0);
+
     // Let a few frames accumulate
     await vi.advanceTimersByTimeAsync(200);
-    const pausedFrame = Number.parseInt(stdout.write.mock.lastCall![0], 10);
-    expect(pausedFrame >= 1).toBe(true);
+    expect(allPositive()).toBe(true);
 
     // Pause the animation
     rerender(<PausableAnimation isActive={false} />);
 
-    // Call reset while paused — it only bumps the reset key; with isActive
-    // false the reset path never runs, so the displayed frame stays frozen.
+    // Reset all values while paused without restarting the animation.
     resetAnimation();
     await vi.advanceTimersByTimeAsync(1);
-    expect(stdout.write.mock.lastCall![0]).toBe(String(pausedFrame));
+    expect(stdout.get()).toBe("0,0,0");
+    await vi.advanceTimersByTimeAsync(100);
+    expect(stdout.get()).toBe("0,0,0");
 
-    // Resume — the pending reset takes effect and frame restarts from 0
+    // Resume with all values still at zero.
     rerender(<PausableAnimation isActive />);
-    expect(stdout.write.mock.lastCall![0]).toBe("0");
+    expect(stdout.get()).toBe("0,0,0");
 
     // And then advance again to confirm animation restarts cleanly
     await vi.advanceTimersByTimeAsync(100);
-    expect(Number.parseInt(stdout.write.mock.lastCall![0], 10) >= 1).toBe(true);
+    expect(allPositive()).toBe(true);
 
     unmount();
   } finally {
