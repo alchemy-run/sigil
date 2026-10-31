@@ -147,6 +147,7 @@ function App() {
       <Row label="color scheme updates">{String(supports.colorSchemeUpdates)}</Row>
       <Row label="in-band resize">{String(supports.inBandResize)}</Row>
       <Row label="focus events">{String(supports.focusEvents)}</Row>
+      <Row label="program status">{String(supports.programStatus)}</Row>
       <Row label="mouse (sgr/pixel)">
         {String(supports.sgrMouse)} / {String(supports.sgrPixelMouse)}
       </Row>

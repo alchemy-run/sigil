@@ -23,7 +23,7 @@ The familiar Ink component and hook surface remains available from the package r
 
 - **Structured rendering** — layout produces a semantic `Screen` of grapheme-aware cells before terminal-specific ANSI serialization. Import low-level primitives from `@alchemy.run/sigil/screen`, `@alchemy.run/sigil/color`, and `@alchemy.run/sigil/terminal`.
 - **Terminal capabilities** — `getCapabilities()` returns the current snapshot, while `capabilities.subscribe()` and `useCapabilitiesChange()` observe live terminal reports. The framework-free API is available from `@alchemy.run/sigil/capabilities`.
-- **Terminal integrations** — `<Hyperlink>` provides OSC 8 links with a fallback. `useTitle`, `useWorkingDirectory`, `useProgress`, `useNotification`, `useClipboard`, and `usePointerShape` manage session-scoped OSC state.
+- **Terminal integrations** — `<Hyperlink>` provides OSC 8 links with a fallback. `useTitle`, `useWorkingDirectory`, `useProgress`, `useProgramStatus` (OSC 7501), `useNotification`, `useClipboard`, and `usePointerShape` manage session-scoped OSC state.
 - **ANSI-aware text** — `<AnsiText>` interprets ANSI-styled input without flattening its semantic colors before rendering.
 - **Routing** — `@alchemy.run/sigil/router` provides an in-memory router designed for terminal applications. See the [routing recipe](recipes/routing.md).
 - **Testing** — the repository includes an internal emulator-backed E2E harness and interactive explorer (`vpr explorer` in `integration/`), kept with the PTY-driven tests in the private `integration/` workspace package. `vp test` at the root runs both. These utilities are not part of the public API while their design is evolving.
@@ -3064,6 +3064,30 @@ When the kitty keyboard protocol is enabled, input handling changes in several w
   - `Shift+Enter` vs `Enter` - the shift modifier is correctly reported.
   - `Escape` key vs `Ctrl+[` - these are disambiguated.
 - **Event types.** With the `reportEventTypes` flag, key press, repeat, and release events are distinguished via `key.eventType`.
+
+###### programStatus
+
+Type: `'auto' | 'enabled' | 'disabled'`\
+Default: `'auto'`
+
+Control [OSC 7501 program status](https://www.superlogical.com/rex/docs/build/program-status) reports, sent by `useProgramStatus` and `instance.setStatus()`. Terminals that support the protocol show whether the program is working, blocked on the user, done, or failed, for example as a tab badge.
+
+- `'auto'`: Ask the terminal (`OSC 7501 ; ?`) and send reports only once it confirms support. Multiplexers such as tmux don't forward the query, so reports stay off there.
+- `'enabled'`: Always send reports.
+- `'disabled'`: Never send reports.
+
+```jsx
+import { render, useProgramStatus } from "@alchemy.run/sigil";
+
+function Deploy({ progress }) {
+  useProgramStatus({ state: "working", app: "my-cli", progress, msg: "Deploying" });
+  return <Text>{progress}%</Text>;
+}
+
+render(<Deploy progress={42} />, { programStatus: "auto" });
+```
+
+A component's record is withdrawn when it unmounts, unless it last reported `done` or `error`: those stay after the program exits, as the protocol intends. Records are cleared while the terminal is suspended and sent again on resume.
 
 #### renderToString(tree, options?)
 
