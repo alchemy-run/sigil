@@ -139,7 +139,6 @@ export const paintTree = (
         const sampled = sampleStructuredText(lines, paintBounds, output.paintContext);
 
         if (hasCompatibilityText(node)) {
-          const textTransformers = collectTransformers(node, transformers);
           output.writeAnsi(
             paintBounds.x,
             paintBounds.y,
@@ -151,7 +150,7 @@ export const paintTree = (
                 }),
               )
               .join("\n"),
-            { transformers: textTransformers, overflow },
+            { transformers: newTransformers, overflow },
           );
         } else {
           output.writeCells(paintBounds.x, paintBounds.y, sampled, { overflow });
@@ -205,16 +204,3 @@ export const paintTree = (
     }
   }
 };
-
-function collectTransformers(
-  node: DOMElement,
-  inherited: readonly AnsiTransformer[],
-): AnsiTransformer[] {
-  return [
-    ...node.childNodes.flatMap((child) =>
-      child.nodeName === "#text" ? [] : collectTransformers(child, []),
-    ),
-    ...(node.internal_transform ? [node.internal_transform] : []),
-    ...inherited,
-  ];
-}

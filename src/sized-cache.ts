@@ -1,0 +1,71 @@
+type SizedEntry<Value> = { value: Value; size: number };
+
+/**
+Cache bounded by the total size of its entries rather than just their count.
+Uses quick-lru's two-generation algorithm, but keeps memory usage stable when
+entry sizes vary widely, such as when keys are whole blocks of text. Callers
+choose the unit of `size`, e.g. UTF-16 code units for string keys.
+*/
+export class SizedCache<Key, Value> {
+  #current = new Map<Key, SizedEntry<Value>>();
+  #previous = new Map<Key, SizedEntry<Value>>();
+  #currentSize = 0;
+  readonly #maxSize: number;
+
+  constructor(maxSize: number) {
+    this.#maxSize = maxSize;
+  }
+
+  get(key: Key): Value | undefined {
+    const entry = this.#current.get(key);
+    if (entry !== undefined) {
+      return entry.value;
+    }
+
+    const old = this.#previous.get(key);
+    if (old === undefined) {
+      return;
+    }
+
+    this.#previous.delete(key);
+    this.#add(key, old);
+    return old.value;
+  }
+
+  has(key: Key): boolean {
+    return this.#current.has(key) || this.#previous.has(key);
+  }
+
+  set(key: Key, value: Value, size: number): void {
+    // Don't let one large entry drop everything else.
+    if (size > this.#maxSize / 8) {
+      return;
+    }
+
+    this.#previous.delete(key);
+    const existing = this.#current.get(key);
+    if (existing !== undefined) {
+      this.#currentSize -= existing.size;
+    }
+
+    this.#add(key, { value, size });
+  }
+
+  clear(): void {
+    this.#current.clear();
+    this.#previous.clear();
+    this.#currentSize = 0;
+  }
+
+  #add(key: Key, entry: SizedEntry<Value>): void {
+    this.#current.set(key, entry);
+    this.#currentSize += entry.size;
+    if (this.#currentSize < this.#maxSize / 2) {
+      return;
+    }
+
+    this.#previous = this.#current;
+    this.#current = new Map();
+    this.#currentSize = 0;
+  }
+}

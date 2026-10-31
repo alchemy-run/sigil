@@ -4,7 +4,7 @@ import { squashTextNodes } from "#/squash-text-nodes.ts";
 import { type Styles } from "#/styles.ts";
 import { type AnsiTransformer } from "#/transform-adapter.ts";
 import { wrapText } from "#/wrap-text.ts";
-import { Yoga, type Node as YogaNode } from "#/yoga/index.ts";
+import { Yoga, type MeasureMode, type Node as YogaNode } from "#/yoga/index.ts";
 
 type InkNode = {
   parentNode: DOMElement | undefined;
@@ -63,6 +63,7 @@ export type DOMElement = {
   };
 
   // Internal properties
+  isHidden?: boolean;
   isStaticDirty?: boolean;
   staticNode?: DOMElement;
   // Tracks the previous commit's `staticNode` so the reconciler can detect identity changes (mount, unmount, key-driven remount) and reset `fullStaticOutput`.
@@ -104,7 +105,7 @@ export const createNode = (nodeName: ElementNames): DOMElement => {
   };
 
   if (nodeName === "ink-text") {
-    node.yogaNode?.setMeasureFunc((width) => measureTextNode(node, width));
+    node.yogaNode?.setMeasureFunc((width, widthMode) => measureTextNode(node, width, widthMode));
   }
 
   return node;
@@ -207,7 +208,24 @@ export const setAttribute = (node: DOMElement, key: string, value: DOMNodeAttrib
   node.attributes[key] = value;
 };
 
+/**
+Update a text transform and invalidate measurements that include its output.
+*/
+export const setTransform = (node: DOMElement, transform: AnsiTransformer | undefined): void => {
+  node.internal_transform = transform;
+
+  // Nested transforms contribute to the enclosing text node's measured content.
+  if (node.nodeName === "ink-virtual-text") {
+    markNodeAsDirty(node);
+  }
+};
+
 export const setStyle = (node: DOMNode, style?: Styles): void => {
+  if (node.nodeName === "ink-text" && node.style.textWrap !== style?.textWrap) {
+    // Wrapping changes text measurements without changing any Yoga style.
+    node.yogaNode?.markDirty();
+  }
+
   // Rendering code assumes style is always an object.
   node.style = style ?? {};
 };
@@ -226,19 +244,18 @@ export const createTextNode = (text: string): TextNode => {
   return node;
 };
 
-const measureTextNode = function (node: DOMNode, width: number): { width: number; height: number } {
+const measureTextNode = function (
+  node: DOMNode,
+  width: number,
+  widthMode: MeasureMode,
+): { width: number; height: number } {
   const text = node.nodeName === "#text" ? node.nodeValue : squashTextNodes(node);
 
   const dimensions = measureText(text);
 
-  // Text fits into container, no need to wrap
-  if (dimensions.width <= width) {
-    return dimensions;
-  }
-
-  // This is happening when <Box> is shrinking child nodes and Yoga asks
-  // if we can fit this text node in a <1px space, so we just tell Yoga "no"
-  if (dimensions.width >= 1 && width > 0 && width < 1) {
+  // An unconstrained measurement requests the natural size, not wrapping at
+  // its NaN width. Text that fits needs no wrapping either.
+  if (widthMode === Yoga.MEASURE_MODE_UNDEFINED || dimensions.width <= width) {
     return dimensions;
   }
 
@@ -249,9 +266,13 @@ const measureTextNode = function (node: DOMNode, width: number): { width: number
     return dimensions;
   }
 
-  const wrappedText = wrapText(text, width, textWrap);
+  const wrappedDimensions = measureText(wrapText(text, width, textWrap));
 
-  return measureText(wrappedText);
+  // Reserve the truncation width so rendering does not truncate again at a
+  // narrower width when a wide character leaves an unused column.
+  return textWrap.startsWith("truncate")
+    ? { width, height: wrappedDimensions.height }
+    : wrappedDimensions;
 };
 
 const findClosestYogaNode = (node?: DOMNode): YogaNode | undefined => {
@@ -266,6 +287,17 @@ const markNodeAsDirty = (node?: DOMNode): void => {
   // Mark closest Yoga node as dirty to measure text dimensions again
   const yogaNode = findClosestYogaNode(node);
   yogaNode?.markDirty();
+};
+
+export const setNodeHidden = (node: DOMElement, isHidden: boolean): void => {
+  node.isHidden = isHidden;
+  node.yogaNode?.setDisplay(
+    isHidden || node.style.display === "none" ? Yoga.DISPLAY_NONE : Yoga.DISPLAY_FLEX,
+  );
+
+  if (node.nodeName === "ink-virtual-text") {
+    markNodeAsDirty(node);
+  }
 };
 
 export const setTextNodeValue = (node: TextNode, text: string): void => {

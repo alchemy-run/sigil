@@ -25,6 +25,51 @@ test("<Text> with null children", () => {
   expect(output).toBe("");
 });
 
+test("tabs are measured and rendered without overwriting adjacent text", () => {
+  const output = renderToString(
+    <Box width={20}>
+      <Text>
+        A<Text>{"\tB"}</Text>
+      </Text>
+      <Text>!</Text>
+    </Box>,
+  );
+
+  expect(output).toBe("A       B!");
+});
+
+test("expanded tabs participate in text wrapping", () => {
+  const output = renderToString(
+    <Box width={5} flexDirection="column">
+      <Text>{"A\tB"}</Text>
+      <Text>!</Text>
+    </Box>,
+  );
+
+  expect(output).toBe("A\n   B\n!");
+});
+
+test("tab stops account for styled wide characters", () => {
+  const originalLevel = chalk.level;
+  chalk.level = 3;
+
+  try {
+    const output = renderToString(
+      <Box width={20}>
+        <Text>
+          <Text color="red">界</Text>
+          {"\tB"}
+        </Text>
+        <Text>!</Text>
+      </Box>,
+    );
+
+    expect(output).toBe(chalk.red("界") + "      B!");
+  } finally {
+    chalk.level = originalLevel;
+  }
+});
+
 test("text with standard color", () => {
   const output = renderToString(<Text color="green">Test</Text>);
   expect(output).toBe(chalk.green("Test"));

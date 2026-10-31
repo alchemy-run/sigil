@@ -5,6 +5,7 @@ import { chalk } from "#/ansi/chalk.ts";
 import { Box, Text, render } from "#/index.ts";
 
 import createStdout from "./helpers/create-stdout.ts";
+import { renderAsync } from "./helpers/test-renderer.ts";
 
 test("update child", () => {
   function Test({ update }: { readonly update?: boolean }) {
@@ -409,4 +410,103 @@ test("support suspense with concurrent mode", async () => {
   });
 
   expect(stdout.write.mock.lastCall![0]).toBe("Hello Concurrent World");
+});
+
+test("Suspense hides nested text while showing its fallback", async () => {
+  let resolvePromise!: () => void;
+  const promise = new Promise<void>((resolve) => {
+    resolvePromise = resolve;
+  });
+
+  function Suspendable({ pending }: { readonly pending: boolean }) {
+    if (pending) {
+      // oxlint-disable-next-line typescript/only-throw-error
+      throw promise;
+    }
+
+    return <Text>Ready</Text>;
+  }
+
+  function Example({
+    pending,
+    showFallback = true,
+  }: {
+    readonly pending: boolean;
+    readonly showFallback?: boolean;
+  }) {
+    return (
+      <Box>
+        <Text>
+          Status:{" "}
+          <Suspense fallback={showFallback ? <Text>Loading</Text> : null}>
+            <Suspendable pending={pending} />
+          </Suspense>
+        </Text>
+        <Text>!</Text>
+      </Box>
+    );
+  }
+
+  const { getOutput, rerenderAsync, unmount } = await renderAsync(<Example pending={false} />);
+
+  try {
+    expect(getOutput()).toBe("Status: Ready!");
+
+    await rerenderAsync(<Example pending />);
+    expect(getOutput()).toBe("Status: Loading!");
+
+    await rerenderAsync(<Example pending={false} />);
+    expect(getOutput()).toBe("Status: Ready!");
+
+    await rerenderAsync(<Example pending showFallback={false} />);
+    expect(getOutput()).toBe("Status: !");
+
+    await rerenderAsync(<Example pending={false} showFallback={false} />);
+    expect(getOutput()).toBe("Status: Ready!");
+  } finally {
+    resolvePromise();
+    unmount();
+  }
+});
+
+test("resuming Suspense preserves display none", async () => {
+  let resolvePromise!: () => void;
+  const promise = new Promise<void>((resolve) => {
+    resolvePromise = resolve;
+  });
+
+  function Suspendable({ pending }: { readonly pending: boolean }) {
+    if (pending) {
+      // oxlint-disable-next-line typescript/only-throw-error
+      throw promise;
+    }
+
+    return <Text>Visible</Text>;
+  }
+
+  function Example({ pending }: { readonly pending: boolean }) {
+    return (
+      <Suspense fallback={<Text>Loading</Text>}>
+        <Box display="none">
+          <Text>Hidden</Text>
+        </Box>
+        <Suspendable pending={pending} />
+      </Suspense>
+    );
+  }
+
+  const { getOutput, rerenderAsync, unmount } = await renderAsync(<Example pending={false} />);
+
+  try {
+    expect(getOutput()).toBe("Visible");
+
+    await rerenderAsync(<Example pending />);
+    expect(getOutput()).toBe("Loading");
+
+    await rerenderAsync(<Example pending={false} />);
+    expect(getOutput()).toBe("Visible");
+  } finally {
+    resolvePromise();
+    unmount();
+  }
 });
