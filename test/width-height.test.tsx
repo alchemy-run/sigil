@@ -83,6 +83,92 @@ test.fails("set min width in percent", () => {
   expect(output).toBe("A    B");
 });
 
+test("set width to zero", () => {
+  const output = renderToString(
+    <Box>
+      <Box width={0}>
+        <Text>hello</Text>
+      </Box>
+      <Text>|</Text>
+    </Box>,
+  );
+
+  expect(output).toBe("|ello");
+});
+
+test("set width to zero with text below", () => {
+  const output = renderToString(
+    <Box flexDirection="column">
+      <Box>
+        <Box width={0}>
+          <Text>hello</Text>
+        </Box>
+        <Text>|</Text>
+      </Box>
+      <Text>next</Text>
+    </Box>,
+  );
+
+  expect(output).toBe("|ello\nnext");
+});
+
+test("set width to a fraction of a column", () => {
+  const output = renderToString(
+    <Box width={10} flexDirection="column">
+      <Box>
+        <Box width={0.25}>
+          <Text>hello</Text>
+        </Box>
+        <Text>|</Text>
+      </Box>
+      <Text>next</Text>
+    </Box>,
+  );
+
+  expect(output).toBe("|\ne\nl\nl\no\nnext");
+});
+
+test("truncated text at a positive fractional width keeps its row", () => {
+  const output = renderToString(
+    <Box width={10} flexDirection="column">
+      <Box width={0.5}>
+        <Text wrap="truncate">hello</Text>
+      </Box>
+      <Text>next</Text>
+    </Box>,
+  );
+
+  expect(output).toBe("…\nnext");
+});
+
+test("padding leaves no room for text", () => {
+  const output = renderToString(
+    <Box>
+      <Box width={2} paddingX={1}>
+        <Text>hello</Text>
+      </Box>
+      <Text>|</Text>
+    </Box>,
+  );
+
+  expect(output).toBe(" h|llo");
+});
+
+test("shrink text to zero width", () => {
+  const output = renderToString(
+    <Box width={5}>
+      <Box flexBasis={0} flexShrink={1}>
+        <Text>hello</Text>
+      </Box>
+      <Box width={5}>
+        <Text>world</Text>
+      </Box>
+    </Box>,
+  );
+
+  expect(output).toBe("world");
+});
+
 test("set height", () => {
   const output = renderToString(
     <Box height={4}>

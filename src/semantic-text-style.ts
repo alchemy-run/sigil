@@ -36,7 +36,7 @@ const namedColors: Record<string, number> = {
   whiteBright: 15,
 };
 
-const rgbPattern = /^rgb\(\s?(\d+),\s?(\d+),\s?(\d+)\s?\)$/;
+const rgbPattern = /^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/;
 const ansi256Pattern = /^ansi256\(\s?(\d+)\s?\)$/;
 
 export function parseSemanticColor(value: string | Color | undefined): Color | undefined {
@@ -46,7 +46,8 @@ export function parseSemanticColor(value: string | Color | undefined): Color | u
 
   if (typeof value !== "string") return value;
 
-  const named = namedColors[value];
+  // Own keys only, so names like `constructor` don't resolve to prototype members.
+  const named = Object.hasOwn(namedColors, value) ? namedColors[value] : undefined;
   if (named !== undefined) {
     return { model: "indexed", index: named, encoding: "ansi16" };
   }

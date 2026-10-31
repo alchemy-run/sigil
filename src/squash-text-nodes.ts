@@ -1,3 +1,4 @@
+import { wrapAnsi } from "#/ansi/wrap.ts";
 import { type DOMElement } from "#/dom.ts";
 import { sanitizeAnsi } from "#/sanitize-ansi.ts";
 
@@ -8,30 +9,46 @@ import { sanitizeAnsi } from "#/sanitize-ansi.ts";
 export const squashTextNodes = (node: DOMElement): string => {
   let text = "";
 
-  for (let index = 0; index < node.childNodes.length; index++) {
-    const childNode = node.childNodes[index];
-
-    if (childNode === undefined) {
-      continue;
-    }
-
+  for (const childNode of node.childNodes) {
     let nodeText = "";
 
     if (childNode.nodeName === "#text") {
       nodeText = childNode.nodeValue;
     } else {
+      if (childNode.isHidden) {
+        continue;
+      }
+
       if (childNode.nodeName === "ink-text" || childNode.nodeName === "ink-virtual-text") {
         nodeText = squashTextNodes(childNode);
       }
 
-      // Nested compatibility transforms must run before the enclosing transform.
-      if (nodeText.length > 0 && typeof childNode.internal_transform === "function") {
-        nodeText = childNode.internal_transform(nodeText, index);
+      // Nested compatibility transforms must run before the enclosing transform,
+      // once per explicit line with that line's index.
+      const transform = childNode.internal_transform;
+      if (nodeText.length > 0 && typeof transform === "function") {
+        nodeText = nodeText
+          .split("\n")
+          .map((line, lineIndex) => transform(line, lineIndex))
+          .join("\n");
       }
     }
 
     text += nodeText;
   }
 
-  return sanitizeAnsi(text);
+  text = sanitizeAnsi(text);
+
+  // Width measurement only understands the ESC forms of these C1 controls.
+  text = text
+    .replaceAll("\u009B", "\u001B[")
+    .replaceAll("\u009D", "\u001B]")
+    .replaceAll("\u009C", "\u001B\\");
+
+  // Expand tabs after combining nested text so measurement and rendering use the same columns.
+  if (node.nodeName === "ink-text" && text.includes("\t")) {
+    text = wrapAnsi(text, Number.POSITIVE_INFINITY, { trim: false });
+  }
+
+  return text;
 };

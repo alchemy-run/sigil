@@ -14,6 +14,30 @@ test("preserve SGR sequences", () => {
   expect(stripAnsi(output)).toBe("AcolorB");
 });
 
+test("preserve empty SGR parameters", () => {
+  const input = "A\u001B[mB\u001B[;1mC";
+
+  expect(sanitizeAnsi(input)).toBe(input);
+});
+
+test("defer SGR sequences until after combining marks", () => {
+  expect(sanitizeAnsi("e\u001B[31m\u001B[1ḿX\u001B[39m")).toBe("é\u001B[31m\u001B[1mX\u001B[39m");
+});
+
+test("defer a trailing SGR sequence past a combining mark", () => {
+  expect(sanitizeAnsi("e\u001B[31ḿ")).toBe("é\u001B[31m");
+});
+
+test("keep deferred SGR sequences before a following hyperlink", () => {
+  expect(sanitizeAnsi("e\u001B[31ḿ\u001B]8;;https://example.com\u001B\\X")).toBe(
+    "é\u001B[31m\u001B]8;;https://example.com\u001B\\X",
+  );
+});
+
+test("strip cursor controls before checking for combining marks", () => {
+  expect(sanitizeAnsi("e\u001B[31m\ŕX")).toBe("é\u001B[31mX");
+});
+
 test("preserve OSC hyperlinks", () => {
   const output = sanitizeAnsi("\u001B]8;;https://example.com\u001B\\link\u001B]8;;\u001B\\");
 
@@ -50,6 +74,33 @@ test("preserve C1 OSC hyperlinks terminated by BEL", () => {
 
   expect(output).toContain("\u009D8;;https://example.com\u0007");
   expect(output).toBe(input);
+});
+
+test("preserve OSC hyperlinks with parameters", () => {
+  const input = "\u001B]8;id=docs;https://example.com\u001B\\link\u001B]8;;\u001B\\";
+
+  expect(sanitizeAnsi(input)).toBe(input);
+});
+
+for (const [name, payload] of [
+  ["an OSC 52 clipboard write", "\u001B]52;c;SGVsbG8=\u0007"],
+  ["an ESC-escaped OSC 52 clipboard write", "\u001B\u001B]52;c;SGVsbG8=\u0007"],
+  ["a C1 OSC 52 clipboard write", "\u009D52;c;SGVsbG8=\u0007"],
+  ["a screen clear", "\u001B[2J"],
+  ["a C1 screen clear", "\u009B2J"],
+  ["a DCS sequence", "\u001BPq#0\u001B\\"],
+]) {
+  test(`strip OSC hyperlinks whose payload smuggles ${name}`, () => {
+    const output = sanitizeAnsi(`\u001B]8;;${payload}\u0007link\u001B]8;;\u0007`);
+
+    expect(output).toBe("link\u001B]8;;\u0007");
+  });
+}
+
+test("strip OSC sequences other than hyperlinks", () => {
+  const output = sanitizeAnsi("A\u001B]0;title\u0007B\u009D52;c;SGVsbG8=\u0007C");
+
+  expect(output).toBe("ABC");
 });
 
 test("strip non-SGR CSI sequences as complete units", () => {

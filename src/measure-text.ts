@@ -1,7 +1,8 @@
 import { widestLine } from "#/ansi/string-width.ts";
-import { QuickLru as QuickLRU } from "#/quick-lru.ts";
+import { SizedCache } from "#/sized-cache.ts";
 
-const cache = new QuickLRU<string, Output>({ maxSize: 4096 });
+// Sized by UTF-16 code units of the text.
+const cache = new SizedCache<string, Output>(2 ** 20);
 
 type Output = {
   width: number;
@@ -25,7 +26,7 @@ export const measureText = (text: string): Output => {
   const width = widestLine(text);
   const height = text.split("\n").length;
   const dimensions = { width, height };
-  cache.set(text, dimensions);
+  cache.set(text, dimensions, text.length);
 
   return dimensions;
 };

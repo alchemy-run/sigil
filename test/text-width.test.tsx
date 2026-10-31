@@ -39,6 +39,16 @@ test("combining marks and joined emoji retain their graphemes", () => {
   expect(output).toBe("┌───┐\n│e\u0301👩‍💻│\n└───┘");
 });
 
+test("CRLF line endings do not overwrite box borders", () => {
+  const output = renderToString(
+    <Box borderStyle="single" width={7}>
+      <Text>{"hello\r\nworld"}</Text>
+    </Box>,
+  );
+
+  expect(output).toBe("┌─────┐\n│hello│\n│world│\n└─────┘");
+});
+
 test("wide characters do not add extra space inside fixed-width Box", () => {
   const output = renderToString(
     <Box flexDirection="column">

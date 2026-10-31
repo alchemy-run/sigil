@@ -10,8 +10,10 @@ import {
   removeChildNode,
   detachYogaSubtree,
   emitLayoutListeners,
+  setNodeHidden,
   setStyle,
   setTextNodeValue,
+  setTransform,
   createNode,
   setAttribute,
   type DOMNodeAttribute,
@@ -23,7 +25,6 @@ import { isSigilDev } from "#/env.ts";
 import type { SemanticTextStyle } from "#/semantic-text-style.ts";
 import { styles as applyStyles, type Styles } from "#/styles.ts";
 import { type AnsiTransformer } from "#/transform-adapter.ts";
-import { Yoga } from "#/yoga/index.ts";
 
 import pkg from "../package.json" with { type: "json" };
 
@@ -322,10 +323,10 @@ export const reconciler = createReconciler<
   },
   getPublicInstance: (instance) => instance,
   hideInstance(node) {
-    node.yogaNode?.setDisplay(Yoga.DISPLAY_NONE);
+    setNodeHidden(node, true);
   },
   unhideInstance(node) {
-    node.yogaNode?.setDisplay(Yoga.DISPLAY_FLEX);
+    setNodeHidden(node, false);
   },
   appendInitialChild: appendChildNode,
   appendChild: appendChildNode,
@@ -392,7 +393,7 @@ export const reconciler = createReconciler<
 
         if (key === "internal_transform") {
           // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-          node.internal_transform = value as AnsiTransformer;
+          setTransform(node, value as AnsiTransformer);
           continue;
         }
 

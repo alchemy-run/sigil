@@ -5,9 +5,11 @@ import { stripAnsi } from "#/ansi/strip.ts";
 import { samplePaint, type PaintContext } from "#/color/index.ts";
 import type { Paint } from "#/color/paint.ts";
 import type { DOMElement, DOMNode } from "#/dom.ts";
+import { sanitizeAnsi } from "#/sanitize-ansi.ts";
 import { cellsFromAnsi } from "#/screen/ansi.ts";
 import { createCell, type Cell, type CellStyle } from "#/screen/cell.ts";
 import type { Rect } from "#/screen/geometry.ts";
+import { serializeLine } from "#/screen/serialize.ts";
 import {
   emptySemanticTextStyle,
   mergeSemanticTextStyles,
@@ -15,26 +17,54 @@ import {
   type SemanticTextStyle,
 } from "#/semantic-text-style.ts";
 import type { Styles } from "#/styles.ts";
+import type { AnsiTransformer } from "#/transform-adapter.ts";
 
 type SemanticCell = Cell & {
   readonly foregroundPaint?: Paint;
   readonly backgroundPaint?: Paint;
 };
 
-/** Whether a text subtree must retain the ANSI compatibility pipeline. */
+/**
+Whether a text node must retain the ANSI compatibility pipeline. Nested
+transforms are applied while building its lines, so only its own counts.
+*/
 export function hasCompatibilityText(node: DOMElement): boolean {
-  if (node.internal_transform && !node.internal_textStyle) {
-    return true;
-  }
-
-  return node.childNodes.some((child) => child.nodeName !== "#text" && hasCompatibilityText(child));
+  return Boolean(node.internal_transform && !node.internal_textStyle);
 }
 
 /** Rasterizes an unwrapped native Text subtree into semantic cell lines. */
 export function structuredTextLines(node: DOMElement): readonly (readonly SemanticCell[])[] {
   const lines: SemanticCell[][] = [[]];
   appendNode(node, emptySemanticTextStyle, lines, false);
-  return lines;
+  return lines.map((line) => expandTabs(line));
+}
+
+// Tabs expand to the next 8-column stop after nested text is combined, the
+// same way measurement expands them.
+function expandTabs(line: SemanticCell[]): SemanticCell[] {
+  if (!line.some((cell) => cell.grapheme === "\t")) {
+    return line;
+  }
+
+  const output: SemanticCell[] = [];
+  let column = 0;
+
+  for (const cell of line) {
+    if (cell.grapheme !== "\t") {
+      output.push(cell);
+      column += cell.width;
+      continue;
+    }
+
+    const spaces = 8 - (column % 8);
+    for (let index = 0; index < spaces; index++) {
+      output.push({ ...cell, grapheme: " ", width: 1 });
+    }
+
+    column += spaces;
+  }
+
+  return output;
 }
 
 /** Samples semantic paints only after wrapping and final layout are known. */
@@ -81,13 +111,16 @@ export function wrapStructuredText(
   wrap: Styles["textWrap"],
   baseStyle?: CellStyle,
 ): readonly (readonly Cell[])[] {
-  if (wrap === "none") {
+  // Text with no room to wrap keeps its natural width, like measurement does.
+  if (wrap === "none" || (maxWidth <= 0 && (wrap === "wrap" || wrap === "hard"))) {
     return input.map((line) => [...line]);
   }
 
-  if (maxWidth < 1) {
+  if (maxWidth <= 0) {
     return [[]];
   }
+
+  maxWidth = Math.max(1, maxWidth);
 
   return input.flatMap((line) => {
     if (lineWidth(line) <= maxWidth) {
@@ -254,25 +287,70 @@ function appendNode(
   ansi: boolean,
 ): void {
   if (node.nodeName === "#text") {
-    if (ansi) appendAnsiText(node.nodeValue, inherited, lines);
-    else appendText(node.nodeValue, inherited, lines);
+    const text = sanitizeAnsi(node.nodeValue);
+    if (ansi) appendAnsiText(text, inherited, lines);
+    else appendText(text, inherited, lines);
+    return;
+  }
+
+  if (node.isHidden) {
     return;
   }
 
   const style = mergeSemanticTextStyles(inherited, node.internal_textStyle);
+  const childAnsi = ansi || node.internal_ansi === true;
   for (const child of node.childNodes) {
-    appendNode(child, style, lines, ansi || node.internal_ansi === true);
+    if (child.nodeName !== "#text" && child.internal_transform && !child.internal_textStyle) {
+      appendTransformedNode(child, child.internal_transform, style, lines, childAnsi);
+    } else {
+      appendNode(child, style, lines, childAnsi);
+    }
+  }
+}
+
+// Nested transforms run before wrapping, like measurement, and receive each
+// explicit line of their own subtree with its index.
+function appendTransformedNode(
+  node: DOMElement,
+  transform: AnsiTransformer,
+  inherited: SemanticTextStyle,
+  lines: SemanticCell[][],
+  ansi: boolean,
+): void {
+  const ownLines: SemanticCell[][] = [[]];
+  appendNode(node, inherited, ownLines, ansi);
+
+  if (ownLines.length === 1 && ownLines[0]!.length === 0) {
+    return;
+  }
+
+  for (const [index, line] of ownLines.entries()) {
+    if (index > 0) {
+      lines.push([]);
+    }
+
+    const serialized = serializeLine(line, { colorProfile: "truecolor", trimEnd: false });
+    for (const cell of cellsFromAnsi(transform(serialized, index))) {
+      if (cell.grapheme === "\n" || cell.grapheme === "\r\n") {
+        lines.push([]);
+      } else {
+        lines.at(-1)!.push(cell);
+      }
+    }
   }
 }
 
 function appendAnsiText(text: string, semantic: SemanticTextStyle, lines: SemanticCell[][]): void {
   const base = semanticTextStyleToCellStyle(semantic);
-  for (const cell of cellsFromAnsi(text)) {
+  for (const [index, cell] of cellsFromAnsi(text).entries()) {
     if (cell.grapheme === "\n" || cell.grapheme === "\r\n") {
       lines.push([]);
       continue;
     }
 
+    if (attachMarks(lines.at(-1)!, cell.grapheme, index === 0)) {
+      continue;
+    }
     if (isInvisible(cell.grapheme)) continue;
 
     const hasForeground = cell.style.foreground !== undefined;
@@ -309,12 +387,15 @@ function appendText(text: string, style: SemanticTextStyle, lines: SemanticCell[
     .filter((token) => token.type === "text")
     .map((token) => token.value)
     .join("");
-  for (const segment of graphemes(stripAnsi(plainText))) {
+  for (const [index, segment] of [...graphemes(stripAnsi(plainText))].entries()) {
     if (segment === "\n" || segment === "\r\n") {
       lines.push([]);
       continue;
     }
 
+    if (attachMarks(lines.at(-1)!, segment, index === 0)) {
+      continue;
+    }
     if (isInvisible(segment)) continue;
 
     lines.at(-1)!.push({
@@ -331,4 +412,27 @@ function appendText(text: string, style: SemanticTextStyle, lines: SemanticCell[
       ...(style.background ? { backgroundPaint: style.background } : {}),
     });
   }
+}
+
+const leadingMarkRegex = /^\p{Mark}/u;
+
+// A text node can start with combining marks or other grapheme extenders that
+// belong to the previous node's last character. They join that cell and keep
+// its style, as they would in a terminal. Marks with no base to join can't
+// occupy a cell of their own, so they are dropped.
+function attachMarks(line: SemanticCell[], segment: string, isFirstSegment: boolean): boolean {
+  const previous = line.at(-1);
+  if (isFirstSegment && previous) {
+    const joined = previous.grapheme + segment;
+    if ([...graphemes(joined)].length === 1) {
+      line[line.length - 1] = {
+        ...previous,
+        grapheme: joined,
+        width: Math.max(1, stringWidth(joined)),
+      };
+      return true;
+    }
+  }
+
+  return leadingMarkRegex.test(segment);
 }
