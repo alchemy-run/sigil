@@ -4,7 +4,7 @@ import { setTimeout as delay } from "node:timers/promises";
 
 import { onTestFinished, expect, test, vi } from "vite-plus/test";
 
-import { render, useInput } from "#/index.ts";
+import { Text, render, useInput } from "#/index.ts";
 
 import { act } from "./helpers/act.ts";
 import { createStdin, emitReadable } from "./helpers/create-stdin.ts";
@@ -142,6 +142,13 @@ test("useInput - holds a split CSI key across the Escape timeout", async () => {
   ps.write("\u001B[");
   await delay(100);
   ps.write("A");
+  await ps.waitForExit();
+  expect(ps.output).toContain("exited");
+});
+
+test("useInput - flushes ESC[ prefix as literal input", async () => {
+  const ps = term("use-input", ["escapeBracketPrefix"]);
+  ps.write("\u001B[");
   await ps.waitForExit();
   expect(ps.output).toContain("exited");
 });
@@ -361,4 +368,34 @@ test("useInput - receives Ctrl+C after a bare legacy mouse prefix", async () => 
   await pushChunks(stdin, [Buffer.from([0x1b, 0x5b, 0x4d]), Buffer.from([0x03])]);
 
   expect(keys).toEqual(["Ctrl+c"]);
+});
+
+test("useInput - a bare ESC[ times out instead of swallowing the next key", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
+
+  const stdin = createStdin();
+  const stdout = createStdout();
+  const inputs: string[] = [];
+  function Example() {
+    useInput((input) => {
+      inputs.push(input);
+    });
+    return <Text>x</Text>;
+  }
+
+  const app = render(<Example />, { stdin, stdout, interactive: true });
+  onTestFinished(() => {
+    app.unmount();
+  });
+
+  // Alt+[ sends ESC[; it must not wait for a terminator and eat the next key.
+  emitReadable(stdin, "\u001B[");
+  await vi.advanceTimersByTimeAsync(20);
+  expect(inputs, "the Escape timeout alone leaves a CSI introducer pending").toEqual([]);
+  await vi.advanceTimersByTimeAsync(100);
+  emitReadable(stdin, "a");
+  expect(inputs).toEqual(["[", "a"]);
 });

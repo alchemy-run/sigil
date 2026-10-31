@@ -68,6 +68,10 @@ export class TerminalInput {
     return this.#parser.hasPendingEscape();
   }
 
+  hasPendingCsiIntroducer(): boolean {
+    return this.#parser.hasPendingCsiIntroducer();
+  }
+
   flushPendingEscape(): string | undefined {
     return this.#parser.flushPendingEscape();
   }

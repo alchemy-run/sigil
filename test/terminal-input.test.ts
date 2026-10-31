@@ -60,7 +60,8 @@ test.each(replies)("buffers split reply %j across an escape timeout", (reply) =>
     const input = new TerminalInput({ ingest: () => false } as never);
     expect(input.push(reply.slice(0, split))).toEqual([]);
     expect(input.hasPendingEscape()).toBe(false);
-    expect(input.flushPendingEscape()).toBeUndefined();
+    // A bare `ESC[` (split 2) only times out on the longer Alt+[ delay.
+    if (split > 2) expect(input.flushPendingEscape()).toBeUndefined();
     expect(input.push(`${reply.slice(split)}typed`)).toEqual(["typed"]);
   }
   const input = new TerminalInput({ ingest: () => false } as never);

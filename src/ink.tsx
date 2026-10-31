@@ -380,6 +380,9 @@ export const createInk = (options: Options): Ink => {
   // Ignore last render after unmounting a tree to prevent empty output before exit
   let isUnmounted = false;
   let isUnmounting = false;
+  // Set while the presented frame is clamped to the viewport, so unmount knows
+  // the full frame still has to be written.
+  let isFrameClamped = false;
 
   const isConcurrent = options.concurrent ?? false;
 
@@ -923,7 +926,8 @@ export const createInk = (options: Options): Ink => {
       // is sufficient. Also avoid calling onRender() again when static output already
       // exists, as that can duplicate <Static> children output on exit (see issue #397).
       const shouldRenderFinalFrame =
-        !renderScheduler.throttled || (!renderScheduler.pending && fullStaticOutput === "");
+        !renderScheduler.throttled ||
+        (!renderScheduler.pending && (fullStaticOutput === "" || isFrameClamped));
 
       if (shouldRenderFinalFrame) {
         calculateLayout();
@@ -1289,7 +1293,27 @@ export const createInk = (options: Options): Ink => {
     // an ESC[3J scrollback erase — destroys the user's scrollback on every
     // overflowing update. A frame taller than the terminal is unreadable
     // anyway; components size themselves from useWindowSize to avoid it.
-    if (isTTY && outputHeight > viewportRows) {
+    //
+    // The final frame is the exception: nothing updates it again, so print it
+    // in full and let its top rows scroll into history like ordinary output.
+    if (isTTY && isUnmounting && outputHeight > viewportRows) {
+      const sync = shouldSync();
+      if (sync) terminal.write(bsu);
+      terminal.clearFrame();
+      terminal.write(staticOutput + output + "\n");
+      terminal.resetFrame();
+      if (sync) terminal.write(esu);
+
+      lastOutput = output;
+      lastOutputToRender = output + "\n";
+      lastOutputHeight = outputHeight;
+      lastScreen = screen;
+      isFrameClamped = false;
+      return;
+    }
+
+    isFrameClamped = isTTY && outputHeight > viewportRows;
+    if (isFrameClamped) {
       const lines = output.split("\n");
       output = lines.slice(lines.length - viewportRows).join("\n");
       outputHeight = viewportRows;

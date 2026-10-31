@@ -734,7 +734,7 @@ test("kitty protocol - auto detection timeout holds query prefix without digits"
   app.stdin.push("\u001B[?");
   await delay(250);
   expect(app.writtenStrings).not.toContain("\u001B[>1u");
-  // Unlike Ink, sigil never flushes a pending CSI prefix as literal input.
+  // Unlike Ink, sigil only flushes a bare `ESC[`; a longer prefix is a reply in progress.
   expect(app.inputs).toEqual([]);
 });
 

@@ -316,6 +316,7 @@ const parseKeypresses = (input: string): ParsedInput => {
 export type InputParser = {
   push: (chunk: string) => InputEvent[];
   hasPendingEscape: () => boolean;
+  hasPendingCsiIntroducer: () => boolean;
   flushPendingEscape: () => string | undefined;
   reset: () => void;
 };
@@ -325,6 +326,9 @@ export const createInputParser = (): InputParser => {
   // Only ambiguous Escape/Alt prefixes may time out. Once a control
   // sequence starts, keep it intact until its terminator arrives.
   const hasPendingEscape = () => pending.startsWith(escape) && !/^\u001B{1,2}[[\]P_]/.test(pending);
+  // A bare `ESC[` is also what Alt+[ sends. It may time out too, just later
+  // than a lone Escape, so a terminal reply split right after it still joins.
+  const hasPendingCsiIntroducer = () => /^\u001B{1,2}\[$/.test(pending);
 
   return {
     push(chunk) {
@@ -333,8 +337,9 @@ export const createInputParser = (): InputParser => {
       return parsedInput.events;
     },
     hasPendingEscape,
+    hasPendingCsiIntroducer,
     flushPendingEscape() {
-      if (!hasPendingEscape()) {
+      if (!hasPendingEscape() && !hasPendingCsiIntroducer()) {
         return;
       }
 

@@ -89,7 +89,9 @@ test("holds incomplete CSI sequence until final byte arrives", () => {
 
   expect(parser.push("\u001B[")).toEqual([]);
   expect(parser.hasPendingEscape()).toEqual(false);
+  expect(parser.hasPendingCsiIntroducer()).toEqual(true);
   expect(parser.push("1;5")).toEqual([]);
+  expect(parser.hasPendingCsiIntroducer()).toEqual(false);
   expect(parser.push("A")).toEqual(["\u001B[1;5A"]);
 });
 
@@ -124,14 +126,25 @@ test("keeps pending plain escape and can flush it", () => {
   expect(parser.hasPendingEscape()).toEqual(false);
 });
 
-test("does not flush a pending CSI prefix into literal input", () => {
+test("flushes pending CSI prefix as literal input", () => {
   const parser = createInputParser();
 
   expect(parser.push("\u001B[")).toEqual([]);
+  // Not on the Escape timeout, but on the longer one for a bare CSI introducer.
+  expect(parser.hasPendingEscape()).toEqual(false);
+  expect(parser.hasPendingCsiIntroducer()).toEqual(true);
+  expect(parser.flushPendingEscape()).toEqual("\u001B[");
+  expect(parser.hasPendingCsiIntroducer()).toEqual(false);
+  expect(parser.push("A")).toEqual(["A"]);
+});
+
+test("holds a CSI sequence once it has a byte past the introducer", () => {
+  const parser = createInputParser();
+
+  expect(parser.push("\u001B[?")).toEqual([]);
   expect(parser.hasPendingEscape()).toEqual(false);
   expect(parser.flushPendingEscape()).toBeUndefined();
-  expect(parser.hasPendingEscape()).toEqual(false);
-  expect(parser.push("A")).toEqual(["\u001B[A"]);
+  expect(parser.push("1u")).toEqual(["\u001B[?1u"]);
 });
 
 test("reset clears pending input state", () => {
@@ -200,7 +213,7 @@ test("empty chunk does not disturb pending state", () => {
 
   expect(parser.push("\u001B[")).toEqual([]);
   expect(parser.push("")).toEqual([]);
-  expect(parser.hasPendingEscape()).toEqual(false);
+  expect(parser.hasPendingCsiIntroducer()).toEqual(true);
   expect(parser.push("A")).toEqual(["\u001B[A"]);
 });
 

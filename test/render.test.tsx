@@ -629,9 +629,10 @@ test("#935: overflowing rerenders must not erase terminal scrollback", async () 
   }
 
   // Frame 7's label is longer than every other frame's, so a missing or
-  // partial clear leaves `STALE-ROW` behind.
-  const viewport = visibleLines.slice(-rows);
-  expect(viewport.some((line) => line.includes("frame 8"))).toBe(true);
+  // partial clear leaves `STALE-ROW` behind. The final frame (rows + 1 tall)
+  // is written in full on exit, so its label lands just above the viewport.
+  const finalFrame = visibleLines.slice(-(rows + 1));
+  expect(finalFrame[0]).toContain("frame 8");
   expect(visibleLines.some((line) => line.includes("STALE-ROW"))).toBe(false);
 });
 
@@ -2206,6 +2207,35 @@ function StaticHistoryApp({
     </>
   );
 }
+
+test("the final frame is written in full on unmount even when it overflows", async () => {
+  const rows = 4;
+  const stdout = createStdout();
+  stdout.rows = rows;
+  stdout.write("History\n");
+  const instance = render(<StaticHistoryApp liveLines={rows + 2} tick={0} />, {
+    stdout,
+    interactive: true,
+    patchConsole: false,
+  });
+  await instance.waitUntilRenderFlush();
+  instance.rerender(<StaticHistoryApp liveLines={rows + 2} tick={1} />);
+  await instance.waitUntilRenderFlush();
+  instance.unmount();
+  await instance.waitUntilExit();
+
+  const terminalLines = reconstructTerminalLines(
+    stdout.getWrites().join("").replaceAll("\n", "\r\n"),
+    rows,
+  ).filter(Boolean);
+
+  // Live frames stay clamped, but the last one keeps every row, once, after the history.
+  expect(terminalLines).toEqual([
+    "History",
+    ...staticHistoryItems,
+    ...Array.from({ length: rows + 2 }, (_, index) => `live ${index} tick 1`),
+  ]);
+});
 
 // Sigil clamps overflowing frames to the viewport instead of taking a full-clear path, so these
 // only check what upstream #1005 guards: <Static> rows are written once and never replayed into scrollback.

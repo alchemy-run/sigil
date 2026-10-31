@@ -130,6 +130,8 @@ export function App({
   const pendingInputFlushRef = useRef<NodeJS.Timeout | undefined>(undefined);
   // Small delay to let chunked escape sequences complete before flushing as literal input.
   const pendingInputFlushDelayMilliseconds = 20;
+  // A bare `ESC[` waits longer: it is usually the start of a terminal reply.
+  const pendingCsiIntroducerFlushDelayMilliseconds = 100;
 
   const clearPendingInputFlush = useCallback((): void => {
     if (!pendingInputFlushRef.current) {
@@ -296,18 +298,21 @@ export function App({
     [handleInput],
   );
 
-  const schedulePendingInputFlush = useCallback((): void => {
-    clearPendingInputFlush();
-    pendingInputFlushRef.current = setTimeout(() => {
-      pendingInputFlushRef.current = undefined;
-      const pendingEscape = terminalInput.flushPendingEscape();
-      if (!pendingEscape) {
-        return;
-      }
+  const schedulePendingInputFlush = useCallback(
+    (delayMilliseconds: number): void => {
+      clearPendingInputFlush();
+      pendingInputFlushRef.current = setTimeout(() => {
+        pendingInputFlushRef.current = undefined;
+        const pendingEscape = terminalInput.flushPendingEscape();
+        if (!pendingEscape) {
+          return;
+        }
 
-      emitInput(pendingEscape);
-    }, pendingInputFlushDelayMilliseconds);
-  }, [clearPendingInputFlush, emitInput, terminalInput]);
+        emitInput(pendingEscape);
+      }, delayMilliseconds);
+    },
+    [clearPendingInputFlush, emitInput, terminalInput],
+  );
 
   const handleReadable = useCallback((): void => {
     clearPendingInputFlush();
@@ -332,7 +337,9 @@ export function App({
     }
 
     if (terminalInput.hasPendingEscape()) {
-      schedulePendingInputFlush();
+      schedulePendingInputFlush(pendingInputFlushDelayMilliseconds);
+    } else if (terminalInput.hasPendingCsiIntroducer()) {
+      schedulePendingInputFlush(pendingCsiIntroducerFlushDelayMilliseconds);
     }
   }, [stdin, emitInput, clearPendingInputFlush, schedulePendingInputFlush, terminalInput]);
 

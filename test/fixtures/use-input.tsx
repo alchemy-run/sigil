@@ -118,6 +118,11 @@ function UserInput({ test }: { readonly test: string | undefined }) {
       return;
     }
 
+    if (test === "escapeBracketPrefix" && input === "[" && !key.meta) {
+      exit();
+      return;
+    }
+
     if (test === "metaUpperO" && input === "O" && key.meta) {
       exit();
       return;
