@@ -398,7 +398,10 @@ export const queryTerminal = async (
         buffer = "";
       }
 
-      resolve(result);
+      // Resolve on a later turn. Bun's process.stdin releases its reader on
+      // the tick after pause(), so a readable listener reattached before then
+      // (when finish() runs inside onData) is left with no reader at all.
+      setImmediate(() => resolve(result));
     };
 
     const consumeMatch = (pattern: RegExp): RegExpMatchArray | undefined => {
