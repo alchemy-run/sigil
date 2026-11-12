@@ -457,6 +457,11 @@ export function App({
         if (result?.kittyKeyboard) terminalInput.onKittyQueryResponse?.();
         return result;
       } finally {
+        // The query ends by pausing stdin from inside its data callback.
+        // Bun's TTY stdin never resumes reading for a readable listener added
+        // in that same tick, which drops every later keypress; re-attach on
+        // the next macrotask instead (Node is fine either way).
+        await new Promise((resolve) => setTimeout(resolve, 0));
         // A slow terminal response may arrive after this renderer has been
         // replaced. Do not leave its reader attached to consume input meant
         // for a subsequent renderer.
