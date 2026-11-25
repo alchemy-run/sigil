@@ -8,6 +8,8 @@ import { type Styles } from "#/styles.ts";
 export const wrapTextCache = new SizedCache<string, string>(2 ** 20);
 
 export const wrapText = (text: string, maxWidth: number, wrapType: Styles["textWrap"]): string => {
+  // `soft` lays out like `hard`; only the presenter treats its rows differently.
+  if (wrapType === "soft") wrapType = "hard";
   if (wrapType === "none") {
     return text;
   }

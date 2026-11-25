@@ -21,6 +21,8 @@ export class Screen {
 
   #rows: Cell[][];
   #painted: boolean[][];
+  // Rows whose content continues on the next row as one terminal line.
+  #softWrapped: boolean[];
   #dirty: Array<{ start: number; end: number } | undefined>;
 
   constructor(width: number, height: number) {
@@ -30,9 +32,23 @@ export class Screen {
     this.#height = height;
     this.#rows = Array.from({ length: height }, () => Array<Cell>(width).fill(emptyCell));
     this.#painted = Array.from({ length: height }, () => Array<boolean>(width).fill(false));
+    this.#softWrapped = Array<boolean>(height).fill(false);
     this.#dirty = Array.from({ length: height }, () =>
       width > 0 ? { start: 0, end: width } : undefined,
     );
+  }
+
+  /**
+  Whether row `y` continues on row `y + 1` as one line the terminal wraps
+  itself (`textWrap: "soft"`). The presenter writes such a row without a line
+  break, so it only holds when the row's content reaches the right edge.
+  */
+  isSoftWrapped(y: number): boolean {
+    return this.#softWrapped[y] ?? false;
+  }
+
+  markSoftWrapped(y: number): void {
+    if (y >= 0 && y < this.#height - 1) this.#softWrapped[y] = true;
   }
 
   get width(): number {
@@ -202,6 +218,10 @@ export class Screen {
       }
     }
 
+    this.#softWrapped = Array.from(
+      { length: height },
+      (_, y) => width === this.#width && y < height - 1 && (this.#softWrapped[y] ?? false),
+    );
     this.#width = width;
     this.#height = height;
     this.#rows = rows;
@@ -212,6 +232,7 @@ export class Screen {
   }
 
   clear(): void {
+    this.#softWrapped.fill(false);
     for (const [y, row] of this.#rows.entries()) {
       row.fill(emptyCell);
       this.#painted[y]!.fill(true);

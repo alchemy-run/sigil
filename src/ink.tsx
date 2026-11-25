@@ -55,6 +55,7 @@ function bottomRows(screen: Screen, height: number): Screen {
       const cell = screen.cellAt(x, y + offset);
       if (cell && cell.width > 0) cropped.setCell(x, y, cell);
     }
+    if (screen.isSoftWrapped(y + offset)) cropped.markSoftWrapped(y);
   }
   return cropped;
 }

@@ -27,10 +27,37 @@ export function serializeLine(line: Line, options: SerializeOptions): string {
 }
 
 export function serializeScreen(screen: Screen, options: SerializeOptions): string {
-  return screen
-    .toRows()
-    .map((line) => serializeLine(line, options))
-    .join("\n");
+  return joinRows(
+    screen,
+    0,
+    screen.toRows().map((line) => serializeLine(line, options)),
+  );
+}
+
+/**
+Joins serialized rows starting at row `from`. A soft-wrapped row that fills
+the screen's width gets no line break: the cursor sits in the terminal's
+pending-wrap state, so the next row's first character wraps onto it as one
+logical line, which selection copies without a break.
+*/
+export function joinRows(screen: Screen, from: number, rows: readonly string[]): string {
+  let output = "";
+  for (const [index, row] of rows.entries()) {
+    output += row;
+    if (index === rows.length - 1) break;
+    output += continuesOnNextRow(screen, from + index) ? "" : "\n";
+  }
+  return output;
+}
+
+/**
+Whether row `y` is soft-wrapped and its content reaches the right edge. A
+blank last column would be trimmed, leaving the cursor short of the edge.
+*/
+export function continuesOnNextRow(screen: Screen, y: number): boolean {
+  if (!screen.isSoftWrapped(y)) return false;
+  const last = screen.cellAt(screen.width - 1, y);
+  return last !== undefined && (last.width === 0 || last.grapheme.trim() !== "");
 }
 
 /** Converts a semantic cell to the canonical ANSI compatibility style state. */

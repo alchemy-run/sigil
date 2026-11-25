@@ -2,6 +2,7 @@
 import { useContext, type ReactNode } from "react";
 
 import { accessibilityContext } from "#/components/AccessibilityContext.ts";
+import type { Styles } from "#/styles.ts";
 
 export type Props = {
   /**
@@ -14,13 +15,21 @@ export type Props = {
 	*/
   readonly transform: (children: string, index: number) => string;
 
+  /**
+	How the transformed text wraps. Nested `<Text>` wrap settings don't reach
+	it: this is the text node that lays the subtree out.
+
+	@default 'wrap'
+	*/
+  readonly wrap?: Styles["textWrap"];
+
   readonly children?: ReactNode;
 };
 
 /**
 Transform a string representation of React components before they're written to output. For example, you might want to apply a gradient to text, add a clickable link, or create some text effects. These use cases can't accept React nodes as input; they expect a string. That's what the <Transform> component does: it gives you an output string of its child components and lets you transform it in any way.
 */
-export function Transform({ children, transform, accessibilityLabel }: Props) {
+export function Transform({ children, transform, accessibilityLabel, wrap }: Props) {
   const { isScreenReaderEnabled } = useContext(accessibilityContext);
   const childrenOrAccessibilityLabel = isScreenReaderEnabled
     ? (accessibilityLabel ?? children)
@@ -32,7 +41,12 @@ export function Transform({ children, transform, accessibilityLabel }: Props) {
 
   return (
     <ink-text
-      style={{ flexGrow: 0, flexShrink: 1, flexDirection: "row" }}
+      style={{
+        flexGrow: 0,
+        flexShrink: 1,
+        flexDirection: "row",
+        ...(wrap === undefined ? {} : { textWrap: wrap }),
+      }}
       internal_transform={isScreenReaderEnabled ? undefined : transform}
     >
       {childrenOrAccessibilityLabel}

@@ -6,6 +6,11 @@ export type Styles = {
   /*
 	We keep this as a single enum so overflow is one complete choice and invalid combinations like wrap + truncate-middle are unrepresentable. In hindsight, `normal` would have been a clearer default value than `wrap`, since it describes the standard behavior instead of repeating the prop name.
 
+	`soft` breaks at any character like `hard`, and marks each row the text
+	fills to the screen's right edge as continuing into the next. The terminal
+	then wraps it itself, so a long URL or token copies as one line. It only
+	takes effect for text that starts at the screen's left edge.
+
 	`none` neither wraps nor truncates: the text overflows the container (and
 	the screen's nominal width). Meant for scrollback content (`<Static>`),
 	not live regions, where a physically soft-wrapped line breaks the
@@ -14,6 +19,7 @@ export type Styles = {
   readonly textWrap?:
     | "wrap"
     | "hard"
+    | "soft"
     | "truncate-end"
     | "truncate"
     | "truncate-middle"

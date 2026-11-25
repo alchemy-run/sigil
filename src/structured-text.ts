@@ -111,6 +111,8 @@ export function wrapStructuredText(
   wrap: Styles["textWrap"],
   baseStyle?: CellStyle,
 ): readonly (readonly Cell[])[] {
+  // `soft` lays out like `hard`; only the presenter treats its rows differently.
+  if (wrap === "soft") wrap = "hard";
   // Text with no room to wrap keeps its natural width, like measurement does.
   if (wrap === "none" || (maxWidth <= 0 && (wrap === "wrap" || wrap === "hard"))) {
     return input.map((line) => [...line]);

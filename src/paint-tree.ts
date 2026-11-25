@@ -159,6 +159,16 @@ export const paintTree = (
         } else {
           output.writeCells(paintBounds.x, paintBounds.y, sampled, { overflow });
         }
+
+        // A soft-wrapped row continues on the next only when it runs from the
+        // left edge to the right one: the terminal wraps it there by itself.
+        if (textWrap === "soft" && paintBounds.x === 0) {
+          for (let row = 0; row < lines.length - 1; row++) {
+            if (lines[row]!.reduce((width, cell) => width + cell.width, 0) === output.width) {
+              output.markSoftWrapped(paintBounds.y + row);
+            }
+          }
+        }
       }
 
       return;

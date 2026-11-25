@@ -49,7 +49,7 @@ export function Hyperlink({ url, fallback = true, children, ...textProps }: Prop
   // OSC 8 sequences are zero-width, so wrapping after layout is safe. The
   // transform runs per output line, giving every line its own complete pair.
   return (
-    <Transform transform={(text) => link(text, url)}>
+    <Transform transform={(text) => link(text, url)} wrap={textProps.wrap}>
       <Text {...textProps}>{children}</Text>
     </Transform>
   );

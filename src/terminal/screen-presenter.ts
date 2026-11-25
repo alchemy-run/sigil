@@ -12,7 +12,12 @@ import {
 import { cellAttributes, cellsEqual, type Cell } from "#/screen/cell.ts";
 import type { ColorProfile } from "#/screen/color-profile.ts";
 import type { Line, Screen } from "#/screen/screen.ts";
-import { serializeLine, serializeScreen } from "#/screen/serialize.ts";
+import {
+  continuesOnNextRow,
+  joinRows,
+  serializeLine,
+  serializeScreen,
+} from "#/screen/serialize.ts";
 
 type Write = (data: string) => boolean;
 
@@ -74,7 +79,7 @@ export class ScreenPresenter {
       previousScreen.width === screen.width &&
       this.#fullscreen === fullscreen;
     const firstChangedRow = canRewriteSuffix
-      ? findFirstChangedRow(previousScreen, screen)
+      ? runStart(screen, findFirstChangedRow(previousScreen, screen))
       : undefined;
     const serializeOptions = {
       colorProfile: options.colorProfile,
@@ -84,7 +89,11 @@ export class ScreenPresenter {
     if (firstChangedRow !== undefined) {
       const eraseCount = this.#lineCount - firstChangedRow;
       const rows = screen.toRows().slice(firstChangedRow);
-      const body = rows.map((line) => serializeLine(line, serializeOptions)).join("\n");
+      const body = joinRows(
+        screen,
+        firstChangedRow,
+        rows.map((line) => serializeLine(line, serializeOptions)),
+      );
       // New blank rows still need their line feed, or the cursor ends up above
       // the remembered bottom and the next erase reaches into history.
       const output = fullscreen || rows.length === 0 ? body : `${body}\n`;
@@ -228,6 +237,17 @@ function isBlank(cell: Cell): boolean {
   );
 }
 
+/**
+Backs a rewrite up to the first row of the soft-wrapped run it starts in: the
+terminal joins a run's rows only when it wraps them itself, which a rewrite
+that starts mid-run with a cursor move would not reproduce.
+*/
+function runStart(screen: Screen, row: number | undefined): number | undefined {
+  if (row === undefined) return undefined;
+  while (row > 0 && continuesOnNextRow(screen, row - 1)) row--;
+  return row;
+}
+
 function findFirstChangedRow(previous: Screen, next: Screen): number | undefined {
   const height = Math.max(previous.height, next.height);
   for (let y = 0; y < height; y++) {
@@ -237,6 +257,7 @@ function findFirstChangedRow(previous: Screen, next: Screen): number | undefined
 }
 
 function rowsEqual(left: Screen, right: Screen, y: number): boolean {
+  if (left.isSoftWrapped(y) !== right.isSoftWrapped(y)) return false;
   // Rows can extend past the nominal width when overflow content painted.
   const length = Math.max(left.rowLength(y), right.rowLength(y));
   for (let x = 0; x < length; x++) {

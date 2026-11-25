@@ -140,6 +140,11 @@ export class Canvas {
     this.#clips.pop();
   }
 
+  /** Marks row `y` as continuing on the next row; see `Screen.isSoftWrapped`. */
+  markSoftWrapped(y: number): void {
+    if (this.#insideY(y, this.#clips.at(-1))) this.#screen.markSoftWrapped(y);
+  }
+
   finish(): Screen {
     return this.#screen;
   }
